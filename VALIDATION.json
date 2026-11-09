@@ -71,7 +71,7 @@
     "enabled": true,
     "linger": true,
     "cloud_published": false,
-    "automated_tests": 58,
+    "automated_tests": 70,
     "browser_live_image": [
       1280,
       720
@@ -161,7 +161,7 @@
     "browser_stop_route_verified": true,
     "preset_moves_tested": false
   },
-  "version": "0.5",
+  "version": "0.6.0-alpha.1",
   "portable_storage": {
     "platforms_tested": [
       "Linux x86_64",
@@ -437,5 +437,36 @@
       "ZFS clone mount through console",
       "Application quiesce hooks and native scheduling/retention"
     ]
+  },
+  "validation_v06": {
+    "scope": "console schema migration and offline database recovery only",
+    "local_tests": {
+      "count": 70,
+      "passed": true,
+      "seconds": 13.36
+    },
+    "vm_migration_tests": {
+      "count": 11,
+      "passed": true,
+      "seconds": 0.876
+    },
+    "vm_recovery": {
+      "fresh_console_from_checkpoint": true,
+      "original_admin_password_http_login": true,
+      "recovered_audit_read_via_http": true,
+      "original_database_preserved": true,
+      "no_new_password_generated": true,
+      "scope": "console database only",
+      "host_block_devices_used": false
+    },
+    "browser_fixture": {
+      "recovery_checkpoint_and_help_visible": true,
+      "snapshot_restore_button_enabled": true,
+      "snapshot_restore_completed": true,
+      "restored_file_bytes_equal_original": true
+    },
+    "full_host_recovery_complete": false,
+    "production_deployment": "pending CI and review",
+    "checked_at_utc": "2026-11-09T23:53:56.817752+00:00"
   }
 }

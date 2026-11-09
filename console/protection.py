@@ -46,18 +46,6 @@ class Protection:
         for name in ('keys', 'tasks', 'restic-cache'):
             (self.app.STATE / name).mkdir(mode=0o700, exist_ok=True)
         (self.app.ROOT / 'data/restaurations').mkdir(mode=0o700, exist_ok=True)
-        with self.app.database() as db:
-            db.executescript('''
-CREATE TABLE IF NOT EXISTS repositories (id TEXT PRIMARY KEY,name TEXT,path TEXT,key_file TEXT,created REAL,target TEXT);
-CREATE TABLE IF NOT EXISTS plans (id TEXT PRIMARY KEY,name TEXT,repo TEXT,enabled INTEGER,config TEXT,next_run REAL,last_job TEXT,last_run REAL);
-''')
-            if 'storage_uuid' not in {r['name'] for r in db.execute('PRAGMA table_info(repositories)')}:
-                db.execute("ALTER TABLE repositories ADD COLUMN storage_uuid TEXT NOT NULL DEFAULT ''")
-            existing = {r['name'] for r in db.execute('PRAGMA table_info(jobs)')}
-            for name, declaration in {'options': "TEXT NOT NULL DEFAULT '{}'", 'progress': "TEXT NOT NULL DEFAULT '{}'", 'cancel': 'INTEGER NOT NULL DEFAULT 0', 'pid': 'INTEGER', 'username': "TEXT NOT NULL DEFAULT 'admin'"}.items():
-                if name not in existing:
-                    db.execute(f'ALTER TABLE jobs ADD COLUMN {name} {declaration}')
-
     def binary(self):
         candidate = os.environ.get('NAS_RESTIC_BIN') or str(self.app.ROOT / '.tools/restic')
         if Path(candidate).is_file() and os.access(candidate, os.X_OK):

@@ -1,4 +1,4 @@
-NACRE 0.5 — SYSTÈME NAS LOCAL ET PORTABLE
+NACRE 0.6 ALPHA — SYSTÈME NAS LOCAL ET PORTABLE
 9 novembre 2026
 
 PÉRIMÈTRE DE CETTE VERSION
@@ -314,7 +314,7 @@ La restauration de configuration et l’export de clé sont réservés aux admin
 Le serveur ne propose ni terminal web ni commande système arbitraire.
 
 VALIDATION
-58 tests sont disponibles pour Linux x86-64 et ARM64, notamment :
+70 tests sont disponibles pour Linux x86-64 et ARM64, notamment :
 - profils d’architecture et comptes système sans UID/GID imposés ;
 - fixtures NVMe, SATA/Btrfs, USB/LVM/XFS et interprétation des alertes SMART ;
 - dépôt HTTP en flux de 257 Mio, au-delà de l’ancien plafond ;
@@ -350,3 +350,10 @@ https://docs.frigate.video/frigate/installation/
 
 https://docs.docker.com/reference/compose-file/services/
 https://www.samba.org/samba/docs/current/man-html/smb.conf.5.html
+
+REPRISE DE CONSOLE (0.6 ALPHA)
+Les évolutions du schéma SQLite sont atomiques et précédées d’une copie privée
+vérifiée. Une base d’une version plus récente est refusée. La page Snapshots
+affiche les copies et la procédure. console/recover_database.py prépare un
+nouveau fichier, révoque les sessions et désactive les plans ; il ne remplace
+pas la base active. Voir docs/RECOVERY.md pour la portée et les dépendances.

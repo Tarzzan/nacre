@@ -1,7 +1,7 @@
 <div align="center">
   <img src="docs/images/nacre-banner.svg" alt="Nacre — Vos données. Votre infrastructure. Votre autonomie." width="100%" />
   <p><strong>Une console indépendante pour administrer stockage, sauvegardes et vidéosurveillance depuis le navigateur.</strong></p>
-  <p><a href="https://github.com/Tarzzan/nacre/actions/workflows/ci.yml"><img src="docs/images/ci-status.svg" alt="Consulter les résultats CI" /></a> <img src="https://img.shields.io/badge/version-0.5_alpha-245762" alt="Version 0.5 alpha" /> <img src="https://img.shields.io/badge/Linux-x86__64%20%7C%20ARM64-102e38" alt="Linux x86-64 et ARM64" /></p>
+  <p><a href="https://github.com/Tarzzan/nacre/actions/workflows/ci.yml"><img src="docs/images/ci-status.svg" alt="Consulter les résultats CI" /></a> <img src="https://img.shields.io/badge/version-0.6_alpha-245762" alt="Version 0.6 alpha" /> <img src="https://img.shields.io/badge/Linux-x86__64%20%7C%20ARM64-102e38" alt="Linux x86-64 et ARM64" /></p>
   <p><a href="#découvrir-nacre">Découvrir</a> · <a href="docs/INSTALLATION.md">Installation</a> · <a href="docs/ARCHITECTURE.md">Architecture</a> · <a href="docs/VALIDATION.md">Validation</a> · <a href="docs/ROADMAP.md">Feuille de route</a></p>
 </div>
 
@@ -9,7 +9,7 @@
 
 Nacre réunit l’administration des fichiers, des partages réseau, des volumes, des sauvegardes et d’une caméra dans une interface locale cohérente. Le projet vise une alternative indépendante aux usages courants de DSM/QTS et Surveillance Station, avec une architecture portable et des composants éprouvés.
 
-**État actuel : prototype fonctionnel 0.5, destiné au laboratoire.** Ce dépôt marque le début de son historique Git ; les versions précédentes sont décrites rétrospectivement dans le changelog. Nacre ne constitue pas encore un OS NAS complet, ni une garantie de compatibilité avec les boîtiers Synology/QNAP. Aucun code propriétaire de ces systèmes n’est livré ici.
+**État actuel : prototype fonctionnel 0.6 alpha, destiné au laboratoire.** Ce dépôt marque le début de son historique Git ; les versions précédentes sont décrites rétrospectivement dans le changelog. Nacre ne constitue pas encore un OS NAS complet, ni une garantie de compatibilité avec les boîtiers Synology/QNAP. Aucun code propriétaire de ces systèmes n’est livré ici.
 
 > **Notre ambition :** rendre une infrastructure de stockage et de surveillance compréhensible, administrable et récupérable par son propriétaire, sans dépendance obligatoire à un service cloud. Voir le [cadrage du produit](docs/VISION.md).
 
@@ -27,9 +27,15 @@ Nacre réunit l’administration des fichiers, des partages réseau, des volumes
 
 *Capture réelle du banc QEMU : choix des sources et plan désactivé. Les dépôts affichés sont des fixtures de test.*
 
+### Préparer une reprise après migration
+
+![Copies préalables et aide à la reprise de console](docs/images/reprise-console.png)
+
+*Banc isolé 0.6 : migration 0 → 1 et restauration d’un fichier témoin depuis le navigateur. La reprise de la base ne remplace pas la sauvegarde des données du NAS.*
+
 ## Capacités et maturité
 
-| Domaine | Disponible en 0.5 | Limite actuelle |
+| Domaine | Disponible en 0.6 alpha | Limite actuelle |
 | :--- | :--- | :--- |
 | Fichiers | Transferts en flux, dossiers, renommage, téléchargement, corbeille, restauration | Accès HTTP aux volumes natifs réservé aux administrateurs |
 | Partages SMB | Comptes, permissions, lecture seule, volumes gérés, reprise après perte de montage | Une modification des montages peut interrompre les connexions SMB |
@@ -78,7 +84,7 @@ La console web tourne en utilisateur. Le service natif expose des opérations fe
 
 ## Ce qui est vérifié
 
-- **58 tests** réussis sur Linux x86-64 et ARM64 lors de la validation 0.5.
+- **70 tests** ordinaires, dont reprise après arrêt brutal, intégrité des copies et refus de schéma futur.
 - Dépôt HTTP de 257 Mio et archive contenant un fichier de 1 Gio + 7 octets.
 - Sauvegarde chiffrée, restauration multivolume, droits SMB et exclusion des dossiers internes.
 - Banc QEMU avec vrais systèmes de fichiers et disques images : snapshots, provisionnement, restauration LVM, perte/remontage d’un volume.
@@ -94,6 +100,7 @@ La CI rejoue les tests ordinaires ; **les tests privilégiés QEMU et matériels
 | [Installation](docs/INSTALLATION.md) | Prérequis, accès, configuration et mise à jour |
 | [Architecture](docs/ARCHITECTURE.md) | Composants, données persistantes, frontières de confiance |
 | [Feuille de route](docs/ROADMAP.md) | Étapes et critères de sortie |
+| [Reprise de console](docs/RECOVERY.md) | Migrations atomiques, copies préalables et récupération hors ligne |
 | [Validation](docs/VALIDATION.md) | Tests locaux, CI et laboratoire privilégié |
 | [Sécurité](SECURITY.md) | Signalement privé, secrets et limites |
 | [Contribution](CONTRIBUTING.md) | Branches, revues, preuves et documentation |

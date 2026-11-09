@@ -77,17 +77,9 @@ def initialize():
         (ROOT / name).mkdir(parents=True, exist_ok=True)
     (ROOT / 'data/.corbeille').chmod(0o700)
     (ROOT / 'data/sauvegardes').chmod(0o700)
+    from schema import ensure
+    ensure(DB)
     with database() as db:
-        db.executescript('''
-CREATE TABLE IF NOT EXISTS users (name TEXT PRIMARY KEY, salt TEXT NOT NULL, hash TEXT NOT NULL, role TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, name TEXT NOT NULL, csrf TEXT NOT NULL, expires REAL NOT NULL);
-CREATE TABLE IF NOT EXISTS tickets (token TEXT PRIMARY KEY, expires REAL NOT NULL);
-CREATE TABLE IF NOT EXISTS audit (id INTEGER PRIMARY KEY, ts REAL, username TEXT, action TEXT, detail TEXT);
-CREATE TABLE IF NOT EXISTS trash (id TEXT PRIMARY KEY, original TEXT, ts REAL);
-CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, kind TEXT, status TEXT, result TEXT, ts REAL);
-''')
-        if 'active' not in {r['name'] for r in db.execute('PRAGMA table_info(users)')}:
-            db.execute('ALTER TABLE users ADD COLUMN active INTEGER NOT NULL DEFAULT 1')
         if not db.execute('SELECT 1 FROM users').fetchone():
             password = secrets.token_urlsafe(24)
             salt = secrets.token_hex(16)
@@ -99,9 +91,6 @@ CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, kind TEXT, status TEXT, re
             {'name': 'fichiers', 'path': '', 'area': 'fichiers', 'readonly': False, 'users': ['nas']},
             {'name': 'video', 'path': '', 'area': 'video', 'readonly': True, 'users': ['nas']},
         ]}, reload=False)
-    with database() as db:
-        if 'area' not in {row['name'] for row in db.execute('PRAGMA table_info(trash)')}:
-            db.execute("ALTER TABLE trash ADD COLUMN area TEXT NOT NULL DEFAULT 'fichiers'")
     protection().initialize()
 
 
@@ -602,6 +591,9 @@ class Handler(BaseHTTPRequestHandler):
                 if session['role'] != 'admin':
                     raise Problem('Accès réservé aux administrateurs.', 403)
                 manager = protection()
+                if url.path == '/api/protection/migrations':
+                    from schema import status
+                    return self.reply(200, status(DB))
                 if url.path == '/api/protection/capabilities':
                     return self.reply(200, manager.capabilities())
                 if url.path == '/api/protection/sources':
