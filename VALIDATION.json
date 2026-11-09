@@ -1,5 +1,5 @@
 {
-  "verified_at_utc": "2026-11-09T23:04:24.056266+00:00",
+  "verified_at_utc": "2026-11-09T23:57:45.892605+00:00",
   "host": "spark",
   "architecture": "aarch64",
   "services": {
@@ -466,7 +466,35 @@
       "restored_file_bytes_equal_original": true
     },
     "full_host_recovery_complete": false,
-    "production_deployment": "pending CI and review",
-    "checked_at_utc": "2026-11-09T23:53:56.817752+00:00"
+    "production_deployment": {
+      "schema_version": 1,
+      "previous_version": 0,
+      "private_checkpoint_created": true,
+      "checkpoint_sha256_verified": true,
+      "accounts_and_password_hashes_preserved": true,
+      "repositories": 0,
+      "plans": 0,
+      "enabled_plans": 0,
+      "profiles": 0,
+      "native_socket_present": false,
+      "checked_at_utc": "2026-11-09T23:56:32.778872+00:00",
+      "baseline_video_and_smb_passed": true
+    },
+    "checked_at_utc": "2026-11-09T23:53:56.817752+00:00",
+    "ci": {
+      "url": "https://github.com/Tarzzan/nacre/actions/runs/42724186934",
+      "all_jobs_passed": true,
+      "test_count_per_matrix_job": 70,
+      "architectures": [
+        "x86_64",
+        "aarch64"
+      ],
+      "python_versions": [
+        "3.11",
+        "3.12"
+      ],
+      "gitleaks": "passed"
+    },
+    "vm_powered_off": true
   }
 }
