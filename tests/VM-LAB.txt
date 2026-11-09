@@ -1,0 +1,115 @@
+BANC NATIF NACRE 0.3 — REPRODUCTION
+
+Le script integration_native_vm.py formate trois disques VIRTUELS vierges.
+Il doit tourner comme root DANS une VM QEMU dédiée. Ne jamais lui donner de
+périphérique /dev de l’hôte. Utiliser uniquement des fichiers images locaux.
+Les tests ordinaires unittest discover ne lancent jamais ce banc.
+
+Image officielle vérifiée le 9 novembre 2026 :
+https://cloud-images.ubuntu.com/minimal/releases/noble/release/ubuntu-24.04-minimal-cloudimg-amd64.img
+SHA256 : 406630c08b5e545fcc7209854b129d47e3af822db128c9f19336593b5a2d3fe0
+La référence release change ; prendre une image datée correspondante ou vérifier
+le SHA256SUMS officiel de la nouvelle image avant usage et consigner sa version.
+
+Préparation : hôte QEMU x86_64 + OVMF, accès KVM ou repli TCG. Créer un overlay
+qcow2 de 12 Gio sur l’image officielle, et trois images raw creuses de 3 Gio.
+Préparer une ISO NoCloud (volume cidata) avec un compte Ubuntu et une clé SSH
+éphémère générée pour ce seul banc. Ne pas réutiliser une clé de production.
+Cloud-init doit installer python3, btrfs-progs, lvm2, mdadm, zfsutils-linux et
+charger btrfs, dm_snapshot, zfs. Le noyau invité inclut ses propres modules.
+
+Configuration QEMU vérifiée : q35, accel=kvm:tcg, cpu host (KVM), 3 Gio RAM,
+2 vCPU, firmware OVMF_CODE_4M.fd et copie privée d’OVMF_VARS_4M.fd. Le disque
+système virtio a bootindex=1. Les disques de données utilisent des paires :
+-drive file=disk-a.raw,format=raw,if=none,id=labA
+-device virtio-blk-pci,drive=labA,serial=NACRE-LAB-A
+Répéter pour B et C, en conservant cet ordre après le disque système : le
+banc attend /dev/vdb, /dev/vdc et /dev/vdd, avec séries NACRE-LAB-A/B/C.
+L’ISO NoCloud vient ensuite. Réseau utilisateur QEMU ; si SSH est nécessaire,
+exposer seulement un port 127.0.0.1 choisi, ex. 2287 vers le port 22 invité.
+Ne pas exposer des périphériques hôte, ni partager le système de fichiers hôte.
+
+Après cloud-init status = done, copier les sources dans /home/ubuntu/nas-autonome.
+Dans la VM seulement :
+sudo env NACRE_VM_LAB=1 python3 /home/ubuntu/nas-autonome/tests/integration_native_vm.py
+
+Le résultat détaillé est écrit dans /home/ubuntu/native-results.json. Le banc
+vérifie les points des quatre familles, les versions 1/2, les restaurations
+Btrfs/ZFS, la vue LVM classique readonly, les refus et le daemon systemd réel.
+Il active le service et inscrit des ressources uniquement dans l’invité.
+Récupérer le résultat puis arrêter la VM avec poweroff. Pour rejouer intégralement,
+repartir d’un overlay système et de trois images raw vierges ; ne pas supprimer
+à la main les objets natifs d’une machine partagée pour réutiliser ce script.
+
+
+EXTENSION 0.4
+Partir de la VM 0.3 arrêtée et créer des overlays privés pour son système et
+ses trois images A/B/C, afin de conserver les fixtures natives sans modifier
+les images de référence. Ajouter trois images raw VIERGES de 3 Gio, avec les
+séries NACRE-LAB-D/E/F : elles apparaissent après A/B/C en /dev/vde/vdf/vdg.
+Ne pas attacher l’ISO NoCloud au milieu de cet ordre. Installer xfsprogs dans
+l’invité en plus des prérequis précédents. Copier les sources mises à jour.
+
+Dans la VM uniquement :
+sudo env NACRE_VM_LAB=1 python3 /home/ubuntu/nas-autonome/tests/integration_provision_vm.py
+Ce banc crée un ext4 sur D et un RAID1 Btrfs sur E/F, via le socket du vrai
+service système. Il valide une capture/restauration du miroir et une copie
+LVM classique ext4 en unité privée. Il inscrit des ressources uniquement dans
+la politique et le catalogue de l’invité. Il conserve les résultats dans
+/home/ubuntu/provision-results.json.
+
+L’extension XFS nécessite ensuite, dans un Python root de cette VM avec
+NACRE_VM_LAB=1, d’importer xfs_tests depuis integration_provision_vm (ajouter
+le dossier tests aux chemins de modules) et d’appeler xfs_tests(). Elle
+formate le LV thin de la fixture, écrit deux versions et valide la copie du
+premier point dans un nouveau dossier. Elle ne doit être lancée qu’une fois
+sur cette fixture vierge de système de fichiers.
+
+Puis, dans cette même VM :
+sudo env NACRE_VM_LAB=1 python3 /home/ubuntu/nas-autonome/tests/integration_native_jobs_vm.py
+Ce test utilise une copie dense d’environ 330 Mo, suspend uniquement son propre
+worker identifié dans /proc, redémarre le daemon, reprend le worker et vérifie
+l’empreinte SHA-256 complète. Une seconde copie est annulée. Le résultat est
+conservé dans /home/ubuntu/native-jobs-results.json.
+
+Le test de remontage doit ensuite arrêter/redémarrer la VM avec les mêmes
+images. La politique mount_on_start du banc permet de retrouver les volumes
+créés. Vérifier leurs UUID, l’état du miroir, la lecture des témoins et une
+écriture sous le compte non privilégié. Deux images supplémentaires G/H,
+vierges de 3 Gio et inscrites seulement dans la politique de la VM, permettent
+de tester dans le navigateur le choix de disques et le plan de confirmation.
+Ne pas exécuter ce plan si le but du test est seulement sa préparation.
+La console web de QA ne doit être exposée que via un port hôte 127.0.0.1 ;
+les identifiants et sessions du banc restent séparés de la console réelle.
+Arrêter la console de QA et la VM après récupération des résultats.
+
+
+EXTENSION 0.5
+Créer des overlays privés des neuf images de la VM 0.4 arrêtée (système + A/H),
+sans périphérique hôte. Le banc utilise les volumes gérés Test mirror et Test single
+créés par 0.4. Porter la RAM à 4 Gio. Exposer le web uniquement via un port
+hôte 127.0.0.1 vers 8767 invité ; SSH reste limité à 127.0.0.1.
+Installer docker.io et docker-compose-v2 depuis les dépôts Ubuntu officiels.
+Le compte ubuntu doit pouvoir utiliser Docker après une nouvelle session SSH.
+Copier les sources et mettre à jour le helper système dans l’invité seulement.
+
+Créer une racine d’application isolée /home/ubuntu/nacre-v05-console avec
+compose.yaml, le dossier samba/ et le runtime restic officiel vérifié. Appeler
+lab.initialize(racine) explicitement : sa valeur par défaut est liée à l’import.
+NAS_ROOT doit désigner cette racine avant d’importer console/server.py.
+Démarrer uniquement fichiers dans ce projet de test, sans caméra de production.
+
+Dans cette VM uniquement, sous le compte ubuntu non privilégié :
+NACRE_VM_LAB=1 python3 /home/ubuntu/nas-autonome/tests/integration_shares_vm.py
+NACRE_VM_LAB=1 python3 /home/ubuntu/nas-autonome/tests/integration_disappearance_vm.py
+Ces scripts refusent un système qui ne se présente pas comme QEMU. Ils ne sont
+pas lancés par unittest discover et utilisent uniquement les fixtures nommées.
+Le second démonte temporairement le miroir de TEST avec sudo, vérifie les refus
+d’écriture et le maintien du partage de base, puis remonte le même UUID et
+contrôle la récupération. Ne jamais lancer ce banc sur un NAS réel.
+
+Le web de QA initialise la même racine, démarre shares().start_watch() et
+protection().start_scheduler(), puis écoute sur le port 8767 invité. Le navigateur
+valide création/renommage de dossier, choix du volume SMB et sources de plan.
+Ne pas enregistrer de configuration sur la console réelle. Récupérer les résultats,
+arrêter le service web de QA, puis éteindre la VM.

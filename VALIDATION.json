@@ -1,0 +1,441 @@
+{
+  "verified_at_utc": "2026-11-09T23:04:24.056266+00:00",
+  "host": "spark",
+  "architecture": "aarch64",
+  "services": {
+    "video": "healthy",
+    "fichiers": "running"
+  },
+  "checks": {
+    "frigate_version": "0.18.2-cfa08c5",
+    "https_local_ui": 200,
+    "unauthenticated_config_api": 401,
+    "camera_config_schema": "passed with dummy credentials",
+    "smb_write_read_delete": "passed",
+    "smb_anonymous": "denied",
+    "smb_video_write": "denied",
+    "python_tests": 3,
+    "camera_rtsp_port_554": "reachable",
+    "camera_onvif_port_2020": "reachable",
+    "camera_rtsp_describe": 401,
+    "camera_fps_observed": 4.74,
+    "recording_video_codec": "h264",
+    "recording_resolution": [
+      2880,
+      1620
+    ],
+    "recording_audio_codec": "aac",
+    "recording_sample_duration_seconds": 12.16,
+    "recording_decode": "passed",
+    "recordings_index_entries_observed": 3,
+    "recording_http_playback": {
+      "status": 200,
+      "content_type": "video/mp4",
+      "bytes_checked": 4096
+    }
+  },
+  "pending": [
+    "SMART device permissions on production targets",
+    "Real backup destination configuration on final hardware",
+    "Video retention after 24 hours",
+    "Full host reboot startup verification",
+    "Multi-NAS management",
+    "Windows and architectures other than Linux x86-64/ARM64",
+    "Partitioning and new ZFS pools",
+    "RAID member replacement/rebuild, degraded import and hotplug",
+    "ZFS clone mount through console",
+    "Application quiesce hooks and native scheduling/retention"
+  ],
+  "configured_cameras": 1,
+  "camera_saved_credentials": {
+    "source_project": "twin3d",
+    "source_files_unchanged": true,
+    "local_rtsp_authenticated": true,
+    "local_onvif_authenticated": true,
+    "spark_rtsp_authenticated": true,
+    "same_camera_network_identity_verified": true,
+    "imported_into_spark": true,
+    "camera_enabled": true,
+    "firmware": "1.4.1 Build 260612 Rel.6255n"
+  },
+  "camera_reboot": {
+    "user_authorized": true,
+    "method": "ONVIF SystemReboot",
+    "http_status": 200,
+    "factory_reset": false,
+    "password_changed": false
+  },
+  "console": {
+    "url": "http://127.0.0.1:8766/",
+    "service": "nacre-console.service",
+    "enabled": true,
+    "linger": true,
+    "cloud_published": false,
+    "automated_tests": 58,
+    "browser_live_image": [
+      1280,
+      720
+    ],
+    "browser_clip": {
+      "width": 2880,
+      "height": 1620,
+      "readyState": 4,
+      "playback_time_observed": 8.014711,
+      "error": null
+    },
+    "file_ui": "Documents folder created and visible",
+    "security": [
+      "login required",
+      "server-side roles",
+      "CSRF token",
+      "Origin and Host validation",
+      "HttpOnly SameSite Strict session",
+      "descriptor-based file access without following symlinks",
+      "atomic rename without overwrite",
+      "one-time access tickets",
+      "no arbitrary command endpoint"
+    ],
+    "functional_checks": {
+      "SMB create account/share": true,
+      "SMB persistence after container recreation": true,
+      "SMB disable account": true,
+      "file upload/rename/trash/restore/download": true,
+      "backup create/download/content": true,
+      "web account create/login/disable": true,
+      "camera settings apply/recovery": true,
+      "recording playback via console": true
+    },
+    "browser_v02": {
+      "storage_inventory_visible": true,
+      "snapshots_module_visible": true,
+      "restic_available": true,
+      "repository_unconfigured_state_visible": true,
+      "plan_draft_dialog_visible_without_destination": true,
+      "plan_activation_unchecked": true,
+      "no_real_plan_saved": true,
+      "javascript_errors": []
+    }
+  },
+  "ptz": {
+    "enabled": true,
+    "features": [
+      "pt",
+      "pt-r"
+    ],
+    "existing_presets": [
+      "point de vue 1",
+      "point de vue 2",
+      "point de vue 3"
+    ],
+    "horizontal": {
+      "before": [
+        -0.222222,
+        -0.46875
+      ],
+      "after_right": [
+        -0.146825,
+        -0.46875
+      ],
+      "after_return": [
+        -0.222222,
+        -0.46875
+      ]
+    },
+    "vertical": {
+      "before": [
+        -0.222222,
+        -0.46875
+      ],
+      "after_up": [
+        -0.222222,
+        -0.625
+      ],
+      "after_return": [
+        -0.222222,
+        -0.46875
+      ]
+    },
+    "motor_status_reported": "UNKNOWN",
+    "autotracking": false,
+    "backend_stop_after_seconds": 0.35,
+    "browser_stop_route_verified": true,
+    "preset_moves_tested": false
+  },
+  "version": "0.5",
+  "portable_storage": {
+    "platforms_tested": [
+      "Linux x86_64",
+      "Linux aarch64"
+    ],
+    "disk_fixtures": [
+      "NVMe with ext4 system partition",
+      "SATA with Btrfs volume",
+      "USB with LVM/XFS volume"
+    ],
+    "inventory": [
+      "physical disks",
+      "block volumes",
+      "mounted filesystems including ZFS/NFS/SMB"
+    ],
+    "smart_read_only": true,
+    "smart_requires_device_permissions": true,
+    "native_snapshot_operations_implemented": true,
+    "custom_smb_uid_gid_container_test": {
+      "uid": 5001,
+      "gid": 100,
+      "passed": true
+    },
+    "service_unit_verified_before_installation": true,
+    "partitioning_implemented": false,
+    "whole_device_filesystem_creation_implemented": true,
+    "raid1_creation_implemented": true,
+    "raid_member_replacement_implemented": false
+  },
+  "protection": {
+    "engine": "restic 0.19.1",
+    "type": "encrypted deduplicated file snapshots",
+    "atomic_volume_snapshot": false,
+    "actual_repositories_configured": 0,
+    "actual_plans_configured": 0,
+    "active_actual_plans": 0,
+    "tests_use_temporary_fixture_data_only": true,
+    "snapshot_and_restore_cycle_verified": true,
+    "original_file_preserved_after_restore": true,
+    "sqlite_configuration_uses_backup_api": true,
+    "plan_drafts_without_destination": true,
+    "scheduled_dispatch_verified": true,
+    "duplicate_dispatch_prevented": true,
+    "dst_nonexistent_hour_handled": true,
+    "partial_backup_not_reported_as_done": true,
+    "cancel_queued_job_verified": true,
+    "worker_survives_console_service_restart": true,
+    "standalone_systemd_units": true,
+    "restorations_admin_only": true,
+    "no_retention_deletion_enabled": true
+  },
+  "size_limits": {
+    "upload_application_limit": null,
+    "backup_application_limit": null,
+    "backup_file_count_limit": null,
+    "streaming": true,
+    "physical_capacity_guard": true,
+    "upload_bytes_tested": 269484032,
+    "archive_logical_bytes_tested": 1073741831
+  },
+  "validation_v02": {
+    "test_count": 30,
+    "x86_64": {
+      "passed": true,
+      "seconds": 12.643
+    },
+    "aarch64": {
+      "passed": true,
+      "seconds": 13.679
+    },
+    "systemd_worker_survival_fixture": true,
+    "production_repositories": 0,
+    "production_plans": 0,
+    "production_enabled_plans": 0,
+    "baseline_video_and_smb_checks_passed": true
+  },
+  "validation_v03": {
+    "test_count": 41,
+    "x86_64": {
+      "passed": true,
+      "seconds": 12.581
+    },
+    "aarch64": {
+      "passed": true,
+      "seconds": 14.251
+    },
+    "browser": {
+      "native_page_visible": true,
+      "hardware_profile_dialog_visible": true,
+      "mirror_choice_verified": true,
+      "profile_not_saved_on_actual_server": true,
+      "javascript_errors": []
+    },
+    "actual_server": {
+      "repositories": 0,
+      "plans": 0,
+      "active_plans": 0,
+      "profiles": 0,
+      "native_daemon_installed": false,
+      "native_socket_present": false,
+      "physical_disks_modified": false
+    },
+    "baseline_video_and_smb_checks_passed": true,
+    "native_vm": {
+      "passed_from_blank_virtual_disks": true,
+      "hypervisor": "QEMU 10.2.1 / KVM",
+      "guest": "Ubuntu 24.04 minimal amd64",
+      "kernel": "6.8.0-147-generic",
+      "virtual_data_disks": 3,
+      "bytes_per_disk": 3221225472,
+      "host_block_devices_exposed": false,
+      "btrfs": "6.6.3",
+      "lvm": "2.03.16",
+      "zfs": "2.2.2-0ubuntu9.5",
+      "btrfs_snapshot_readonly": true,
+      "btrfs_restore_new_writable_subvolume": true,
+      "zfs_snapshot": true,
+      "zfs_clone_remains_unmounted": true,
+      "zfs_clone_contents_verified_by_test_mount": true,
+      "classic_lvm_readonly_snapshot": true,
+      "classic_lvm_contents_verified_by_test_mount": true,
+      "thin_lvm_readonly_snapshot": true,
+      "source_version_2_preserved": true,
+      "restored_version_1_verified": true,
+      "single_use_plan_verified": true,
+      "policy_change_refused": true,
+      "socket_uid_allowed_and_unauthorized_uid_refused": true,
+      "system_service_restart_catalog_preserved": true,
+      "test_vm_powered_off": true
+    },
+    "remaining": [
+      "Apply hardware profiles: partition, format, create/repair RAID",
+      "LVM restore by copy to new destination",
+      "Expose native restores in file browser and shares",
+      "Mount ZFS clone through console",
+      "Application quiesce hooks",
+      "Native snapshot scheduling and retention"
+    ]
+  },
+  "validation_v04": {
+    "test_count": 50,
+    "x86_64": {
+      "passed": true,
+      "seconds": 13.932
+    },
+    "aarch64": {
+      "passed": true,
+      "seconds": 18.537
+    },
+    "native_vm": {
+      "new_blank_disks_initially": 3,
+      "bytes_per_disk": 3221225472,
+      "extra_blank_disks_for_ui_plan": 2,
+      "host_block_devices_exposed": false,
+      "initialization_via_actual_system_daemon_socket": true,
+      "single_ext4_created_and_mounted": true,
+      "raid1_btrfs_created_and_mounted": true,
+      "existing_signature_reuse_refused": true,
+      "single_use_plans": true,
+      "btrfs_on_new_mirror_snapshot_and_clone": true,
+      "lvm_classic_ext4_copy_verified": true,
+      "lvm_thin_xfs_copy_verified": true,
+      "original_versions_preserved": true,
+      "worker_mounts_not_propagated_to_host_namespace": true,
+      "full_guest_reboot_remount_verified": true,
+      "post_reboot_file_read_and_unprivileged_write_verified": true,
+      "raid_degraded_members_after_reboot": 0,
+      "raid_sync_action_after_reboot": "idle",
+      "survives_daemon_restart": true,
+      "large_copy_bytes": 330296400,
+      "sha256_verified": true,
+      "cancellation_verified": true,
+      "original_preserved": true,
+      "final_worker_capacity_guard_real_copy_verified": true,
+      "qa_service_stopped": true,
+      "test_vm_powered_off": true
+    },
+    "browser": {
+      "applied_volume_states_visible_in_vm": true,
+      "private_lvm_restore_listed": true,
+      "restored_file_download_contents_verified": true,
+      "hardware_profile_saved_only_in_vm": true,
+      "device_selection_and_confirmation_plan_visible": true,
+      "ui_initialization_plan_cancelled_without_commit": true,
+      "main_console_updated": true,
+      "javascript_errors_main": [],
+      "javascript_errors_vm": []
+    },
+    "actual_spark": {
+      "native_daemon_installed": false,
+      "physical_disks_modified": false,
+      "repositories": 0,
+      "plans": 0,
+      "enabled_plans": 0,
+      "profiles": 0
+    },
+    "baseline_video_and_smb_checks_passed": true,
+    "limits": {
+      "file_size_cap": null,
+      "backup_size_cap": null,
+      "backup_file_count_cap": null,
+      "physical_capacity_guard": true
+    },
+    "remaining": [
+      "Partitioning and creation of new ZFS pools",
+      "RAID member replacement/rebuild and degraded import",
+      "Hotplug handling",
+      "Native explorer writes and integration with SMB/backup source selection",
+      "ZFS clone mount through console",
+      "Application quiesce hooks and native scheduling/retention"
+    ]
+  },
+  "validation_v05": {
+    "test_count": 58,
+    "x86_64": {
+      "passed": true,
+      "seconds": 14.683,
+      "restic_available": true,
+      "skipped": 0
+    },
+    "aarch64": {
+      "passed": true,
+      "seconds": 17.094,
+      "restic_available": true,
+      "skipped": 0
+    },
+    "native_vm": {
+      "native_http_write_trash_restore": true,
+      "smb_rw": true,
+      "smb_readonly_enforced": true,
+      "unauthorized_account_refused": true,
+      "private_trash_vetoed": true,
+      "multi_volume_encrypted_backup_restore": true,
+      "internal_data_excluded": true,
+      "automatic_plan_selected_native_source_verified": true,
+      "offline_native_share_disabled_base_preserved": true,
+      "native_share_recovery": true,
+      "actual_mount_disappearance_refuses_writes": true,
+      "no_fallback_host_directory_created": true,
+      "native_smb_disabled_on_loss": true,
+      "base_smb_preserved": true,
+      "remount_and_share_recovery": true,
+      "existing_repository_vetoed": true,
+      "host_block_devices_exposed": false,
+      "cli_native_startup_verified_with_real_samba": true,
+      "qa_service_stopped": true,
+      "test_vm_powered_off": true
+    },
+    "browser": {
+      "native_volume_file_create_rename_visible_in_vm": true,
+      "native_smb_volume_selection_visible_in_vm": true,
+      "native_backup_sources_and_disabled_plan_visible_in_vm": true,
+      "main_console_files_and_no_plan_state_visible": true,
+      "javascript_errors_main": [],
+      "javascript_errors_vm": []
+    },
+    "actual_spark": {
+      "repositories": 0,
+      "plans": 0,
+      "enabled_plans": 0,
+      "profiles": 0,
+      "native_daemon_installed": false,
+      "native_socket_present": false,
+      "physical_disks_modified": false
+    },
+    "baseline_video_and_smb_checks_passed": true,
+    "file_size_cap": null,
+    "backup_size_cap": null,
+    "backup_file_count_cap": null,
+    "remaining": [
+      "Partitioning and new ZFS pools",
+      "RAID member replacement/rebuild, degraded import and hotplug",
+      "ZFS clone mount through console",
+      "Application quiesce hooks and native scheduling/retention"
+    ]
+  }
+}

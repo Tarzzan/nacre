@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360" role="img" aria-label="Nacre — Vos données, votre infrastructure, votre autonomie">
+<defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#102e38"/><stop offset="1" stop-color="#245762"/></linearGradient></defs>
+<rect width="1280" height="360" rx="24" fill="url(#bg)"/>
+<g fill="none" stroke="#8ec7c4" stroke-width="2" opacity=".25"><circle cx="1110" cy="180" r="220"/><circle cx="1110" cy="180" r="165"/><circle cx="1110" cy="180" r="110"/></g>
+<g transform="translate(70 78) rotate(-8 40 45)" fill="none" stroke="#b8e1d7" stroke-width="4"><rect width="80" height="94" rx="17"/><rect x="15" y="17" width="50" height="22" rx="5"/><rect x="15" y="53" width="50" height="22" rx="5"/><path d="M25 28h15m-15 36h15"/></g>
+<text x="180" y="145" fill="#f4faf9" font-family="sans-serif" font-size="76" font-weight="700">nacre</text>
+<text x="72" y="225" fill="#e4f2ee" font-family="sans-serif" font-size="29">Vos données. Votre infrastructure. Votre autonomie.</text>
+<text x="74" y="290" fill="#acd2cd" font-family="sans-serif" font-size="16" letter-spacing="3">STOCKAGE · SAUVEGARDE · SURVEILLANCE</text>
+<text x="1095" y="305" fill="#acd2cd" font-family="sans-serif" font-size="20">0.5 / ALPHA</text></svg>

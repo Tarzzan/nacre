@@ -1,0 +1,352 @@
+NACRE 0.5 — SYSTÈME NAS LOCAL ET PORTABLE
+9 novembre 2026
+
+PÉRIMÈTRE DE CETTE VERSION
+La console réunit fichiers, partages SMB, comptes, services, caméra/PTZ,
+inventaire de stockage, snapshots de fichiers et natifs, profils matériels et plans de sauvegarde.
+Le logiciel cible Linux x86-64 et ARM64. Il détecte les capacités exposées
+par le matériel et ne suppose ni un modèle de NAS ni un GPU particulier.
+La machine actuelle sert à exécuter et vérifier le logiciel.
+Conformément à la demande, aucun dépôt ni plan de sauvegarde réel n’y est
+configuré ou activé. Les captures/restaurations de test utilisent uniquement
+des données temporaires dans des environnements isolés.
+
+ACCÈS ACTUEL À LA CONSOLE
+http://127.0.0.1:8766/
+Le tunnel SSH existant permet l’accès depuis ce PC.
+La vidéosurveillance avancée reste disponible dans Frigate sur le port 8971.
+
+DISQUES ET VOLUMES
+La vue Stockage affiche les disques physiques, leur liaison NVMe/SATA/USB,
+leur capacité, les partitions et les systèmes de fichiers montés. Elle sait
+aussi représenter les montages ZFS, NFS et SMB exposés par Linux.
+Le diagnostic SMART est une consultation fermée via smartmontools. Sa
+présence dépend du contrôleur, du pilote et des droits accordés au service.
+Un refus d’accès ou un diagnostic absent ne devient jamais un état « sain ».
+Les bits d’alerte SMART sont interprétés séparément des erreurs de consultation.
+La page Volumes natifs ajoute des profils matériels de préparation (disque
+unique ou miroir RAID1, Btrfs/ext4) et le pilotage optionnel de snapshots
+Btrfs, ZFS et LVM sur les volumes explicitement autorisés. Un profil reste
+sans effet jusqu’au choix de disques et à la confirmation du plan. Son application
+crée maintenant un volume sur disque entier ou un miroir RAID1 logiciel. Le
+partitionnement, le remplacement et la reconstruction de disque restent à
+développer. Aucun helper natif n’est installé ni activé sur Spark ; les essais
+privilégiés ont lieu uniquement dans une VM QEMU avec des disques images.
+
+
+SNAPSHOTS NATIFS OPTIONNELS (VERSION 0.4)
+Le serveur web reste un processus utilisateur. Un daemon système distinct
+expose des méthodes fermées de consultation, plan, exécution et annulation
+sur un socket Unix local. L’UID
+réel du client est vérifié avec SO_PEERCRED ; aucune commande ou chemin de
+stockage fourni par le navigateur n’est exécuté. La politique et le catalogue
+sont protégés par root. La liste de volumes est vide par défaut.
+
+Préparer les fichiers d’installation sans modifier le système :
+python3 console/install_native.py --stage ./work/service-natif --uid UID_CONSOLE
+
+Sur le futur serveur, après revue, un administrateur peut installer le service :
+sudo python3 console/install_native.py --install --uid UID_CONSOLE
+Cette commande copie le code et une politique VIDE et recharge systemd ;
+elle n’active pas le service et ne modifie aucun disque. Une politique déjà
+présente est conservée. L’exemple console/native-policy.example.json décrit
+les quatre variantes possibles ; ne conserver que les volumes de données
+approuvés, avec leurs identités réelles dans /etc/nacre-storage/policy.json.
+Installer les outils de la famille utilisée et charger ses pilotes sur l’hôte.
+Activer ensuite explicitement : sudo systemctl enable --now nacre-storage
+Une modification d’UID autorisé ou une mise à jour du code nécessite un
+redémarrage du daemon pour charger les nouveaux modules. L’installateur
+recharge systemd, mais n’active ni ne redémarre automatiquement ce service.
+
+Identités à relever EN LECTURE SEULE, sur les ressources choisies :
+- Btrfs : findmnt -n -T CHEMIN_SOURCE -o UUID ; btrfs subvolume show CHEMIN_SOURCE.
+- ZFS : zfs get -Hp -o value guid NOM_DATASET, puis le parent dédié de restauration.
+- LVM : lvs --reportformat json -o vg_uuid,lv_uuid,segtype VG/LV.
+
+Btrfs : la source doit être un sous-volume, pas la racine générale du FS.
+Les dossiers source/snapshots/restores sont distincts, sur le même UUID Btrfs.
+Leurs parents doivent appartenir à root sans écriture groupe/autres. Les
+répertoires snapshots/restores eux-mêmes sont contrôlés par root. Le service
+épingle les chemins par FD et ne suit aucun lien symbolique. La capture est
+un sous-volume readonly ; la restauration crée un nouveau sous-volume writable.
+
+ZFS : capture d’un dataset filesystem inscrit par GUID, hors racine du pool
+et montages système. La restauration est un clone dans un parent dédié du
+même pool, inscrit par GUID. Il reste NON MONTÉ (mountpoint=none,
+canmount=noauto) : le montage et l’exposition de ce clone dans les partages
+restent à intégrer. Aucun rollback, promote ou destroy n’est exposé.
+Compatible avec le clonage sans option -u d’OpenZFS 2.2.
+
+LVM : snapshots readonly de volumes linear ou thin inscrits par UUID VG/LV.
+Pour le classique, cow_bytes définit explicitement la réserve COW nécessaire
+aux modifications ; il ne limite pas la taille logique des fichiers sauvegardés.
+Cette réserve est vérifiée contre l’espace libre du VG. Pour thin, aucune
+taille COW n’est passée et les pourcentages données/métadonnées du pool
+sont vérifiés ; à 90 % ou capacité inconnue, une nouvelle capture est refusée.
+Le contrôle des points vérifie UUID, lecture seule, invalidation et saturation.
+La restauration LVM copie maintenant les fichiers vers un NOUVEAU dossier
+privé, pour ext4 et XFS. Inscrire restore_directory, répertoire root contrôlé
+sous /srv, dans la politique du volume. Une tâche systemd indépendante monte
+le point readonly dans son namespace privé : ext4 avec ro,noload et XFS avec
+ro,nouuid,norecovery ; nodev,nosuid,noexec dans les deux cas. Elle ne fusionne
+jamais l’original et ne remplace aucun fichier actuel. Le dossier n’est publié
+au compte de console qu’après copie complète et vérification du point.
+La progression fichiers/octets et l’annulation sont persistantes. Une erreur,
+un fichier spécial, une saturation ou une interruption ne devient pas un succès.
+Les liens symboliques sont copiés comme liens, jamais suivis ; les fichiers
+creux conservent leur taille logique sans allocation de tous leurs blocs zéro.
+Les octets et dates de modification des fichiers ordinaires sont copiés ;
+les droits sont privés pour le compte de console. Ce parcours ne conserve pas
+les propriétaires d’origine, ACL/xattrs ni les relations de liens physiques.
+Il ne constitue pas une image complète du volume.
+
+Chaque opération présente un plan immuable valable deux minutes, lié au
+compte de console, à l’UID, à la politique et à l’identité du volume. La
+confirmation exacte et une nouvelle vérification sont exigées à l’exécution.
+Un plan est consommé avant la commande et ne peut pas être rejoué. Une
+interruption ou un délai dépassé donne un état « à vérifier », jamais un
+succès supposé ; aucune tentative destructive de nettoyage n’est lancée.
+Le daemon est sérialisé et son verrou empêche une seconde instance. Les
+copies LVM utilisent des unités séparées et continuent si la console ou le
+daemon principal redémarre. Après un arrêt machine, une copie interrompue
+est signalée à vérifier ; elle n’est pas reprise aveuglément.
+
+Les captures ne sont pas récursives : sous-volumes/datasets enfants exclus.
+Les applications ne sont pas mises en pause ; la cohérence applicative des
+bases nécessite des hooks distincts, encore à intégrer. Un snapshot sur le
+même stockage ne remplace pas une sauvegarde sur un autre support. Aucun
+plafond de taille de fichier ou de sauvegarde n’est réintroduit par ce service.
+
+BANC NATIF
+Les tests d’intégration tests/integration_native_vm.py sont volontairement
+réservés à une VM QEMU dédiée (NACRE_VM_LAB=1), avec trois disques virtuels
+vierges de 3 Gio dont les séries sont NACRE-LAB-A/B/C. Ils refusent tout autre
+contexte. Ils ne sont pas lancés par unittest discover. Ne pas exécuter ce
+banc sur le NAS. Ils vérifient les vraies commandes Btrfs/ZFS/LVM et le socket
+UID, sans exposer aucun périphérique hôte à la VM. La suite 0.4 ajoute trois
+disques D/E/F vierges pour tests/integration_provision_vm.py, puis deux
+disques G/H pour vérifier la préparation de plans dans le navigateur. Le
+miroir et le volume unique sont créés via le vrai socket du daemon systemd,
+puis testés après redémarrage. La copie LVM est validée pour ext4 et XFS.
+Le hotplug et la reconstruction d’un miroir après panne ne sont pas validés.
+
+APPLICATION DES PROFILS ET MONTAGE (VERSION 0.4)
+La page Volumes natifs propose : préparer un profil, choisir ses disques,
+consulter le plan, puis recopier sa confirmation exacte avant exécution.
+Aucune initialisation n’est autorisée par défaut. L’activation nécessite une
+politique root explicite (voir l’exemple, désactivé) :
+- provisioning.enabled = true ;
+- provisioning.root = un dossier dédié sous /srv, root sans écriture groupe/autres ;
+- chaque disque inscrit par id, chemin /dev/disk/by-id, numéro de série exact,
+  capacité exacte en octets et initialize = true ; WWN facultatif complémentaire ;
+- provisioning.mount_on_start = true seulement si le remontage au démarrage
+  des volumes déjà créés doit être activé sur le matériel cible.
+
+Les outils utilisés sont util-linux, btrfs-progs/e2fsprogs et mdadm selon le
+profil. Le pilote RAID1 doit être disponible. Le logiciel refuse les disques
+sans identité stable, en lecture seule, montés, partitionnés, portant une
+signature connue ou utilisés par une autre couche (holders/slaves). La série,
+la capacité et le périphérique noyau sont revérifiés avant ouverture, puis les
+FD restent épinglés et verrouillés pendant l’opération. Les outils ordinaires
+et udev respectant les verrous BSD sont coordonnés ; ne pas exécuter en parallèle
+un autre outil root de partitionnement ou d’initialisation sur ces disques.
+Aucune suppression forcée de signature et aucun --force ou --assume-clean
+n’est utilisé pour créer le miroir ou le système de fichiers. L’absence de
+signature ne prouve pas l’absence de données : le plan l’indique explicitement.
+
+La version 0.4 utilise des DISQUES ENTIERS, sans table de partitions. Elle crée
+soit ext4/Btrfs sur un disque, soit un RAID1 mdadm à deux disques avec ext4/Btrfs.
+Le montage est dédié, avec nodev,nosuid. Le dossier data appartient au compte
+non privilégié de console. Btrfs ajoute les destinations snapshots/restores et
+inscrit immédiatement le sous-volume de données dans le catalogue natif.
+Le catalogue root enregistre UUID du FS et du RAID ainsi que les membres
+approuvés. L’état monté, la dégradation et la synchronisation du miroir sont
+consultés sur le système réel. Une synchronisation en cours n’est pas présentée
+comme un miroir déjà entièrement synchronisé.
+
+Le remontage automatique est conditionné par la politique et les identités du
+catalogue ; il ne reformate jamais. Il exige les membres attendus disponibles.
+Une destination déjà occupée ou contenant des fichiers n’est jamais masquée.
+Le service de volumes effectue ses montages dans le namespace hôte pour qu’ils
+soient visibles à la console. Ses interfaces réseau sont limitées à Unix et
+Netlink. Les workers de copie utilisent chacun leur namespace de montage privé.
+Chaque fichier de code système est écrit atomiquement ; l’installation refuse les liens et fichiers non
+protégés par root et conserve la politique existante.
+
+FICHIERS, PARTAGES ET SAUVEGARDES DES VOLUMES (VERSION 0.5)
+Les volumes gérés et montés apparaissent directement dans Fichiers. Un
+administrateur peut y créer des dossiers, transférer, renommer, télécharger,
+mettre en corbeille et restaurer les fichiers. Les clones Btrfs et copies LVM
+restent consultables en lecture seule dans la console, même si leur support
+permet techniquement l’écriture. Les accès HTTP natifs sont réservés aux admins.
+Les parents des restaurations doivent être traversables par le compte de
+console (par exemple 0755, sans écriture groupe/autres). Les copies LVM restent
+privées (0700). Aucun lien symbolique n’est suivi par l’explorateur.
+
+Chaque volume conserve sa propre corbeille privée .nacre-trash, sur le même
+système de fichiers. Les chemins internes .nacre-* ne sont pas accessibles par
+l’explorateur et sont interdits par Samba ; ils sont exclus des sauvegardes restic.
+La restauration de corbeille retrouve l’espace d’origine sans écraser un fichier.
+
+La page Partages SMB propose les volumes gérés comme espaces sources, avec
+comptes autorisés et lecture seule. Les montages du conteneur utilisent une
+définition Compose générée avec create_host_path=false : un volume absent ne
+crée pas un faux dossier local. Les identités des montages et les permissions
+du compte SMB sont contrôlées avant ouverture du partage. Les dossiers de
+restauration privés ne sont pas proposés comme partages.
+Ajouter/retirer un montage natif peut recréer seulement le service Samba et
+interrompre brièvement ses connexions ; Frigate n’est pas redémarré. Une
+surveillance toutes les cinq secondes désactive les partages natifs dont le
+volume ou le contrôleur est absent, puis les rétablit après vérification.
+Le partage d’application reste disponible. L’arrêt explicite du service est
+respecté. Si Docker est lui-même indisponible, la fermeture des connexions
+existantes peut attendre le rétablissement du contrôle du conteneur.
+
+Snapshots et Sauvegardes permettent de sélectionner plusieurs volumes natifs
+comme sources, et un volume natif accessible en écriture comme destination du
+dépôt. Les sources sont identifiées par leur catalogue et les dépôts par UUID
+de système de fichiers. Un montage absent ou remplacé provoque un refus ; aucun
+dépôt vide n’est initialisé à sa place. Un changement d’identité pendant une
+capture donne un résultat partiel. La restauration sépare les espaces avec des
+noms uniques pour éviter la collision de plusieurs dossiers nommés data.
+Un dépôt et une sauvegarde sur leur propre volume ne protègent pas d’une panne
+de ce volume. Les dépôts internes, corbeilles et transferts incomplets sont exclus.
+Aucune de ces nouvelles fonctions ne configure de volume, partage natif, dépôt
+ou plan sur Spark : les essais complets utilisent exclusivement la VM QEMU.
+
+Restent à développer : partitionnement, pools ZFS neufs, remplacement/reconstruction
+de membres RAID, import dégradé et gestion du hotplug, exposition des clones ZFS
+montés, hooks de cohérence applicative, programmation et rétention des snapshots
+natifs. Les plans automatiques restic sont disponibles.
+
+SNAPSHOTS ET RESTAURATION
+Le moteur restic 0.19.1 produit des snapshots de fichiers chiffrés et dédupliqués,
+sur les systèmes de fichiers ordinaires. Ce ne sont pas des snapshots atomiques
+du volume : une capture ne fige pas simultanément tous les fichiers ouverts.
+Les fichiers incomplets ou illisibles produisent une tâche partielle ou en échec,
+jamais un faux succès fondé uniquement sur la présence d’un identifiant.
+
+Depuis Snapshots, un administrateur peut :
+- créer un dépôt dédié dans une destination disponible ;
+- choisir une clé de chiffrement et télécharger une clé de récupération ;
+- sélectionner les fichiers partagés et/ou plusieurs volumes natifs ;
+- ajouter la configuration et les vidéos en option ;
+- consulter les points créés ;
+- restaurer un point dans un NOUVEAU dossier privé, sans écraser les données courantes ;
+- parcourir et télécharger les fichiers restaurés dans Fichiers > Restaurations.
+
+Les destinations proposées sont le volume de l’application, les volumes natifs
+gérés accessibles en écriture et les volumes
+accessibles déjà montés sous /mnt, /media ou /run/media. Un disque ou un NAS
+réseau peut donc servir de destination une fois monté par le système cible.
+La console ne crée pas automatiquement de connexion NFS/SMB ni de dépôt cloud.
+La configuration sélectionnée peut contenir des identifiants et reste chiffrée
+dans le dépôt. Les bases SQLite sélectionnées sont copiées via leur API de
+backup afin d’intégrer les transactions validées, y compris en mode WAL.
+Ce n’est pas une image système ni une restauration automatique complète de
+l’OS ou des bases de mots de passe Samba. La clé du dépôt est conservée à part :
+la garder aussi sur un support distinct pour restaurer après une panne de l’hôte.
+
+SAUVEGARDES AUTOMATIQUES
+La page Sauvegardes permet de préparer un plan avec : nom, dépôt, heure locale,
+fuseau IANA, jours de la semaine et contenu. Un plan peut rester en brouillon
+sans destination. Il est désactivé par défaut et son activation exige un dépôt.
+Aucun horaire, destination ou contenu n’est imposé au matériel de production.
+Le prochain passage et les résultats sont conservés dans SQLite. Les passages
+dus sont réévalués lorsque la console redémarre ; il n’y a pas d’empilement du
+même plan si son exécution précédente est encore en attente ou en cours.
+Les heures locales inexistantes lors d’un changement d’heure sont ignorées.
+Aucune suppression ou rétention automatique de snapshots n’est activée : tous
+les points restent conservés. Le suivi de l’espace disponible reste nécessaire.
+
+Les tâches sont des processus indépendants du serveur web. Avec l’installation
+systemd utilisateur, chacune dispose d’une unité dédiée et continue après un
+redémarrage de la console. Leur progression et leur demande d’annulation sont
+persistantes. Le navigateur peut être fermé sans arrêter la tâche.
+Hors systemd, un lanceur de processus existe ; les garanties au redémarrage du
+superviseur dépendent alors de sa politique de gestion des processus enfants.
+
+LIMITES FIXES DE TAILLE RETIRÉES
+Il n’y a plus de plafond applicatif de 256 Mio par fichier, de 1 Gio par archive,
+ni de limite de 20 000 fichiers par sauvegarde. Les dépôts de fichiers et les
+archives sont traités en flux ; le fichier entier n’est pas chargé en mémoire.
+Les limites réelles restent celles du volume, du système de fichiers, du réseau
+et de l’environnement d’exécution. Le contrôle de capacité physique est conservé.
+Un transfert ne rend son nom final visible qu’après réception complète. Un
+transfert annulé ou interrompu retire seulement son fichier temporaire. Aucun
+fichier existant ne doit être écrasé silencieusement.
+Les archives manuelles restent disponibles en tar.gz ; elles n’incluent que les
+fichiers partagés. Les plans automatiques utilisent les dépôts de snapshots.
+
+INSTALLATION SUR UN AUTRE MATÉRIEL
+Pré-requis : Linux x86-64 ou ARM64, Python 3.11+, Docker et Docker Compose.
+Pour l’inventaire : util-linux ; pour SMART : smartmontools et accès en lecture
+au périphérique. La simple appartenance à Docker ne vaut pas accès SMART.
+Aucun helper privilégié de diagnostic n’est installé automatiquement.
+Utiliser un compte d’installation dédié non root, disposant de l’accès Docker.
+
+Depuis le répertoire d’installation choisi :
+python3 lab.py init
+python3 console/server.py init
+python3 console/install_restic.py
+python3 lab.py start
+python3 console/install_service.py
+
+lab.py init déduit l’image Frigate adaptée et les UID/GID de l’utilisateur.
+Il conserve les options explicites déjà présentes dans .env. Les images sont
+fixées par digest : version standard ARM64 pour ARM64 générique et index
+multiarchitecture avec variante amd64 pour x86-64. Les images de base locales
+Samba sont elles-mêmes multiarchitectures et leurs UID/GID sont paramétrables.
+L’installateur de runtime restic utilise les releases officielles et vérifie
+un SHA-256 attendu pour chaque architecture. Le binaire reste dans .tools/.
+L’installateur systemd produit une unité adaptée au chemin réel du projet,
+la vérifie avant installation et conserve une copie de l’ancienne unité.
+Aucun dépôt et aucun plan de sauvegarde ne sont créés par ces commandes.
+
+ACCÈS ET FICHIERS PRIVÉS
+python3 lab.py acces affiche les identifiants de console dans votre terminal.
+python3 lab.py web fournit un lien local à usage unique, valable 60 secondes.
+.env, .tools/, state/ et data/ sont des données d’installation et ne figurent
+pas dans l’archive de code source livrée.
+Les mots de passe et clés restent dans des fichiers privés 0600 ; les sessions
+sont HttpOnly/SameSite Strict, et les écritures exigent une protection CSRF.
+La restauration de configuration et l’export de clé sont réservés aux admins.
+Le serveur ne propose ni terminal web ni commande système arbitraire.
+
+VALIDATION
+58 tests sont disponibles pour Linux x86-64 et ARM64, notamment :
+- profils d’architecture et comptes système sans UID/GID imposés ;
+- fixtures NVMe, SATA/Btrfs, USB/LVM/XFS et interprétation des alertes SMART ;
+- dépôt HTTP en flux de 257 Mio, au-delà de l’ancien plafond ;
+- archive contenant un fichier de 1 Gio + 7 octets ;
+- création de deux snapshots chiffrés et restauration de l’ancienne version ;
+- préservation du fichier courant et restauration de la copie SQLite ;
+- plans désactivés et brouillons sans destination ;
+- calcul horaire, changements d’heure, déclenchement unique et non-chevauchement ;
+- annulation et classification correcte d’un backup partiel ;
+- contrôles de session, rôles, CSRF, chemins, liens symboliques et corbeille.
+Une tâche isolée en unité systemd a également survécu au redémarrage du vrai
+serveur de console, puis produit une archive temporaire dont le contenu a été
+contrôlé. Aucun fichier du partage réel n’était utilisé par cette vérification.
+Le banc 0.5 vérifie également les écritures HTTP natives, les droits SMB,
+les corbeilles interdites dans Samba, les sauvegardes/restaurations multivolumes,
+le déclenchement automatique et la perte réelle d’un montage sans dossier de repli.
+Les observations détaillées sont dans VALIDATION.json.
+
+FONCTIONS DÉJÀ CONSERVÉES
+Fichiers et corbeille, comptes de console et SMB, partages et permissions,
+contrôle des services, journal, direct et clips vidéo, PTZ et points de vue.
+Les identifiants de la caméra proviennent du projet twin3d et n’ont pas été
+changés. Cette version reste une console indépendante dont le périmètre est
+plus réduit qu’un OS NAS DSM complet.
+
+SOURCES PRIMAIRES
+https://github.com/restic/restic/releases/tag/v0.19.1
+https://restic.readthedocs.io/en/stable/040_backup.html
+https://restic.readthedocs.io/en/stable/050_restore.html
+https://restic.readthedocs.io/en/stable/075_scripting.html
+https://github.com/smartmontools/smartmontools/blob/master/smartmontools/smartctl.8.in
+https://docs.frigate.video/frigate/installation/
+
+https://docs.docker.com/reference/compose-file/services/
+https://www.samba.org/samba/docs/current/man-html/smb.conf.5.html

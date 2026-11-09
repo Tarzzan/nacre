@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "allowed_uid": 1000,
+  "volumes": [
+    {
+      "id": "documents-btrfs",
+      "name": "Documents sur Btrfs",
+      "family": "btrfs",
+      "source": "/srv/nacre/pool/data",
+      "snapshots": "/srv/nacre/pool/snapshots",
+      "restores": "/srv/nacre/pool/restores",
+      "filesystem_uuid": "REMPLACER_PAR_UUID_DU_SYSTEME_DE_FICHIERS",
+      "subvolume_uuid": "REMPLACER_PAR_UUID_DU_SOUS_VOLUME"
+    },
+    {
+      "id": "documents-zfs",
+      "name": "Documents sur ZFS",
+      "family": "zfs",
+      "dataset": "pool/documents",
+      "guid": "REMPLACER_PAR_GUID_DU_DATASET",
+      "restore_parent": "pool/restaurations",
+      "restore_parent_guid": "REMPLACER_PAR_GUID_DU_PARENT_DE_RESTAURATION"
+    },
+    {
+      "id": "documents-lvm",
+      "name": "Documents sur LVM classique",
+      "family": "lvm",
+      "lv": "donnees/documents",
+      "vg_uuid": "REMPLACER_PAR_UUID_DU_VG",
+      "lv_uuid": "REMPLACER_PAR_UUID_DU_LV",
+      "segtype": "linear",
+      "cow_bytes": 10737418240,
+      "restore_directory": "/srv/nacre-restaurations"
+    },
+    {
+      "id": "documents-thin",
+      "name": "Documents sur LVM thin",
+      "family": "lvm",
+      "lv": "donnees/documents_thin",
+      "vg_uuid": "REMPLACER_PAR_UUID_DU_VG",
+      "lv_uuid": "REMPLACER_PAR_UUID_DU_LV",
+      "segtype": "thin",
+      "restore_directory": "/srv/nacre-restaurations"
+    }
+  ],
+  "provisioning": {
+    "enabled": false,
+    "root": "/srv/nacre-volumes",
+    "mount_on_start": false,
+    "devices": [
+      {
+        "id": "disque-donnees-a",
+        "path": "/dev/disk/by-id/REMPLACER_PAR_IDENTITE_STABLE",
+        "serial": "REMPLACER_PAR_SERIE",
+        "bytes": 0,
+        "initialize": false
+      }
+    ]
+  }
+}

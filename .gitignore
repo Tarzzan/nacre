@@ -1,0 +1,27 @@
+state/
+data/
+__pycache__/
+*.pyc
+.env
+.tools/
+
+# Données locales et secrets
+/work/
+.venv/
+*.log
+*.db
+*.db-*
+*.sqlite*
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+*.qcow2
+*.raw
+*.img
+*.iso
+*.tar.gz
+*.zip
+.DS_Store
+.env.*
+!.env.example

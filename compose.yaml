@@ -1,0 +1,50 @@
+name: nas-autonome-lab
+services:
+  video:
+    image: "${NACRE_FRIGATE_IMAGE:?Exécuter python3 lab.py init pour choisir le profil matériel}"
+    restart: unless-stopped
+    shm_size: 256mb
+    mem_limit: 2g
+    cpus: 2.0
+    environment:
+      TZ: America/Cayenne
+    ports:
+      - "127.0.0.1:8971:8971"
+    volumes:
+      - ./state/frigate:/config
+      - ./data/video:/media/frigate
+    tmpfs:
+      - /tmp/cache:size=268435456
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+  fichiers:
+    build:
+      context: ./samba
+      args:
+        NAS_UID: "${NACRE_UID:-1000}"
+        NAS_GID: "${NACRE_GID:-1000}"
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: 0.5
+    ports:
+      - "127.0.0.1:1445:445"
+    volumes:
+      - ./data/fichiers:/shares/fichiers
+      - ./data/video:/shares/video:ro
+      - ./state/samba:/etc/nas-autonome:ro
+      - samba-state:/var/lib/samba
+    secrets:
+      - smb_password
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+secrets:
+  smb_password:
+    file: ./state/smb_password
+volumes:
+  samba-state:
