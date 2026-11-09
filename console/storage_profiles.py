@@ -8,17 +8,11 @@ class Profiles:
     def __init__(self, app):
         self.app = app
 
-    def initialize(self):
-        with self.app.database() as db:
-            db.execute('CREATE TABLE IF NOT EXISTS storage_profiles (id TEXT PRIMARY KEY, name TEXT, config TEXT, created REAL)')
-
     def list(self):
-        self.initialize()
         with self.app.database() as db:
             return [{**dict(row), 'config': json.loads(row['config']), 'execution_enabled': False} for row in db.execute('SELECT * FROM storage_profiles ORDER BY created DESC')]
 
     def create(self, body, actor):
-        self.initialize()
         name = body.get('name', '').strip()
         layout, filesystem = body.get('layout'), body.get('filesystem')
         sizes = body.get('disk_bytes')
@@ -39,7 +33,6 @@ class Profiles:
         return {'id': identifier, 'execution_enabled': False}
 
     def prepare(self, body, actor):
-        self.initialize()
         with self.app.database() as db:
             row=db.execute('SELECT * FROM storage_profiles WHERE id=?',(body.get('id'),)).fetchone()
         if not row:
@@ -48,7 +41,6 @@ class Profiles:
         return self.app.native_storage('prepare',actor,{'action':'provision','profile':{**profile,'name':row['name']},'devices':body.get('devices')})
 
     def delete(self, body, actor):
-        self.initialize()
         with self.app.database() as db:
             row = db.execute('SELECT name FROM storage_profiles WHERE id=?', (body.get('id'),)).fetchone()
             if not row:

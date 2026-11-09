@@ -113,3 +113,15 @@ protection().start_scheduler(), puis écoute sur le port 8767 invité. Le naviga
 valide création/renommage de dossier, choix du volume SMB et sources de plan.
 Ne pas enregistrer de configuration sur la console réelle. Récupérer les résultats,
 arrêter le service web de QA, puis éteindre la VM.
+
+EXTENSION 0.6 — REPRISE SQLITE
+Un overlay privé du disque système 0.5 suffit ; aucun disque de données ne doit
+être attaché. Copier le code dans un nouveau répertoire de l’invité.
+python3 -m unittest discover -s tests -p test_schema.py -v
+NACRE_VM_LAB=1 python3 tests/integration_migrations_vm.py
+Le second scénario crée deux racines temporaires, prépare la copie de base,
+lance uniquement une nouvelle console sur loopback et vérifie la connexion
+avec le compte conservé ainsi que la lecture d’un témoin d’audit. Il arrête
+sa console et supprime uniquement ses fixtures temporaires. Le premier couvre
+notamment un SIGKILL pendant la transaction puis la reprise de migration.
+Éteindre la VM après collecte des résultats.

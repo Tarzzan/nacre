@@ -70,6 +70,16 @@ class ConsoleSecurityTests(unittest.TestCase):
         for path in ('/api/me', '/api/files', '/api/smb', '/api/download?path=test'):
             self.assertEqual(self.request('GET', path)[0], 401)
 
+    def test_migration_status_is_admin_only_and_excludes_credentials(self):
+        route='/api/protection/migrations'
+        self.assertEqual(self.request('GET',route)[0],401)
+        self.assertEqual(self.request('GET',route,token=self.reader)[0],403)
+        code,payload=self.request('GET',route,token=self.token)
+        self.assertEqual(code,200)
+        self.assertEqual(json.loads(payload)['schema_version'],1)
+        self.assertNotIn(b'password',payload)
+        self.assertNotIn(b'hash',payload)
+
     def test_dns_rebinding_host_is_rejected(self):
         self.assertEqual(self.request('GET', '/', host='attacker.example')[0], 403)
 

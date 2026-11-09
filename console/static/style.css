@@ -8,3 +8,5 @@
 .native-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-bottom:24px}.native-summary h2{margin:16px 0 8px}.native-summary p{line-height:1.6}.native-plan{padding:12px 18px;background:var(--surface-soft,#f3f7f6);border-radius:12px;margin:18px 0}.native-plan p{font-size:13px;line-height:1.5}@media(max-width:1000px){.native-summary{grid-template-columns:1fr}.native-summary .appicon{float:right}}
 
 .native-location{overflow-wrap:anywhere;max-width:380px}
+
+.recovery-details{padding:0 22px 22px}
