@@ -97,6 +97,7 @@ La CI rejoue les tests ordinaires ; **les tests privilégiés QEMU et matériels
 | [Validation](docs/VALIDATION.md) | Tests locaux, CI et laboratoire privilégié |
 | [Sécurité](SECURITY.md) | Signalement privé, secrets et limites |
 | [Contribution](CONTRIBUTING.md) | Branches, revues, preuves et documentation |
+| [Gouvernance du dépôt](docs/REPOSITORY.md) | Protections, CI, jalons et issues |
 | [Changelog](CHANGELOG.md) | Évolution fonctionnelle et premier import Git |
 | [Guide technique détaillé](LIRE-MOI.txt) | Politiques natives et comportements des moteurs |
 
