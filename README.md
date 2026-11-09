@@ -1,7 +1,7 @@
 <div align="center">
   <img src="docs/images/nacre-banner.svg" alt="Nacre — Vos données. Votre infrastructure. Votre autonomie." width="100%" />
   <p><strong>Une console indépendante pour administrer stockage, sauvegardes et vidéosurveillance depuis le navigateur.</strong></p>
-  <p><a href="https://github.com/Tarzzan/nacre/actions/workflows/ci.yml"><img src="https://github.com/Tarzzan/nacre/actions/workflows/ci.yml/badge.svg" alt="Validation CI" /></a> <img src="https://img.shields.io/badge/version-0.5_alpha-245762" alt="Version 0.5 alpha" /> <img src="https://img.shields.io/badge/Linux-x86__64%20%7C%20ARM64-102e38" alt="Linux x86-64 et ARM64" /></p>
+  <p><a href="https://github.com/Tarzzan/nacre/actions/workflows/ci.yml"><img src="docs/images/ci-status.svg" alt="Consulter les résultats CI" /></a> <img src="https://img.shields.io/badge/version-0.5_alpha-245762" alt="Version 0.5 alpha" /> <img src="https://img.shields.io/badge/Linux-x86__64%20%7C%20ARM64-102e38" alt="Linux x86-64 et ARM64" /></p>
   <p><a href="#découvrir-nacre">Découvrir</a> · <a href="docs/INSTALLATION.md">Installation</a> · <a href="docs/ARCHITECTURE.md">Architecture</a> · <a href="docs/VALIDATION.md">Validation</a> · <a href="docs/ROADMAP.md">Feuille de route</a></p>
 </div>
 
@@ -97,6 +97,7 @@ La CI rejoue les tests ordinaires ; **les tests privilégiés QEMU et matériels
 | [Validation](docs/VALIDATION.md) | Tests locaux, CI et laboratoire privilégié |
 | [Sécurité](SECURITY.md) | Signalement privé, secrets et limites |
 | [Contribution](CONTRIBUTING.md) | Branches, revues, preuves et documentation |
+| [Gouvernance du dépôt](docs/REPOSITORY.md) | Protections, CI, jalons et issues |
 | [Changelog](CHANGELOG.md) | Évolution fonctionnelle et premier import Git |
 | [Guide technique détaillé](LIRE-MOI.txt) | Politiques natives et comportements des moteurs |
 
