@@ -89,6 +89,8 @@ def _initialize():
             password = secrets.token_urlsafe(24)
             salt = secrets.token_hex(16)
             db.execute('INSERT INTO users(name,salt,hash,role) VALUES (?,?,?,?)', ('admin', salt, password_hash(password, salt), 'admin'))
+            from onboarding import write
+            write(db, {'phase': 'account', 'name': 'Nacre', 'timezone': 'UTC', 'existing': False})
             private_write(STATE / 'acces.txt', 'Console NAS autonome\nUtilisateur : admin\nMot de passe : ' + password + '\n')
     DB.chmod(0o600)
     if not (STATE / 'smb.json').exists():
@@ -338,20 +340,26 @@ def overview():
         key, value = line.split(':', 1)
         memory[key] = int(value.split()[0]) * 1024
     services = []
-    for line in compose('ps', '--all', '--format', 'json').splitlines():
+    try:
+        service_lines = compose('ps', '--all', '--format', 'json', timeout=3).splitlines()
+        services_available = True
+    except (Problem, OSError, subprocess.TimeoutExpired):
+        service_lines, services_available = [], False
+    for line in service_lines:
         if line.strip():
             item = json.loads(line)
             services.append({'name': item['Service'], 'state': item['State'], 'health': item.get('Health', ''), 'status': item['Status']})
     camera = {}
     try:
-        stats = video_json('/api/stats')
+        stats = video_json('/api/stats') if any(service['name']=='video' and service['state']=='running' for service in services) else {}
         c = stats.get('cameras', {}).get('tapo', {})
         camera = {key: c.get(key) for key in ('camera_fps', 'process_fps', 'skipped_fps')}
     except Problem:
         pass
     with database() as db:
         events = [dict(row) for row in db.execute('SELECT ts,username,action,detail FROM audit ORDER BY id DESC LIMIT 8')]
-    return {'host': socket.gethostname(), 'time': time.time(), 'disk': {'total': disk.total, 'used': disk.used, 'free': disk.free},
+    from onboarding import read
+    return {'services_available': services_available, 'host': read(sys.modules[__name__])['name'], 'time': time.time(), 'disk': {'total': disk.total, 'used': disk.used, 'free': disk.free},
             'memory': {'total': memory['MemTotal'], 'used': memory['MemTotal'] - memory['MemAvailable']},
             'load': list(os.getloadavg()), 'cpus': os.cpu_count(), 'uptime': float(Path('/proc/uptime').read_text().split()[0]),
             'services': services, 'camera': camera, 'events': events}
@@ -545,7 +553,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise Problem('Ce lien de connexion a expiré ou a déjà été utilisé.', 401)
                 session_token, _ = make_session('admin')
                 return self.reply(303, b'', extra={'Location': '/', 'Set-Cookie': f'nas_session={session_token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800'})
-            if not post and url.path in ('/', '/app.js', '/native.js', '/style.css'):
+            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/style.css'):
                 path = STATIC / ('index.html' if url.path == '/' else url.path[1:])
                 return self.reply(200, path.read_bytes(), mimetypes.guess_type(path)[0] or 'text/plain')
             if post and url.path == '/api/login':
@@ -573,7 +581,14 @@ class Handler(BaseHTTPRequestHandler):
                 result = self.mutate(url.path, self.body(), session)
                 return self.reply(200, result or {'ok': True})
             if url.path == '/api/me':
-                return self.reply(200, {key: session[key] for key in ('name', 'csrf', 'role')})
+                from onboarding import read
+                setup = read(sys.modules[__name__])
+                return self.reply(200, {**{key: session[key] for key in ('name', 'csrf', 'role')}, 'setup_required': session['role'] == 'admin' and setup['phase'] != 'complete', 'timezone': setup['timezone'], 'nas_name': setup['name']})
+            if url.path == '/api/setup':
+                if session['role'] != 'admin':
+                    raise Problem('Accès réservé aux administrateurs.', 403)
+                from onboarding import status
+                return self.reply(200, status(sys.modules[__name__]))
             if url.path == '/api/overview':
                 return self.reply(200, overview())
             if url.path == '/api/areas':
@@ -684,6 +699,12 @@ class Handler(BaseHTTPRequestHandler):
                 with database() as db:
                     db.execute('DELETE FROM sessions WHERE token=?', (session['token'],))
                 return {'ok': True}
+            if route == '/api/setup/account':
+                from onboarding import account
+                return account(sys.modules[__name__], body, session)
+            if route == '/api/setup/finish':
+                from onboarding import finish
+                return finish(sys.modules[__name__], body, session)
             if route == '/api/folder':
                 name = safe_name(body['name'])
                 with folder(body.get('area','fichiers'), body.get('path', ''),write=True) as fd:

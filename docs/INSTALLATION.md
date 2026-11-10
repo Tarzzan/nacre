@@ -2,7 +2,7 @@
 
 ## Préparer l’hôte
 
-Linux x86-64 ou ARM64, Python 3.11+, Docker Engine et plugin Compose v2, util-linux. Le compte dédié doit pouvoir exécuter Docker ; ce droit équivaut à un accès privilégié à l’hôte. Le service utilisateur demande systemd. SMART nécessite smartmontools et des permissions adaptées au périphérique.
+Linux x86-64 ou ARM64, Python 3.11+ et util-linux. Docker Engine et le plugin Compose v2 sont requis pour Samba et Frigate, mais pas pour ouvrir la console et son assistant. Le compte dédié doit pouvoir exécuter Docker ; ce droit équivaut à un accès privilégié à l’hôte. Le service utilisateur demande systemd. SMART nécessite smartmontools et des permissions adaptées au périphérique.
 
 Les images Docker et le runtime restic sont référencés dans le code. L’installation initiale nécessite Internet pour les récupérer. Aucune dépendance Python tierce n’est nécessaire à la suite de tests standard.
 
@@ -11,14 +11,21 @@ Les images Docker et le runtime restic sont référencés dans le code. L’inst
 Depuis le dépôt cloné :
 
 ```bash
-python3 lab.py init
-python3 console/server.py init
-python3 console/install_restic.py
-python3 lab.py start
+python3 installer.py
+```
+
+`installer.py` prépare les fichiers privés, conserve la configuration existante et lance la console au premier plan. Dans un second terminal, `python3 lab.py acces` affiche les accès provisoires. Le premier administrateur choisit son mot de passe dans le navigateur. `--prepare-only` prépare les fichiers sans lancer le serveur. Voir le [parcours illustré](FIRST-RUN.md).
+
+Après installation de Docker et Compose avec les droits du compte dédié, les composants peuvent être activés séparément :
+
+```bash
+python3 console/install_restic.py  # moteur de sauvegarde
+python3 lab.py start              # services fichiers et vidéo
+# Arrêter la console au premier plan avant de passer au service persistant.
 python3 console/install_service.py
 ```
 
-`init` prépare les fichiers privés et conserve la configuration existante. Le runtime restic est vérifié par SHA-256. L’installateur de service vérifie l’unité systemd utilisateur. Pour un démarrage sans session ouverte, l’administrateur de l’hôte doit configurer le maintien des services utilisateur (`loginctl enable-linger COMPTE`) conformément à sa politique.
+Le runtime restic est vérifié par SHA-256. L’installateur de service vérifie l’unité systemd utilisateur. Pour un démarrage sans session ouverte, l’administrateur de l’hôte doit configurer le maintien des services utilisateur (`loginctl enable-linger COMPTE`) conformément à sa politique.
 
 ## Accéder et configurer
 
@@ -34,7 +41,7 @@ Exemple de tunnel, en remplaçant l’hôte SSH :
 ssh -N -L 8766:127.0.0.1:8766 votre-serveur
 ```
 
-L’interface permet la configuration de la caméra, des partages et des plans. Créer le compte local de la caméra dans son application constructeur puis saisir ses accès dans le parcours prévu. Les plans sont désactivés par défaut. Choisir une destination distincte des données pour se protéger d’une panne de leur support et conserver la clé de récupération hors du serveur.
+L’interface permet la gestion des partages, des plans et des réglages d’une caméra configurée. Pour ajouter initialement la caméra, créer son compte local dans l’application constructeur puis utiliser `python3 lab.py camera --ip ADRESSE_LOCALE` sur le serveur. Les plans sont désactivés par défaut. Choisir une destination distincte des données pour se protéger d’une panne de leur support et conserver la clé de récupération hors du serveur.
 
 ## Activer les fonctions natives
 
@@ -51,8 +58,9 @@ Conserver `.env`, `state/`, `data/` et les volumes Docker nécessaires. Ils sont
 1. Lire le changelog et identifier les migrations.
 2. Sauvegarder hors du répertoire de travail la configuration, les bases, les clés et les données nécessaires ; vérifier leur récupération.
 3. Valider la version candidate sur une copie de laboratoire.
-4. Mettre à jour le code vers un commit/tag identifié, puis redémarrer `nacre-console.service` avec `systemctl --user restart nacre-console.service`.
-5. Vérifier l’accès, les tâches, les services et les chemins de données.
+4. La version alpha.5 fait évoluer la base de 1 vers 2 avec copie préalable privée ; les comptes existants sont conservés et l’assistant n’est pas imposé. Le retour à un binaire de schéma 1 exige une reprise hors ligne de sa copie, pas une rétrogradation directe.
+5. Mettre à jour le code vers un commit/tag identifié, puis redémarrer `nacre-console.service` avec `systemctl --user restart nacre-console.service`.
+6. Vérifier l’accès, les tâches, les services et les chemins de données.
 
 Un retour à l’ancien code ne garantit pas un retour arrière d’une migration de base. Les mises à jour du helper root demandent une installation et un redémarrage explicites. Un installateur transactionnel avec retour arrière reste à développer.
 

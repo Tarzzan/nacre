@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.0-alpha.5 — Première configuration depuis le navigateur
+
+Une commande prépare et ouvre la console sans Docker obligatoire. L’assistant authentifié sécurise le compte provisoire, présente les capacités accessibles et enregistre le nom du NAS et son fuseau. Le tableau de bord reste utilisable sans les services Docker. Les composants supplémentaires se configurent séparément.
+
+Migration de base 1 → 2 avec copie préalable ; comptes existants conservés, assistant facultatif après mise à jour. 113 tests Python et 7 JavaScript ; parcours Chrome et affichage mobile vérifiés sur une instance isolée. [Guide et capture](docs/FIRST-RUN.md).
+
 ## 0.7.0-alpha.4 — Coupures pendant les écritures
 
 Un dépôt web n’est confirmé qu’après synchronisation du fichier et de son nom sur le volume. Un échec avant publication ne laisse pas de nom final ; un échec de synchronisation du dossier conserve le fichier complet sans réponse de succès et sans écrasement lors d’une nouvelle tentative.

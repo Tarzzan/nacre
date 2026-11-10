@@ -10,7 +10,7 @@ import secrets
 import sqlite3
 import stat
 
-VERSION = 1
+VERSION = 2
 
 
 class SchemaError(RuntimeError):
@@ -28,6 +28,8 @@ TABLES = {
     'plans': 'id TEXT PRIMARY KEY,name TEXT,repo TEXT,enabled INTEGER,config TEXT,next_run REAL,last_job TEXT,last_run REAL',
     'storage_profiles': 'id TEXT PRIMARY KEY, name TEXT, config TEXT, created REAL',
 }
+V2_TABLES = {'settings': 'key TEXT PRIMARY KEY, value TEXT NOT NULL'}
+
 ADDITIONS = {
     'users': {'active': 'INTEGER NOT NULL DEFAULT 1'},
     'trash': {'area': "TEXT NOT NULL DEFAULT 'fichiers'"},
@@ -133,8 +135,11 @@ def ensure(path):
                 check(db)
                 if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' LIMIT 1").fetchone():
                     checkpoint(path, version)
-                migrate_v1(db)
-                for table, declaration in TABLES.items():
+                if version < 1:
+                    migrate_v1(db)
+                for table, declaration in V2_TABLES.items():
+                    db.execute('CREATE TABLE IF NOT EXISTS '+table+' ('+declaration+')')
+                for table, declaration in (TABLES | V2_TABLES).items():
                     required = {part.strip().split()[0] for part in declaration.split(',')} | set(ADDITIONS.get(table, {}))
                     if not required.issubset(columns(db, table)):
                         raise SchemaError('Structure de base non reconnue : migration annulée.')

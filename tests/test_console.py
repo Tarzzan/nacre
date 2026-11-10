@@ -109,7 +109,7 @@ class ConsoleSecurityTests(unittest.TestCase):
         self.assertEqual(self.request('GET',route,token=self.reader)[0],403)
         code,payload=self.request('GET',route,token=self.token)
         self.assertEqual(code,200)
-        self.assertEqual(json.loads(payload)['schema_version'],1)
+        self.assertEqual(json.loads(payload)['schema_version'],2)
         self.assertNotIn(b'password',payload)
         self.assertNotIn(b'hash',payload)
 

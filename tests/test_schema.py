@@ -43,7 +43,7 @@ class MigrationTests(unittest.TestCase):
     def test_new_database_and_idempotent_schema(self):
         schema.ensure(self.db)
         schema.ensure(self.db)
-        self.assertEqual(schema.status(self.db)['schema_version'],1)
+        self.assertEqual(schema.status(self.db)['schema_version'],2)
         self.assertEqual(schema.status(self.db)['checkpoints'],[])
         self.assertEqual(self.db.stat().st_mode & 0o777,0o600)
 
@@ -69,7 +69,7 @@ class MigrationTests(unittest.TestCase):
             self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0],0)
             self.assertNotIn('partial',schema.columns(db,'users'))
         schema.ensure(self.db)
-        self.assertEqual(schema.status(self.db)['schema_version'],1)
+        self.assertEqual(schema.status(self.db)['schema_version'],2)
 
     def test_process_killed_during_migration_recovers_old_state(self):
         self.legacy().close()
@@ -91,7 +91,7 @@ schema.ensure(Path(sys.argv[2]))
             self.assertEqual(db.execute('SELECT name FROM users').fetchone()[0],'admin')
         self.assertTrue(self.snapshot().is_file())
         schema.ensure(self.db)
-        self.assertEqual(schema.status(self.db)['schema_version'],1)
+        self.assertEqual(schema.status(self.db)['schema_version'],2)
 
     def test_checkpoint_failure_leaves_schema_unchanged(self):
         self.legacy().close()
@@ -152,7 +152,7 @@ schema.ensure(Path(sys.argv[2]))
             salt, saved=db.execute("SELECT salt,hash FROM users WHERE name='admin'").fetchone()
             self.assertEqual(hashlib.scrypt(b'compte-synthetique',salt=bytes.fromhex(salt),n=16384,r=8,p=1).hex(),saved)
         schema.ensure(output)
-        self.assertEqual(schema.status(output)['schema_version'],1)
+        self.assertEqual(schema.status(output)['schema_version'],2)
         with self.assertRaises(schema.SchemaError):prepare(self.snapshot(),output)
 
     def test_corrupted_checkpoint_refused(self):
