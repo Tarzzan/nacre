@@ -1,6 +1,6 @@
 # Reprendre Nacre sur un Linux neuf
 
-> **0.7.0-alpha.1 · parcours qualifié sur Ubuntu 24.04 x86-64, dans QEMU.**
+> **0.7.0-alpha.2 · parcours qualifié sur Ubuntu 24.04 x86-64 et ARM64, dans QEMU.**
 > La reprise part d’une sauvegarde d’installation complète et de sa clé externe. Elle retrouve les comptes et les données, puis permet de créer un nouveau pool. Elle ne reconstitue pas les blocs des anciens disques ni leurs anciens snapshots.
 
 ## Deux situations distinctes
@@ -59,6 +59,6 @@ Démarrer la console, puis modifier la destination des partages dans **SMB** pou
 
 Vérifier la connexion avec l’ancien compte web, un accès Samba autorisé, le refus d’un compte désactivé et le refus d’écriture sur un partage en lecture seule. Au démarrage, la console peut répondre avant que Docker et la surveillance des montages aient rétabli les partages ; attendre leur disponibilité et vérifier les accès, pas seulement la page web. Créer un snapshot de test, restituer un fichier témoin, puis redémarrer Linux et vérifier à nouveau les montages et les accès. N’activer les plans qu’après validation de leurs sources et destinations.
 
-Le banc neuf vérifie console, Samba, données, clés, pool et redémarrage. La caméra et le décodage Frigate doivent être requalifiés séparément. La reprise ARM64 complète, le changement d’UID/architecture, les très gros volumes et la perte électrique pendant ces opérations restent hors du périmètre qualifié.
+Le banc neuf vérifie console, Samba, données, clés, pool et redémarrage. La caméra et le décodage Frigate doivent être requalifiés séparément. La reprise ARM64 sur une seconde VM vierge et les coupures pendant reconstruction sont détaillées dans [POWER-CUT-LAB.md](POWER-CUT-LAB.md). Le changement d’UID/architecture, les très gros volumes et les pannes électriques des contrôleurs physiques restent hors du périmètre qualifié.
 
 Preuves : [VALIDATION.md](VALIDATION.md), [banc Linux neuf](../tests/integration_fresh_linux_vm.py), [banc reconstruction](../tests/integration_mirror_repair_vm.py).

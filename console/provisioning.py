@@ -316,6 +316,10 @@ class Provisioning:
         if settings.get('mount_on_start') is not True:return
         for row,record in self.records():
             if row['phase'] not in ('ready','repairing'):continue
-            try:self.mount_existing(record)
+            try:
+                self.mount_existing(record)
+                if row['phase']=='repairing':
+                    from mirror_repair import MirrorRepair
+                    MirrorRepair(self.e).resume_after_mount(record)
             except (NativeError,OSError,ValueError,KeyError):
-                self.save_record(record['id'],record,error='Remontage automatique non abouti ; vérifier identité et disponibilité.')
+                self.save_record(record['id'],record,error='Remontage ou reprise du miroir non abouti ; vérifier identité et disponibilité.')

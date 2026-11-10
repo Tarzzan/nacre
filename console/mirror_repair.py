@@ -111,6 +111,40 @@ class MirrorRepair:
         if len(observed['members'])!=2 or expected!=actual or observed['degraded']!=0 or observed['sync_action']!='idle':
             raise NativeError('Les deux membres attendus ne sont pas encore synchronisés.')
 
+    def resume_after_mount(self,record):
+        """Réactiver uniquement un ajout déjà journalisé, assemblé en read-auto."""
+        row=self.e.db.execute('SELECT * FROM deployments WHERE id=?',(record['id'],)).fetchone()
+        if not row or row['phase']!='repairing' or not record.get('repair'):return False
+        if fingerprint(json.loads(row['record']))!=fingerprint(record):raise NativeError('Catalogue modifié avant reprise.')
+        action=self.e.db.execute('SELECT * FROM actions WHERE id=?',(record['repair']['plan'],)).fetchone()
+        if not action or action['action']!='repair' or action['volume']!=record['id'] or action['status']!='running':
+            raise NativeError('Journal de reconstruction incomplet.')
+        self.p.authorize(record)
+        observed=self.observe(record)
+        # Respecter un readonly explicite ; une reconstruction active continue seule.
+        if observed['array_state']!='read-auto' or observed['sync_action']!='idle' or observed['degraded']!=1:return False
+        identities=[self.p.probe(spec,blank=False) for spec in record['specs']]
+        expected=sorted(x['device'] for x in identities)
+        if (len(set(expected))!=2 or sorted(m['device'] for m in observed['members'])!=expected
+                or sorted(m['state'] for m in observed['members'])!=[['in_sync'],['spare']]):
+            raise NativeError('Les deux membres attendus doivent être présents, dont un survivant sain.')
+        with ExitStack() as pins:
+            fds=[]
+            for item in [*identities,observed]:
+                fd=os.open(item['path'],os.O_RDONLY|os.O_NOFOLLOW|os.O_CLOEXEC);pins.callback(os.close,fd)
+                fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+                meta=os.fstat(fd)
+                if f'{os.major(meta.st_rdev)}:{os.minor(meta.st_rdev)}'!=item['device']:raise NativeError('Périphérique remplacé avant reprise.')
+                fds.append(fd)
+            self.p.authorize(record)
+            if self.observe(record)!=observed or [self.p.probe(s,blank=False) for s in record['specs']]!=identities:
+                raise NativeError('Identités ou état modifiés avant reprise.')
+            record['repair']['resume_requests']=record['repair'].get('resume_requests',0)+1
+            self.p.save_record(record['id'],record,'repairing')
+            # Aucun --add, --create ou --force ; MD connaît déjà les deux membres.
+            self.e.run(['mdadm','--readwrite',observed['path']],tuple(fds))
+        return True
+
     def complete(self,record):
         record['repair']['status']='done'
         with self.e.db:

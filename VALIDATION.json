@@ -623,5 +623,205 @@
       "ACL/xattr and large-volume endurance"
     ],
     "production_block_operations": false
+  },
+  "powercut_and_arm64_v07_alpha2": {
+    "python_tests": 94,
+    "javascript_tests": 5,
+    "restic_test_skipped": false,
+    "fix": "Resume only a journaled repair assembled read-auto, with expected in_sync survivor and spare; no replay of add/create/force.",
+    "x86_64_powercut": {
+      "complete": true,
+      "cuts": [
+        {
+          "boot_id": "3670e58f-758d-4037-b6ca-1002adb25e61",
+          "done": 523776,
+          "total": 4188160,
+          "phase": "repairing",
+          "action": "running",
+          "sync_action": "recover",
+          "degraded": 1,
+          "threshold": 0.1,
+          "hypervisor_paused_then_sigkill": true
+        },
+        {
+          "boot_id": "25c1404f-525e-4578-9b8f-7e3297596626",
+          "done": 1833216,
+          "total": 4188160,
+          "phase": "repairing",
+          "action": "running",
+          "sync_action": "recover",
+          "degraded": 1,
+          "threshold": 0.4,
+          "hypervisor_paused_then_sigkill": true
+        },
+        {
+          "boot_id": "21f5e168-8f22-4b9b-a639-8c0d71200235",
+          "done": 3142656,
+          "total": 4188160,
+          "phase": "repairing",
+          "action": "running",
+          "sync_action": "recover",
+          "degraded": 1,
+          "threshold": 0.7,
+          "hypervisor_paused_then_sigkill": true
+        }
+      ],
+      "result": {
+        "architecture": "x86_64",
+        "original_md_and_fs_uuid_preserved": true,
+        "data_64_mib_sha256_preserved": true,
+        "snapshot_sha256_preserved": true,
+        "two_expected_members_synchronized": true,
+        "mdadm_add_executions": 1,
+        "audited_readwrite_requests": 3,
+        "catalog_resume_requests": 3,
+        "no_force_or_create_after_fault": true,
+        "consumed_plan_replay_refused": true,
+        "repair_journal_single_action": true
+      },
+      "method": "QEMU vCPU stop then SIGKILL; no guest shutdown; data drives cache=none",
+      "scope": "virtual abrupt loss; not physical controller cache or power electronics"
+    },
+    "arm64_powercut": {
+      "complete": true,
+      "cuts": [
+        {
+          "boot_id": "3fa73d04-c94c-40f9-8fea-4f1ce070aa93",
+          "done": 523776,
+          "total": 4188160,
+          "phase": "repairing",
+          "action": "running",
+          "sync_action": "recover",
+          "degraded": 1,
+          "threshold": 0.1,
+          "hypervisor_paused_then_sigkill": true
+        },
+        {
+          "boot_id": "056dd71a-67b0-48e9-9db5-d6543c08b01c",
+          "done": 1833216,
+          "total": 4188160,
+          "phase": "repairing",
+          "action": "running",
+          "sync_action": "recover",
+          "degraded": 1,
+          "threshold": 0.4,
+          "hypervisor_paused_then_sigkill": true
+        },
+        {
+          "boot_id": "077b8f4b-3188-4f6c-8708-fc736111a78a",
+          "done": 3142656,
+          "total": 4188160,
+          "phase": "repairing",
+          "action": "running",
+          "sync_action": "recover",
+          "degraded": 1,
+          "threshold": 0.7,
+          "hypervisor_paused_then_sigkill": true
+        }
+      ],
+      "result": {
+        "architecture": "aarch64",
+        "original_md_and_fs_uuid_preserved": true,
+        "data_64_mib_sha256_preserved": true,
+        "snapshot_sha256_preserved": true,
+        "two_expected_members_synchronized": true,
+        "mdadm_add_executions": 1,
+        "audited_readwrite_requests": 3,
+        "catalog_resume_requests": 3,
+        "no_force_or_create_after_fault": true,
+        "consumed_plan_replay_refused": true,
+        "repair_journal_single_action": true
+      },
+      "method": "QEMU vCPU stop then SIGKILL; no guest shutdown; data drives cache=none",
+      "scope": "virtual abrupt loss; not physical controller cache or power electronics"
+    },
+    "arm64_source_recovery": {
+      "owner_uid_preserved": true,
+      "console_original_password_http_login": true,
+      "plans_disabled_sessions_revoked": true,
+      "repositories_detached_until_verified": true,
+      "camera_configuration_preserved": true,
+      "frigate_sqlite_restored": true,
+      "native_metadata_exported": true,
+      "samba_recreation_preserves_accounts": true,
+      "files_restored": true,
+      "video_bytes_restored": true,
+      "external_volume_files_restored": true,
+      "keys_recovered_after_source_loss": true,
+      "encrypted_history_unlocked": true,
+      "samba_password_preserved": true,
+      "samba_server_sid_preserved": true,
+      "samba_disabled_flag_preserved": true,
+      "samba_secondary_account_rw": true,
+      "samba_readonly_enforced": true,
+      "disabled_account_refused": true,
+      "separate_docker_volume": true,
+      "running_service_capture_refused": true
+    },
+    "arm64_fresh_target_after_powercuts": {
+      "fresh_official_linux": true,
+      "no_previous_docker_images_or_volumes": true,
+      "separate_source_vm_stopped": true,
+      "restored_keys_unlock_history": true,
+      "original_console_password_http": true,
+      "samba_secondary_password_and_disabled_account": true,
+      "samba_readonly_enforced": true,
+      "numeric_owners_preserved": true,
+      "new_btrfs_raid1_created": true,
+      "data_repopulated_on_new_pool": true,
+      "automatic_plans_disabled": true,
+      "pool": "managed-aed6c7717c13e481255c",
+      "fresh_linux_reboot_services_and_pool": true,
+      "architecture": "aarch64",
+      "samba_sid_compared_to_source": true,
+      "synthetic_video_and_frigate_database_restored": true
+    },
+    "x86_64_fresh_target_after_powercuts": {
+      "fresh_official_linux": true,
+      "no_previous_docker_images_or_volumes": true,
+      "separate_source_vm_stopped": true,
+      "restored_keys_unlock_history": true,
+      "original_console_password_http": true,
+      "samba_secondary_password_and_disabled_account": true,
+      "samba_readonly_enforced": true,
+      "numeric_owners_preserved": true,
+      "new_btrfs_raid1_created": true,
+      "data_repopulated_on_new_pool": true,
+      "automatic_plans_disabled": true,
+      "pool": "managed-9f6e0f27fea35a92f70c",
+      "fresh_linux_reboot_services_and_pool": true,
+      "architecture": "x86_64",
+      "samba_sid_compared_to_source": false,
+      "synthetic_video_and_frigate_database_restored": true
+    },
+    "arm64_base_image_sha256": "3dc8370d923978d4b610fa7964d1b36ba040eefb43198809ca5bc8ac51777b18",
+    "arm64_runtime": "QEMU 8.2.2 Ubuntu 1:8.2.2+ds-0ubuntu1.18, virt/KVM, Ubuntu Minimal 24.04, 2 vCPU and 3 GiB per VM; source and target run sequentially",
+    "host_health_after_isolated_arm_tests": {
+      "console_http": 200,
+      "services": {
+        "fichiers": "running",
+        "video": "healthy"
+      },
+      "recent_video_segment": true,
+      "native_helper_absent": true,
+      "configuration_counts": {
+        "repositories": 0,
+        "plans": 0,
+        "storage_profiles": 0
+      },
+      "arm_vms_stopped": true,
+      "ephemeral_host_key_removed": true,
+      "test_images_removed": true,
+      "production_services_not_restarted_by_tests": true
+    },
+    "production_software_deployed_by_this_test_run": false,
+    "remaining": [
+      "Physical controller/drive cache power loss",
+      "Concurrent application writes and long endurance",
+      "ext4 repair and hardware hotplug",
+      "Cross-architecture or UID remapping",
+      "ACL/xattrs and interrupted Docker import",
+      "Real Frigate/camera restart on recovered ARM64 guest"
+    ]
   }
 }

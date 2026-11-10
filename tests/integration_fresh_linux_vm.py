@@ -97,6 +97,9 @@ created=commit(plan);identifier=created['object'];target=Path(created['location'
 run(['sudo','rsync','-aHAX','--numeric-ids','--checksum',str(ROOT/'data/fichiers')+'/',str(target)+'/'])
 assert (target/'temoin.txt').read_bytes()==(ROOT/'data/fichiers/temoin.txt').read_bytes()
 assert (target/'temoin.txt').stat().st_uid==alice_uid
+# Configuration et octets vidéo synthétiques, indépendants du runtime Frigate.
+assert (ROOT/'data/video/recordings/temoin.mp4').read_bytes()==b'video synthetique uniquement'
+with closing(sqlite3.connect(ROOT/'state/frigate/frigate.db')) as db:assert db.execute('SELECT id FROM event').fetchone()[0]=='synthetique'
 # Requalifier les partages, sans activer les anciens plans.
 import server as app
 app.initialize();config=app.smb_state()
@@ -116,6 +119,11 @@ for _ in range(60):
  except AssertionError:time.sleep(.2)
 else:raise AssertionError('SMB indisponible')
 smb('desactive','fichiers','ls',False);smb('alice','lecture','put /tmp/witness refuse.txt',False)
+expectations=bundle/'expectations.json'
+if expectations.exists():
+ expected=json.loads(expectations.read_text())
+ assert expected['architecture']==os.uname().machine and expected['owner_uid']==alice_uid
+ assert run(arguments(ROOT,'exec','-T','fichiers','net','getlocalsid')).decode().split()[-1]==expected['source_sid']
 run(['sudo','loginctl','enable-linger','ubuntu'])
 run([sys.executable,str(ROOT/'console/install_service.py')]);login()
 for _ in range(200):
@@ -126,5 +134,6 @@ else:raise AssertionError('Synchronisation initiale inachevée')
 result={'fresh_official_linux':True,'no_previous_docker_images_or_volumes':True,'separate_source_vm_stopped':True,
  'restored_keys_unlock_history':True,'original_console_password_http':True,'samba_secondary_password_and_disabled_account':True,
  'samba_readonly_enforced':True,'numeric_owners_preserved':True,'new_btrfs_raid1_created':True,'data_repopulated_on_new_pool':True,
- 'automatic_plans_disabled':True,'pool':identifier,'fresh_linux_reboot_services_and_pool':False}
+ 'automatic_plans_disabled':True,'pool':identifier,'fresh_linux_reboot_services_and_pool':False,'architecture':os.uname().machine,
+ 'samba_sid_compared_to_source':expectations.exists(),'synthetic_video_and_frigate_database_restored':True}
 (BASE/'result.json').write_text(json.dumps(result,indent=2));print(json.dumps(result))

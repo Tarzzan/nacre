@@ -1,7 +1,7 @@
 # Reconstruire un miroir RAID1
 
-> **0.7.0-alpha.1 · miroir créé et catalogué par Nacre, deux membres, métadonnées mdadm 1.2.**
-> La qualification réelle porte sur Btrfs dans QEMU x86-64. Ce parcours conserve le système de fichiers et ses snapshots ; il recopie le membre sain vers un disque de remplacement.
+> **0.7.0-alpha.2 · miroir créé et catalogué par Nacre, deux membres, métadonnées mdadm 1.2.**
+> La qualification réelle porte sur Btrfs dans QEMU x86-64 et ARM64, y compris trois coupures virtuelles pendant reconstruction par architecture. Ce parcours conserve le système de fichiers et ses snapshots ; il recopie le membre sain vers un disque de remplacement.
 
 ## Conditions avant ouverture du plan
 
@@ -23,7 +23,7 @@ Les identités, la politique, le catalogue et l’état MD sont revérifiés à 
 
 ## Après une interruption
 
-Un redémarrage du service ne rejoue pas l’ajout du disque. Le noyau poursuit une reconstruction déjà engagée ; Nacre vérifie l’état physique avant de marquer l’action terminée. Un résultat de commande ambigu produit **À vérifier**.
+Un redémarrage du service ne rejoue pas l’ajout du disque. Après coupure, un ensemble assemblé en `read-auto` peut attendre une écriture. Au démarrage, le helper peut le réactiver uniquement après contrôle du journal, des UUID et des deux membres attendus ; un état MD explicitement `readonly` reste respecté. Aucun nouvel ajout de disque n’est exécuté. Ensuite, le noyau poursuit la reconstruction déjà engagée ; Nacre vérifie l’état physique avant de marquer l’action terminée. Un résultat de commande ambigu produit **À vérifier**.
 
 Après diagnostic, **Vérifier la reconstruction** peut remettre le catalogue en état disponible uniquement si le volume et les deux membres attendus sont déjà synchronisés. Ce plan exige une confirmation `VALIDER <volume>` et ne lance aucune commande d’ajout, de formatage ou d’assemblage. S’ils ne sont pas synchronisés, le refus est conservé : ne pas modifier la base SQLite pour contourner le contrôle.
 
@@ -33,8 +33,10 @@ Le remontage au démarrage exige `mount_on_start: true` dans la politique. Il ut
 
 Le banc injecte la perte d’un membre sur trois images de disques synthétiques, remplace B par C, redémarre le service, attend la synchronisation et contrôle les empreintes. Il restitue aussi un snapshot Btrfs créé avant la panne, puis redémarre Linux et revérifie pool, console et Samba. L’ancien membre conserve sa signature RAID ; aucune commande d’effacement n’est exécutée.
 
-Ne sont pas qualifiés : perte électrique au milieu de la reconstruction, import d’un RAID étranger ou totalement absent, reconstruction ARM64 sur matériel, réparation ZFS/LVM/RAID5/RAID6, changements de géométrie, hotplug matériel et endurance. Le mécanisme ne reformate pas le système de fichiers ; le scénario de reconstruction avec ext4 reste à qualifier séparément.
+Ne sont pas qualifiés : perte du cache matériel lors d’une coupure électrique, import d’un RAID étranger ou totalement absent, compatibilité des contrôleurs et boîtiers physiques ARM64, réparation ZFS/LVM/RAID5/RAID6, changements de géométrie, hotplug matériel et endurance. Le mécanisme ne reformate pas le système de fichiers ; le scénario de reconstruction avec ext4 reste à qualifier séparément.
 
 Pour repartir d’une sauvegarde sur de nouveaux disques, suivre [FRESH-LINUX.md](FRESH-LINUX.md). Les anciens snapshots d’un pool perdu ne renaissent pas à partir d’une simple copie de fichiers.
 
 Références techniques : [noyau Linux — état et synchronisation MD](https://cdn.kernel.org/doc/html/latest/admin-guide/md.html), [manuel amont mdadm](https://kernel.googlesource.com/pub/scm/utils/mdadm/mdadm/+/69818a5c75ba5982e9d866f94239a2f5975f988e/mdadm.8.in).
+
+La simulation de coupure brutale et la reprise ARM64 sont détaillées dans [POWER-CUT-LAB.md](POWER-CUT-LAB.md), avec leur portée et leurs limites.

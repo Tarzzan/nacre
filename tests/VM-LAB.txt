@@ -175,3 +175,47 @@ panne avec mdadm --fail/--remove. Le produit ne fait pas cette injection.
 Le résultat non secret est /home/ubuntu/nacre-fresh-test/result.json. La clé
 externe et le mot de passe fixture ne sont jamais imprimés. Après collecte,
 arrêter toute console de QA, ses tunnels et les VM. Ne pas exécuter sur Spark.
+
+
+EXTENSION 0.7.0-alpha.2 — COUPURE ET ARM64
+
+Voir docs/POWER-CUT-LAB.md pour le scénario et les limites.
+Les phases invitées sont dans integration_powercut_vm.py ; le contrôleur hôte
+powercut_qemu_host.py observe trois reconstructions incomplètes, suspend les
+vCPU puis tue uniquement le QEMU identifié, avant de rouvrir les mêmes images.
+Ne pas confondre ce contrôleur avec un test à lancer sur le NAS.
+
+Le banc ARM64 utilise un hôte ARM64 avec accès KVM et un dossier utilisateur
+0700 distinct. Extraire avec apt-get download puis dpkg-deb -x les paquets
+Ubuntu qemu-system-arm, qemu-system-common, qemu-system-data, qemu-utils,
+qemu-efi-aarch64 et les bibliothèques manquantes dans runtime/root. L’essai
+a utilisé QEMU 8.2.2 (Ubuntu 1:8.2.2+ds-0ubuntu1.18). Aucun apt install hôte,
+aucune modification des services hôtes et aucun socket Docker hôte partagé.
+Installer seulement dans les invités les paquets du banc Ubuntu précédent.
+
+Placer base-arm64.img et seed.iso dans ce dossier privé. Image Ubuntu Minimal
+24.04 ARM64 officielle : SHA256
+3dc8370d923978d4b610fa7964d1b36ba040eefb43198809ca5bc8ac51777b18.
+Le seed NoCloud contient uniquement la clé SSH de TEST et les paquets invités.
+
+NACRE_VM_LAB_HOST=1 python3 tests/start_arm_lab.py /banc/prive arm-source
+
+Le lanceur utilise deux CPU, 3 Gio RAM, KVM, firmware AAVMF, réseau user sur
+127.0.0.1:2251 (source), 2252 (cible). SSH depuis un autre PC via ProxyJump.
+Dans la source : copier le code dans /home/ubuntu/nacre-code, installer restic
+vérifié et le helper natif avec politique vide puis démarrer celui-ci. Exécuter
+integration_system_recovery_vm.py avec NACRE_VM_LAB=1 et une nouvelle racine
+NACRE_RECOVERY_TEST_ROOT. Exporter recovery-repo/, history/, bootstrap.key,
+expectations.json et source-lost/state/console/{last-system-recovery.json,acces.txt}.
+Conserver ce bundle privé hors de Git, puis éteindre la VM source.
+
+NACRE_VM_LAB_HOST=1 python3 tests/start_arm_lab.py /banc/prive arm-target
+
+La cible neuve reçoit code et bundle dans les chemins du banc Linux vierge.
+Exécuter integration_fresh_linux_vm.py, puis les phases du banc de coupure.
+Sur l’hôte ARM64, fournir LD_LIBRARY_PATH=/banc/prive/runtime/root/usr/lib/aarch64-linux-gnu
+au contrôleur pour qu’il puisse relancer le runtime QEMU extrait.
+Après les trois coupures : integration_fresh_linux_vm.py --after-reboot.
+Collecter uniquement result.json et le résultat du contrôleur pour les preuves.
+Arrêter les VM et supprimer la clé temporaire de l’hôte de laboratoire.
+La fixture vidéo ne valide pas une caméra, un accélérateur ou un flux réel.

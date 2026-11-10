@@ -83,3 +83,53 @@ class MirrorTests(unittest.TestCase):
   plan=self.engine.prepare(1000,'admin',body);self.commit(plan)
   self.assertEqual(self.engine.db.execute('SELECT phase FROM deployments').fetchone()[0],'ready')
   self.assertEqual(self.calls,[])
+
+ def resumable(self):
+  self.record['repair']={'plan':'resume','status':'rebuilding'}
+  self.record['specs']=[self.specs[0],self.specs[2]]
+  with self.engine.db:
+   self.engine.db.execute("UPDATE deployments SET phase='repairing',record=?",(json.dumps(self.record),))
+   self.engine.db.execute("INSERT INTO actions(id,ts,actor,action,volume,object,status) VALUES('resume',0,'admin','repair','managed-test','disk-c','running')")
+  self.observed.update(array_state='read-auto',members=[{'device':'8:0','state':['in_sync']},{'device':'8:2','state':['spare']}])
+
+ def test_resume_refuses_missing_foreign_faulty_or_unauthorized_members(self):
+  self.resumable();before=copy.deepcopy(self.observed)
+  for members in ([{'device':'8:0','state':['in_sync']}],
+                  [{'device':'8:0','state':['in_sync']},{'device':'8:99','state':['spare']}],
+                  [{'device':'8:0','state':['in_sync']},{'device':'8:2','state':['faulty']}]):
+   self.observed['members']=members
+   with self.assertRaises(native.NativeError):self.manager.resume_after_mount(self.record)
+  self.observed=before;self.policy['provisioning']['devices']=[]
+  with self.assertRaises(native.NativeError):self.manager.resume_after_mount(self.record)
+  self.assertEqual(self.calls,[])
+
+ def test_resume_respects_explicit_readonly_active_and_uncertain_states(self):
+  self.resumable()
+  for field,value in [('array_state','readonly'),('sync_action','recover'),('degraded',0)]:
+   before=copy.deepcopy(self.observed);self.observed[field]=value
+   self.assertFalse(self.manager.resume_after_mount(self.record));self.observed=before
+  with self.engine.db:self.engine.db.execute("UPDATE deployments SET phase='uncertain'")
+  self.assertFalse(self.manager.resume_after_mount(self.record));self.assertEqual(self.calls,[])
+
+ def test_resume_only_reactivates_verified_existing_array_and_journals_attempt(self):
+  self.resumable()
+  # Descripteurs de fichiers temporaires ; aucune ouverture de périphérique réel.
+  for identifier in ('disk-a','disk-c'):
+   path=self.path/identifier;path.touch();self.identities[identifier]['path']=str(path)
+  md=self.path/'md';md.touch();self.observed['path']=str(md)
+  devices=iter((os.makedev(8,0),os.makedev(8,2),os.makedev(9,0)))
+  from types import SimpleNamespace
+  self.engine.run=lambda args,pass_fds=():self.calls.append(args)
+  with patch('mirror_repair.os.fstat',side_effect=lambda _:SimpleNamespace(st_rdev=next(devices))):
+   self.assertTrue(self.manager.resume_after_mount(self.record))
+  self.assertEqual(self.calls,[['mdadm','--readwrite',str(md)]])
+  row=self.engine.db.execute('SELECT * FROM deployments').fetchone()
+  self.assertEqual(row['phase'],'repairing')
+  self.assertEqual(json.loads(row['record'])['repair']['resume_requests'],1)
+
+ def test_resume_stale_catalog_or_missing_journal_refused(self):
+  self.resumable();changed=copy.deepcopy(self.record);changed['name']='changed'
+  with self.assertRaises(native.NativeError):self.manager.resume_after_mount(changed)
+  with self.engine.db:self.engine.db.execute('DELETE FROM actions')
+  with self.assertRaises(native.NativeError):self.manager.resume_after_mount(self.record)
+  self.assertEqual(self.calls,[])
