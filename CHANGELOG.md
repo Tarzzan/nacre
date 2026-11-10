@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.0-alpha.3 — Écritures en reconstruction et reprise caméra ARM64
+
+Les volumes RAID1 vérifiés restent disponibles par HTTP et Samba pendant la reconstruction, y compris la transition MD `write-pending` observée à l’arrivée des écritures. Un état incertain, un membre inattendu et les restrictions de lecture seule conservent leurs contrôles.
+
+La capture hors ligne prend en charge les fichiers privés root de Frigate, sans modifier leurs permissions. Le kit vidéo de format 2 archive et vérifie sa configuration ; sa préparation conserve les UID/GID et modes via un conteneur auxiliaire jamais démarré. Les kits de format 1 restent lisibles. La racine de chaque volume récupéré retrouve aussi ses propriétaires et permissions : les comptes Samba secondaires ne sont plus bloqués par le `0700` du dossier temporaire.
+
+Recette ARM64 : 72 fichiers écrits pendant la reconstruction et contrôlés après redémarrage ; vraie caméra, capture chiffrée et reprise sur une VM vierge avec lecture des anciennes vidéos et nouveaux enregistrements. 104 tests Python et 5 JavaScript. Les coupures pendant des écritures actives et les caches matériels restent hors qualification. Voir [la recette complète](docs/CONCURRENT-IO-CAMERA.md).
+
 ## 0.7.0-alpha.2 — Coupure en reconstruction et reprise ARM64
 
 Correction d’une reconstruction suspendue après coupure lorsque Linux réassemble le miroir en `read-auto`. Au démarrage, le helper ne réactive que l’opération déjà journalisée, avec les deux membres attendus et le montage vérifiés ; aucun nouvel ajout ni assemblage forcé. Un état MD explicitement `readonly` reste respecté.

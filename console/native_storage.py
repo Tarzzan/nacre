@@ -174,11 +174,15 @@ CREATE TABLE IF NOT EXISTS actions (id TEXT PRIMARY KEY, ts REAL, actor TEXT, ac
                 'filesystem_uuid':filesystem_uuid,'writable':writable,
                 'identity':{'dev':meta.st_dev,'ino':meta.st_ino}})
         for row,record in self.provisioning().records():
-            if row['phase']!='ready':continue
+            if row['phase'] not in ('ready','repairing'):continue
             try:
                 self.provisioning().authorize(record);mount=self.provisioning().check_mount(record)
+                writable='ro' not in (mount.get('options') or '').split(',')
+                if row['phase']=='repairing':
+                    from mirror_repair import MirrorRepair
+                    writable=MirrorRepair(self).access_during_repair(record) and writable
                 expose(record['id'],record['name'],Path(record['mountpoint'])/'data','volume',record['fs_uuid'],
-                       'ro' not in (mount.get('options') or '').split(','))
+                       writable)
             except (NativeError,OSError,ValueError,KeyError):pass
         for row in self.db.execute("SELECT * FROM native_jobs WHERE status='done'"):
             try:

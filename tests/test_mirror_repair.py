@@ -133,3 +133,48 @@ class MirrorTests(unittest.TestCase):
   with self.engine.db:self.engine.db.execute('DELETE FROM actions')
   with self.assertRaises(native.NativeError):self.manager.resume_after_mount(self.record)
   self.assertEqual(self.calls,[])
+
+ def repairing_resources(self,mount_options='rw'):
+  self.record['mountpoint']=str(self.path/'volume');(self.path/'volume/data').mkdir(parents=True,exist_ok=True)
+  self.resumable()
+  with patch('provisioning.Provisioning.check_mount',return_value={'options':mount_options}):return self.engine.resources()
+
+ def test_resources_remain_available_during_verified_rebuild(self):
+  resources=self.repairing_resources()
+  self.observed.update(sync_action='recover')
+  with patch('provisioning.Provisioning.check_mount',return_value={'options':'rw'}):
+   for array_state in ('active','clean','write-pending'):
+    self.observed['array_state']=array_state
+    self.assertEqual(self.engine.resources(),resources)
+  self.assertEqual(len(resources),1);self.assertTrue(resources[0]['writable'])
+  self.assertEqual(self.calls,[])
+
+ def test_resources_respect_readonly_mount_and_array(self):
+  self.assertFalse(self.repairing_resources('ro')[0]['writable'])
+  self.observed['array_state']='readonly'
+  with patch('provisioning.Provisioning.check_mount',return_value={'options':'rw'}):
+   self.assertFalse(self.engine.resources()[0]['writable'])
+  self.assertEqual(self.calls,[])
+
+ def test_resources_hide_unverified_members_or_repair_journal(self):
+  self.repairing_resources();original=copy.deepcopy(self.observed)
+  with patch('provisioning.Provisioning.check_mount',return_value={'options':'rw'}):
+   for members in ([{'device':'8:0','state':['in_sync']}],
+                   [{'device':'8:0','state':['in_sync']},{'device':'8:99','state':['spare']}],
+                   [{'device':'8:0','state':['in_sync']},{'device':'8:2','state':['faulty']}]):
+    self.observed['members']=members;self.assertEqual(self.engine.resources(),[])
+   self.observed=original
+   with self.engine.db:self.engine.db.execute("UPDATE actions SET status='uncertain'")
+   self.assertEqual(self.engine.resources(),[])
+   with self.engine.db:self.engine.db.execute("UPDATE actions SET status='running'");self.engine.db.execute("UPDATE deployments SET phase='uncertain'")
+   self.assertEqual(self.engine.resources(),[])
+  self.assertEqual(self.calls,[])
+
+ def test_repair_access_refuses_stale_catalog_policy_and_duplicate_identity(self):
+  self.resumable();changed=copy.deepcopy(self.record);changed['name']='changed'
+  with self.assertRaises(native.NativeError):self.manager.access_during_repair(changed)
+  self.identities['disk-c']['device']='8:0'
+  with self.assertRaises(native.NativeError):self.manager.access_during_repair(self.record)
+  self.identities['disk-c']['device']='8:2';self.policy['provisioning']['devices']=[]
+  with self.assertRaises(native.NativeError):self.manager.access_during_repair(self.record)
+  self.assertEqual(self.calls,[])

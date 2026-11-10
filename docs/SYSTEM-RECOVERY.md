@@ -1,6 +1,6 @@
 # Reprendre une installation Nacre
 
-> **0.6.0-alpha.2 · reprise hors ligne, qualifiée en VM x86-64.**
+> **0.7.0-alpha.3 · reprise hors ligne, qualifiée en VM x86-64 et ARM64 ; vidéo réelle qualifiée sur ARM64.**
 > Fichiers, vidéos, configuration, comptes web, clés restic et identité Samba peuvent être récupérés dans une nouvelle installation. Linux doit être installé séparément. Les disques, pools RAID et anciens snapshots natifs ne sont pas reconstruits par cette procédure.
 
 ```mermaid
@@ -22,7 +22,7 @@ flowchart LR
 | --- | --- |
 | Comptes web et mots de passe | Empreintes conservées ; anciennes sessions et tickets révoqués |
 | Fichiers, vidéos, corbeille, restitutions | Contenu sous `data/` et racines externes déclarées ; propriétaires numériques conservés |
-| Configuration caméra et base Frigate | Fichiers sous `state/frigate/`, service vidéo arrêté pendant la capture |
+| Configuration caméra et base Frigate | Archive de `/config` du conteneur arrêté, fichiers privés root inclus ; kit format 2, UID/GID et modes conservés |
 | Comptes Samba | `passdb.tdb`, identité/SID, comptes secondaires, indicateurs de désactivation, configuration et UID |
 | Image Samba | Image exacte exportée, chiffrée dans le dépôt puis importée ; nom d’hôte conservé pour préserver l’identité |
 | Clés des dépôts restic | Incluses dans le point chiffré ; chaque clé doit ouvrir son dépôt avant validation de la capture |
@@ -36,7 +36,7 @@ Les sous-répertoires `.nacre-repos`, `.git`, `.tools`, les tâches temporaires 
 
 - Hôte Linux avec Docker/Compose, Python et le binaire restic vérifié. Même architecture CPU et mêmes UID/GID du compte principal que la capture. Le remappage entre UID ou architectures n’est pas qualifié.
 - Dépôt restic **local ou déjà monté**, dédié à la reprise, hors de toutes les sources. Les URL S3/SFTP ne sont pas acceptées par cet outil. Ne pas modifier/pruner le dépôt pendant une restitution : le conteneur y accède en lecture seule, sans verrou restic.
-- Sources lisibles par le compte de capture. Toute erreur de lecture fait échouer le point ; aucun succès partiel n’est annoncé. Aucune limite applicative de taille des fichiers ou du total ; espace et capacité du système restent nécessaires, notamment pour l’image Samba temporaire.
+- Sources lisibles par le compte de capture, à l’exception de la configuration Frigate récupérée via Docker depuis le conteneur arrêté. Toute erreur de lecture fait échouer le point ; aucun succès partiel n’est annoncé. Aucune limite applicative de taille des fichiers ou du total ; espace et capacité du système restent nécessaires, notamment pour l’image Samba temporaire.
 - Arrêt de la console et de ses workers, Samba, Frigate et de tout autre processus écrivant dans ces données. Les verrous Nacre ne contrôlent pas les écritures d’applications externes.
 - Aucun travail natif en cours. Si le service natif est installé, le conserver disponible pour l’inventaire et interdire toute opération de stockage pendant la capture. Un volume indisponible empêche la validation.
 - La destination est un **nouveau dossier** sous un parent privé 0700 appartenant à l’opérateur. Les chemins utilisés comme montages Docker ne doivent pas contenir de virgule.
@@ -153,3 +153,5 @@ Le scénario [integration_system_recovery_vm.py](../tests/integration_system_rec
 Le banc est QEMU x86-64, avec Docker et un système de fichiers ordinaire pour le volume externe. Les ACL/POSIX étendues, les très gros volumes et la panne pendant l’import Docker restent à qualifier. La reprise ARM64 vers une seconde VM vierge est couverte par le [banc complémentaire](POWER-CUT-LAB.md). La reprise sur Linux vierge x86-64 est maintenant couverte par le [banc complémentaire](FRESH-LINUX.md). Les tests ordinaires et leur CI couvrent séparément x86-64/ARM64.
 
 Références : [restic — restauration](https://restic.readthedocs.io/en/stable/050_restore.html), [Docker — copie de fichiers](https://docs.docker.com/reference/cli/docker/container/cp/), [Docker — export d’image](https://docs.docker.com/reference/cli/docker/image/save/).
+
+La [recette caméra ARM64](CONCURRENT-IO-CAMERA.md) complète les fixtures historiques par un runtime Frigate réel, deux segments de caméra vérifiés, lecture web, nouveaux enregistrements et redémarrage de la cible. La configuration privée utilise un kit **format 2**, lisible à partir de 0.7.0-alpha.3 ; cette version accepte aussi les anciens kits format 1. Le point chiffré contient toujours des secrets : conserver sa clé séparément.

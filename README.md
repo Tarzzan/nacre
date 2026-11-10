@@ -45,7 +45,7 @@ Nacre réunit l’administration des fichiers, des partages réseau, des volumes
 
 *Capture réelle après reconstruction et redémarrage : pool et snapshot synthétiques du banc QEMU.*
 
-La [reprise sur Linux neuf](docs/FRESH-LINUX.md) retrouve données, clés et comptes, puis les raccorde à un nouveau pool. La [reconstruction RAID1](docs/POOL-RECOVERY.md) remplace un membre absent par un disque vierge avec confirmation et contrôle de synchronisation. Les deux parcours sont éprouvés sur images de disques isolées ; aucun disque de production n’est utilisé par les tests. La [qualification ARM64 et les coupures pendant reconstruction](docs/POWER-CUT-LAB.md) complètent ces preuves : reprise sur une seconde VM vierge et trois interruptions brutales par architecture avec vérification des données et snapshots.
+La [reprise sur Linux neuf](docs/FRESH-LINUX.md) retrouve données, clés et comptes, puis les raccorde à un nouveau pool. La [reconstruction RAID1](docs/POOL-RECOVERY.md) remplace un membre absent par un disque vierge avec confirmation et contrôle de synchronisation. Les deux parcours sont éprouvés sur images de disques isolées ; aucun disque de production n’est utilisé par les tests. La [qualification ARM64 et les coupures pendant reconstruction](docs/POWER-CUT-LAB.md) complètent ces preuves : reprise sur une seconde VM vierge et trois interruptions brutales par architecture avec vérification des données et snapshots. Les [écritures concurrentes et la reprise vidéo ARM64](docs/CONCURRENT-IO-CAMERA.md) ajoutent 72 fichiers écrits en reconstruction et le retour d’une vraie caméra sur un Linux vierge.
 
 ## Capacités et maturité
 
@@ -98,7 +98,7 @@ La console web tourne en utilisateur. Le service natif expose des opérations fe
 
 ## Ce qui est vérifié
 
-- **94 tests Python et 5 tests JavaScript**, dont reprise après arrêt brutal, intégrité des copies, protection des clés, refus de reprise dangereuse et expiration de session. Un scénario QEMU distinct vérifie comptes web/Samba, SID, données et rattachement du dépôt.
+- **104 tests Python et 5 tests JavaScript**, dont reprise après arrêt brutal, intégrité des copies, protection des clés, refus de reprise dangereuse et expiration de session. Un scénario QEMU distinct vérifie comptes web/Samba, SID, données et rattachement du dépôt.
 - Dépôt HTTP de 257 Mio et archive contenant un fichier de 1 Gio + 7 octets.
 - Sauvegarde chiffrée, restauration multivolume, droits SMB et exclusion des dossiers internes.
 - Banc QEMU avec vrais systèmes de fichiers et disques images : snapshots, provisionnement, restauration LVM, perte/remontage d’un volume.
@@ -116,6 +116,7 @@ La CI rejoue les tests ordinaires ; **les tests privilégiés QEMU et matériels
 | [Feuille de route](docs/ROADMAP.md) | Étapes et critères de sortie |
 | [Linux neuf](docs/FRESH-LINUX.md) | Réinstallation, clés, comptes et nouveau pool |
 | [Coupure et ARM64](docs/POWER-CUT-LAB.md) | Défaut détecté, correction, bancs et limites de la simulation |
+| [Écritures et caméra ARM64](docs/CONCURRENT-IO-CAMERA.md) | Accès pendant reconstruction, fichiers privés Frigate et reprise vidéo |
 | [Reconstruction RAID1](docs/POOL-RECOVERY.md) | Remplacement contrôlé et vérification du miroir |
 | [Reprise de console](docs/RECOVERY.md) | Migrations atomiques, copies préalables et récupération hors ligne |
 | [Validation](docs/VALIDATION.md) | Tests locaux, CI et laboratoire privilégié |

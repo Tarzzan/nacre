@@ -117,4 +117,65 @@ class RecoveryTests(unittest.TestCase):
         self.assertEqual((self.root/'data/.corbeille'/identifier).read_text(),'témoin')
         with self.db() as db:self.assertEqual(db.execute('SELECT area,original FROM trash').fetchone(),('fichiers','reprise-volumes/native_data/ancien.txt'))
 
+
+    def test_video_capture_requires_exact_mounts_and_unique_container(self):
+        state={'Id':'video','Config':{'Labels':{'com.docker.compose.service':'video'}},'Mounts':[
+            {'Destination':'/config','Type':'bind','Source':str(self.root/'state/frigate')},
+            {'Destination':'/media/frigate','Type':'bind','Source':str(self.root/'data/video')}]}
+        self.assertIs(recovery.video_config_container(self.root,[state]),state)
+        self.assertIsNone(recovery.video_config_container(self.root,[]))
+        with self.assertRaises(recovery.RecoveryError):recovery.video_config_container(self.root,[state,state])
+        state['Mounts'][0]['Source']=str(self.base/'foreign')
+        with self.assertRaises(recovery.RecoveryError):recovery.video_config_container(self.root,[state])
+
+    def test_video_archive_rejects_alias_duplicates_links_and_directory_database(self):
+        recovery.tar_safe(self.archive([('frigate.db',tarfile.REGTYPE)]),required='frigate.db')
+        for members in ([('frigate.db',tarfile.DIRTYPE)],
+                        [('frigate.db',tarfile.REGTYPE),('./frigate.db',tarfile.REGTYPE)],
+                        [('frigate.db',tarfile.REGTYPE),('.jwt_secret',tarfile.SYMTYPE)]):
+            with self.subTest(members=members),self.assertRaises(recovery.RecoveryError):
+                recovery.tar_safe(self.archive(members),required='frigate.db')
+
+    def video_archive(self):
+        kit=self.root/'state/recovery-kit';kit.mkdir()
+        path=self.archive([('frigate.db',tarfile.REGTYPE),('.jwt_secret',tarfile.REGTYPE)])
+        destination=kit/'frigate.tar';path.rename(destination)
+        return {'format':2,'sha256':{'frigate.tar':recovery.checksum(destination)}}
+
+    def test_video_restore_refuses_hash_mismatch_or_existing_destination(self):
+        manifest=self.video_archive()
+        with patch.object(recovery,'run') as run:
+            with self.assertRaises(recovery.RecoveryError):
+                recovery.restore_video_config(self.root,'image',{'format':2,'sha256':{'frigate.tar':'bad'}})
+            (self.root/'state/frigate').mkdir()
+            with self.assertRaises(recovery.RecoveryError):recovery.restore_video_config(self.root,'image',manifest)
+            run.assert_not_called()
+
+    def test_video_restore_uses_stopped_container_and_cleans_it_after_copy_failure(self):
+        manifest=self.video_archive();calls=[]
+        def run(args,**kwargs):
+            calls.append(args)
+            if args[:2]==['docker','cp']:raise recovery.RecoveryError('copie interrompue')
+        with patch.object(recovery,'run',side_effect=run),self.assertRaises(recovery.RecoveryError):
+            recovery.restore_video_config(self.root,'image',manifest)
+        self.assertEqual([c[1] for c in calls],['create','cp','rm'])
+        self.assertIn('--read-only',calls[0]);self.assertIn('--cap-drop',calls[0])
+        self.assertIn('none',calls[0]);self.assertIn('-a',calls[1])
+        self.assertEqual(calls[0][calls[0].index('--name')+1],calls[-1][2])
+
+
+    def test_restore_root_metadata_preserves_mode_and_numeric_owners(self):
+        row={'path':'/source','type':'dir','uid':2000,'gid':1000,'mode':(1<<31)|(1<<22)|(1<<20)|0o770}
+        def restic(*args,stdout=None):stdout.write((json.dumps(row)+'\n').encode())
+        with patch.object(recovery,'restic',side_effect=restic):
+            self.assertEqual(recovery.source_directory_metadata('repo','key','snapshot','/source'),(2000,1000,'3770'))
+
+    def test_restore_root_metadata_refuses_absent_ambiguous_or_invalid_entries(self):
+        good={'path':'/source','type':'dir','uid':1000,'gid':1000,'mode':(1<<31)|0o770}
+        for rows in ([],[good,good],[dict(good,type='symlink')],[dict(good,uid=-1)],[dict(good,mode='0770')]):
+            def restic(*args,stdout=None):
+                for row in rows:stdout.write((json.dumps(row)+'\n').encode())
+            with self.subTest(rows=rows),patch.object(recovery,'restic',side_effect=restic),self.assertRaises(recovery.RecoveryError):
+                recovery.source_directory_metadata('repo','key','snapshot','/source')
+
 if __name__=='__main__':unittest.main()
