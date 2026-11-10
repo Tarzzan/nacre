@@ -366,3 +366,10 @@ clés, comptes web/Samba, copie sur miroir neuf, remplacement B→C et redémarr
 Le parcours RAID1 journalise avant ajout, ne rejoue pas la commande après
 interruption et contrôle les deux membres synchronisés avant clôture.
 Les anciens snapshots d’un pool perdu ne sont pas recréés par une copie de fichiers.
+
+COUPURE ET ARM64 — 0.7.0-alpha.2
+Le banc de coupures QEMU et la reprise sur deux VM ARM64 successives sont
+décrits dans docs/POWER-CUT-LAB.md. Après coupure, le service peut réactiver un
+miroir read-auto uniquement si le journal et les deux membres correspondent.
+Aucun nouvel ajout, formatage ni assemblage forcé. Le readonly MD explicite
+reste respecté. 94 tests Python et 5 JavaScript ; essais privilégiés hors CI.

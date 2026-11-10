@@ -21,7 +21,7 @@ BASE=Path(os.environ.get('NACRE_RECOVERY_TEST_ROOT','/home/ubuntu/nacre-system-r
 BASE.mkdir(mode=0o700)
 root=BASE/'source';shutil.copytree(SOURCE,root,ignore=shutil.ignore_patterns('.git','__pycache__','.tools'))
 os.environ['NAS_ROOT']=str(root)
-os.environ['NAS_RESTIC_BIN']='/home/ubuntu/nacre-v05-console/.tools/restic'
+os.environ.setdefault('NAS_RESTIC_BIN',str(SOURCE/'.tools/restic'))
 sys.path.insert(0,str(SOURCE/'console'));sys.path.insert(0,str(SOURCE))
 import server as app
 from compose_support import arguments
@@ -80,6 +80,7 @@ recovery_repo=BASE/'recovery-repo';restic(recovery_repo,bootstrap,'init')
 try:capture(root,recovery_repo,bootstrap);raise AssertionError('Capture autorisée avec Samba actif')
 except RecoveryError:pass
 source_sid=run(arguments(root,'exec','-T','fichiers','net','getlocalsid')).decode().split()[-1]
+write(BASE/'expectations.json',{'source_sid':source_sid,'architecture':os.uname().machine,'owner_uid':original_owner})
 run(arguments(root,'stop','fichiers'))
 receipt=capture(root,recovery_repo,bootstrap)
 assert receipt['complete']

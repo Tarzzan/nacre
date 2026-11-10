@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.0-alpha.2 — Coupure en reconstruction et reprise ARM64
+
+Correction d’une reconstruction suspendue après coupure lorsque Linux réassemble le miroir en `read-auto`. Au démarrage, le helper ne réactive que l’opération déjà journalisée, avec les deux membres attendus et le montage vérifiés ; aucun nouvel ajout ni assemblage forcé. Un état MD explicitement `readonly` reste respecté.
+
+Banc de trois arrêts brutaux QEMU pendant reconstruction, audit des commandes mdadm, contrôle des UUID, fichier de 64 Mio et snapshot antérieur. Reprise ARM64 sur une seconde VM vierge après arrêt de la source : données, clés, comptes web/Samba, SID, nouveau pool et contrôles après redémarrage. 94 tests Python et 5 JavaScript ; limites de la simulation de coupure documentées.
+
 ## 0.7.0-alpha.1 — Linux neuf et reconstruction RAID1
 
 Reprise qualifiée sur Ubuntu vierge : données, clés historiques, comptes web/Samba, nouveau miroir Btrfs, raccordement des partages et redémarrage. Ajout du parcours navigateur de remplacement d’un membre RAID1 absent, avec disque vierge explicitement autorisé, plan à usage unique, journal préalable et vérification des deux membres synchronisés. Aucun rejeu automatique après interruption ; validation distincte du catalogue en cas de résultat ambigu.

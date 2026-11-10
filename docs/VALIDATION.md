@@ -1,12 +1,22 @@
 # Validation
 
+## Coupure et reprise ARM64 — 0.7.0-alpha.2
+
+94 tests Python, sans test ignoré avec restic vérifié, et 5 tests JavaScript. Les nouveaux refus couvrent membres absents/inattendus/défaillants, retrait de politique, catalogue modifié, journal absent, état incertain et MD explicitement `readonly`. Le test positif vérifie une demande `--readwrite` journalisée sans nouvel ajout.
+
+Le banc [POWER-CUT-LAB.md](POWER-CUT-LAB.md) interrompt trois fois QEMU pendant une reconstruction active et incomplète. Les contrôles finaux comparent les UUID, les deux membres, le SHA-256 d’un fichier aléatoire de 64 Mio et celui de son snapshot. L’audit mdadm côté système invité ne doit compter qu’un seul `--add`. Le défaut `read-auto` observé après coupure a été corrigé ; la répétition finale utilise le correctif dès le départ.
+
+La reprise ARM64 utilise deux VM Ubuntu 24.04 vierges successives sous KVM ARM64 : source arrêtée, cible sans images/volumes Docker ni catalogue natif. Clés historiques, comptes web/Samba, SID, UID et données sont contrôlés, puis un nouveau miroir est créé et soumis aux coupures. La connexion web et les droits Samba sont revérifiés après redémarrage. Frigate reste une fixture de configuration/base/octets vidéo, sans caméra réelle.
+
+Les données chiffrées, clés et disques du banc restent hors de Git. Les résultats structurés distinguent coupure virtuelle et perte électrique matérielle : le cache du contrôleur physique et les écritures applicatives concurrentes ne sont pas qualifiés.
+
 ## Linux neuf et RAID1 — 0.7.0-alpha.1
 
 90 tests Python, sans test ignoré avec restic vérifié, et 5 tests JavaScript. Six tests isolés couvrent les refus de reconstruction, les changements d’identité/politique, l’opérateur et la confirmation, l’état incomplet, l’échec sans rejeu et la validation du catalogue après contrôle physique.
 
 Un Ubuntu 24.04 x86-64 vierge, sans ancienne image ni volume Docker, reçoit uniquement une sauvegarde synthétique et le code approuvé. La source est une VM séparée arrêtée. Le banc retrouve les clés et comptes, crée un miroir Btrfs sur deux images de 2 Gio, copie les fichiers avec leurs UID et vérifie HTTP/SMB. Il retire ensuite le membre B, reconstruit sur C, redémarre le helper sans rejeu, compare les empreintes et lit un clone du snapshot antérieur. Un redémarrage de Linux vérifie à nouveau le pool, la connexion web et les comptes Samba. Aucun périphérique bloc hôte n’est exposé à QEMU.
 
-Les scripts sont `integration_fresh_linux_vm.py` et `integration_mirror_repair_vm.py`. La reprise implique une copie intermédiaire et un raccordement administratif des partages ; elle n’est pas un installateur universel. La vidéo utilise des fixtures, sans démarrage de Frigate. Les pertes électriques pendant reconstruction, ARM64 intégral et reconstruction ext4 restent à qualifier.
+Les scripts sont `integration_fresh_linux_vm.py` et `integration_mirror_repair_vm.py`. La reprise implique une copie intermédiaire et un raccordement administratif des partages ; elle n’est pas un installateur universel. La vidéo utilise des fixtures, sans démarrage de Frigate. À ce jalon, les coupures pendant reconstruction, ARM64 intégral et reconstruction ext4 restaient à qualifier ; voir la preuve 0.7.0-alpha.2 ci-dessus pour les deux premiers parcours.
 
 ## Connexion 0.6.0-alpha.3
 
