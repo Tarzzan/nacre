@@ -2,17 +2,21 @@
 
 ## Préparer l’hôte
 
+**Ubuntu 24.04 neuf :** un [plan de préparation et un démarrage persistant](HOST-BOOTSTRAP.md) automatisent les paquets Ubuntu et la configuration du compte. La préparation manuelle ci-dessous reste disponible pour les autres hôtes.
+
 Linux x86-64 ou ARM64, Python 3.11+ et util-linux. Docker Engine et le plugin Compose (`docker compose`, v2 ou supérieur) sont requis pour Samba et Frigate, mais pas pour ouvrir la console et son assistant. Le compte dédié doit pouvoir exécuter Docker ; ce droit équivaut à un accès privilégié à l’hôte. Le service utilisateur demande systemd. SMART nécessite smartmontools et des permissions adaptées au périphérique.
 
 Les images Docker et le runtime restic sont référencés dans le code. L’installation initiale nécessite Internet pour les récupérer. Aucune dépendance Python tierce n’est nécessaire à la suite de tests standard.
 
 ## Installer la console
 
-Depuis le dépôt cloné :
+Depuis le dépôt cloné, sous un compte non root :
 
 ```bash
 python3 installer.py
 ```
+
+`python3 installer.py --service` prépare et démarre directement le service utilisateur ; l’administrateur doit avoir prévu le maintien de session pour le retour au démarrage. `--port PORT` permet de choisir le port local.
 
 `installer.py` prépare les fichiers privés, conserve la configuration existante et lance la console au premier plan. Dans un second terminal, `python3 lab.py acces` affiche les accès provisoires. Le premier administrateur choisit son mot de passe dans le navigateur. `--prepare-only` prépare les fichiers sans lancer le serveur. Voir le [parcours illustré](FIRST-RUN.md).
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0-alpha.3 — Préparation Ubuntu et service persistant
+
+Plan puis préparation explicite des prérequis Ubuntu 24.04 : paquets de la distribution, accès Docker et maintien du gestionnaire utilisateur. Les distributions Docker externes sont conservées avec un refus avant modification. `installer.py --service` installe et démarre Nacre sans sudo, avec port local configurable, validation de l’unité et restitution après échec.
+
+Banc ARM64 vierge : deux redémarrages, console active avant SSH, installation Samba depuis le navigateur via une tâche systemd, fichier relu après redémarrage avec empreinte identique. 136 tests Python et 9 JavaScript. [Parcours et limites](docs/HOST-BOOTSTRAP.md).
+
 ## 0.8.0-alpha.2 — Installation web sur Linux neuf
 
 Samba et Frigate installés réellement par le navigateur dans une VM Ubuntu 24.04 ARM64 vierge, puis relancés avec conservation d’un fichier témoin. Lecture/écriture SMB3 vérifiée, écriture vidéo refusée, Frigate sain et API disponible. Docker reste un prérequis préparé sur Linux.
