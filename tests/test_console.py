@@ -69,10 +69,11 @@ class ConsoleSecurityTests(unittest.TestCase):
         return self.request('POST', route, body, self.token, self.csrf)
 
     def test_retention_requires_administrator_and_csrf(self):
-        for route in ('/api/protection/retention-preview','/api/protection/retention-apply'):
+        for route in ('/api/protection/retention-preview','/api/protection/retention-apply','/api/protection/retention-policy'):
             self.assertEqual(self.request('POST',route,{},self.reader,self.reader_csrf)[0],403)
             self.assertEqual(self.request('POST',route,{},self.token)[0],403)
             self.assertEqual(self.request('POST',route,{},self.token,self.csrf,'https://other.example')[0],403)
+        self.assertEqual(self.request('GET','/api/protection/retention-policies',token=self.reader)[0],403)
 
     def test_session_cookie_survives_unrelated_local_cookies(self):
         # Des applications sur d’autres ports déposent des valeurs JSON libres.

@@ -17,7 +17,11 @@ Nacre réunit l’administration des fichiers, des partages réseau, des volumes
 
 ### Maîtriser la conservation des sauvegardes
 
-**Simuler avant de supprimer.** Depuis Snapshots, choisir combien de points réussis conserver par groupe, examiner les versions concernées puis confirmer le nettoyage. Les points partiels, importés ou sans preuve locale de réussite restent protégés. La tâche continue sans navigateur ; aucune suppression automatique n’est activée. [Guide de rétention](docs/BACKUP-RETENTION.md).
+**Après chaque nouvelle capture réussie.** Une règle par dépôt peut être activée après simulation et confirmation. Nacre recalcule les points à supprimer, nettoie, puis suspend la règle avec une alerte en cas d’incident. Les règles restent désactivées par défaut et lors d’une reprise d’installation. [Rétention automatique](docs/AUTOMATIC-RETENTION.md).
+
+![Rétention automatique sur le banc isolé](docs/images/retention-auto-resultat.jpg)
+
+**Simuler avant de supprimer.** Depuis Snapshots, choisir combien de points réussis conserver par groupe, examiner les versions concernées puis confirmer le nettoyage. Les points partiels, importés ou sans preuve locale de réussite restent protégés. La tâche continue sans navigateur ; une application ponctuelle n’active pas de règle automatique. [Guide de rétention](docs/BACKUP-RETENTION.md).
 
 ![Simulation de rétention sur données synthétiques](docs/images/retention-simulation.jpg)
 
@@ -93,7 +97,7 @@ La [reprise sur Linux neuf](docs/FRESH-LINUX.md) retrouve données, clés et com
 | :--- | :--- | :--- |
 | Fichiers | Transferts en flux, dossiers, renommage, téléchargement, corbeille, restauration | Accès HTTP aux volumes natifs réservé aux administrateurs |
 | Partages SMB | Comptes, permissions, lecture seule, volumes gérés, reprise après perte de montage | Une modification des montages peut interrompre les connexions SMB |
-| Protection | Restic chiffré et dédupliqué, sources multiples, restauration privée, plans horaires, rétention simulée puis confirmée | Captures de fichiers non atomiques ; pas de rétention automatique |
+| Protection | Restic chiffré et dédupliqué, sources multiples, restauration privée, plans horaires, rétention manuelle ou après réussite | Captures de fichiers non atomiques ; pas de règles de rétention calendaires |
 | Volumes | Inventaire, diagnostic SMART selon droits, disque entier ext4/Btrfs, miroir RAID1 | Opérations privilégiées validées en VM ; reconstruction RAID1 Btrfs qualifiée en VM ; pas de partitionnement |
 | Snapshots natifs | Btrfs, ZFS, LVM classique/thin ; clones Btrfs/ZFS, copie LVM ext4/XFS | Clone ZFS non monté ; pas de programmation native |
 | Surveillance | Ajout et correction Tapo/RTSP, sélection de caméra, direct, clips et PTZ ONVIF | Une Tapo C530WS validée historiquement ; charge et compatibilité multi-caméra réelles à qualifier |
@@ -135,7 +139,7 @@ La console web tourne en utilisateur. Le service natif expose des opérations fe
 
 ## Ce qui est vérifié
 
-- **180 tests Python et 18 tests JavaScript**, dont reprise après arrêt brutal, intégrité des copies, protection des clés, refus de reprise dangereuse, rétention sur dépôt chiffré et expiration de session. Un scénario QEMU distinct vérifie comptes web/Samba, SID, données et rattachement du dépôt.
+- **193 tests Python et 20 tests JavaScript**, dont reprise après arrêt brutal, intégrité des copies, protection des clés, refus de reprise dangereuse, rétention sur dépôt chiffré et expiration de session. Un scénario QEMU distinct vérifie comptes web/Samba, SID, données et rattachement du dépôt.
 - Dépôt HTTP de 257 Mio et archive contenant un fichier de 1 Gio + 7 octets.
 - Sauvegarde chiffrée, restauration multivolume, droits SMB et exclusion des dossiers internes.
 - Banc QEMU avec vrais systèmes de fichiers et disques images : snapshots, provisionnement, restauration LVM, perte/remontage d’un volume.
