@@ -100,10 +100,16 @@ class Protection:
         if not row:
             raise self.app.Problem('Dépôt inconnu.', 404)
         value=dict(row)
+        if value['target']=='recovery-detached':
+            raise self.app.Problem('Raccorder ce dépôt avec la procédure de reprise avant de l’utiliser.',503)
         if value['target'].startswith('native_'):
             resource=self.app.resolve_area(value['target'])
             if resource.get('kind')!='volume' or resource.get('filesystem_uuid')!=value['storage_uuid'] or str(Path(resource['path'])/'.nacre-repos'/value['id'])!=value['path']:
                 raise self.app.Problem('La destination ne correspond plus au volume du dépôt.',503)
+        if value['target']=='recovered':
+            expected=json.loads((self.app.STATE/'recovery-repositories.json').read_text())[identifier]
+            if json.loads(self.checked(value,'cat','config'))['id']!=expected:
+                raise self.app.Problem('Le dépôt raccordé a changé d’identité.',503)
         return value
 
     def repositories(self):

@@ -496,5 +496,41 @@
       "gitleaks": "passed"
     },
     "vm_powered_off": true
+  },
+  "installation_recovery_v06_alpha2": {
+    "scope": "Nacre installation, not a bootable OS or native pool rebuild",
+    "test_environment": "isolated QEMU Ubuntu 24.04 x86-64; no host block devices",
+    "automated_tests": 82,
+    "result": {
+      "owner_uid_preserved": true,
+      "console_original_password_http_login": true,
+      "plans_disabled_sessions_revoked": true,
+      "repositories_detached_until_verified": true,
+      "camera_configuration_preserved": true,
+      "frigate_sqlite_restored": true,
+      "native_metadata_exported": true,
+      "samba_recreation_preserves_accounts": true,
+      "files_restored": true,
+      "video_bytes_restored": true,
+      "external_volume_files_restored": true,
+      "keys_recovered_after_source_loss": true,
+      "encrypted_history_unlocked": true,
+      "samba_password_preserved": true,
+      "samba_server_sid_preserved": true,
+      "samba_disabled_flag_preserved": true,
+      "samba_secondary_account_rw": true,
+      "samba_readonly_enforced": true,
+      "disabled_account_refused": true,
+      "separate_docker_volume": true,
+      "running_service_capture_refused": true
+    },
+    "native_metadata_scope": "empty policy/catalog exported; no native volume rebuild",
+    "remaining": [
+      "Full recovery on ARM64",
+      "UID/GID or architecture remapping",
+      "Linux reinstall and native pool/snapshot reconstruction",
+      "ACL and xattr qualification",
+      "Large-volume endurance and interrupted Docker import"
+    ]
   }
 }

@@ -125,3 +125,17 @@ avec le compte conservé ainsi que la lecture d’un témoin d’audit. Il arrê
 sa console et supprime uniquement ses fixtures temporaires. Le premier couvre
 notamment un SIGKILL pendant la transaction puis la reprise de migration.
 Éteindre la VM après collecte des résultats.
+
+REPRISE D’INSTALLATION — 0.6.0-alpha.2
+
+Dans une VM QEMU jetable avec Docker, image Samba disponible, smbclient dans
+l’image, restic vérifié et le service natif de laboratoire installé :
+NACRE_VM_LAB=1 NACRE_RECOVERY_TEST_ROOT=/home/ubuntu/reprise-essai-neuf   python3 tests/integration_system_recovery_vm.py
+
+Le script réserve le service natif de cette VM au scénario (ancienne politique
+et catalogue conservés dans le répertoire du test, nouvelle politique vide).
+Il ne connecte aucun disque bloc hôte. Un dossier de test neuf est obligatoire.
+Le chemin du runtime restic est celui du banc v05 documenté dans le script.
+Il capture un dépôt chiffré, rend la source inaccessible par ses anciens chemins,
+restaure les données et comptes, puis contrôle Samba et l’authentification web.
+Ne pas lancer sur Spark ni sur un NAS réel. Arrêter la VM après le scénario.

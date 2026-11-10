@@ -44,7 +44,7 @@ Le provisionnement actuel utilise des disques entiers explicitement autorisés. 
 
 ## Données persistantes
 
-Conserver `.env`, `state/`, `data/` et les volumes Docker nécessaires. Ils sont exclus de Git. Les dépôts chiffrés, leurs clés, les bases de comptes et les données vidéo ont des besoins de sauvegarde différents. La capture de configuration Nacre n’est pas une image système ni une sauvegarde complète du passdb Samba.
+Conserver `.env`, `state/`, `data/` et les volumes Docker nécessaires. Ils sont exclus de Git. Les dépôts chiffrés, leurs clés, les bases de comptes et les données vidéo ont des besoins de sauvegarde différents. Les snapshots ordinaires de configuration ne sauvegardent pas tout le passdb Samba. La [reprise hors ligne d’installation](SYSTEM-RECOVERY.md) inclut cet état et les clés ; elle ne constitue pas une image système.
 
 ## Mettre à jour
 

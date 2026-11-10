@@ -71,6 +71,12 @@ def digest(value):
 
 
 def initialize():
+    from installation_lock import held
+    with held(ROOT):
+        _initialize()
+
+
+def _initialize():
     STATE.mkdir(parents=True, mode=0o700, exist_ok=True)
     STATE.chmod(0o700)
     for name in ('data/fichiers', 'data/video', 'data/sauvegardes', 'data/.corbeille', 'state/samba'):
@@ -591,6 +597,9 @@ class Handler(BaseHTTPRequestHandler):
                 if session['role'] != 'admin':
                     raise Problem('Accès réservé aux administrateurs.', 403)
                 manager = protection()
+                if url.path == '/api/protection/installation':
+                    from system_recovery import status
+                    return self.reply(200, status(ROOT))
                 if url.path == '/api/protection/migrations':
                     from schema import status
                     return self.reply(200, status(DB))
@@ -934,9 +943,22 @@ class Server(ThreadingHTTPServer):
     daemon_threads = True
     request_queue_size = 32
     def __init__(self, address, handler):
-        super().__init__(address, handler)
+        from installation_lock import acquire
+        self.installation_fd = acquire(ROOT)
+        try:
+            super().__init__(address, handler)
+        except BaseException:
+            if self.installation_fd is not None:os.close(self.installation_fd)
+            self.installation_fd=None
+            raise
         self.attempts = []
         self.limit_lock = threading.Lock()
+
+    def server_close(self):
+        super().server_close()
+        if self.installation_fd is not None:
+            os.close(self.installation_fd)
+            self.installation_fd = None
 
     def login_limit(self):
         with self.limit_lock:
@@ -950,6 +972,8 @@ class Server(ThreadingHTTPServer):
 
 if __name__ == '__main__':
     os.umask(0o077)
+    from installation_lock import acquire
+    process_installation_lock = acquire(ROOT)
     initialize()
     if len(sys.argv) > 1 and sys.argv[1] == 'init':
         print('Console initialisée ; identifiants conservés dans son répertoire privé.')

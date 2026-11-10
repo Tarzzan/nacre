@@ -66,6 +66,16 @@ class ConsoleSecurityTests(unittest.TestCase):
     def admin_post(self, route, body):
         return self.request('POST', route, body, self.token, self.csrf)
 
+    def test_installation_recovery_status_is_admin_only_and_has_no_secrets(self):
+        route='/api/protection/installation'
+        self.assertEqual(self.request('GET',route,token=self.reader)[0],403)
+        status,body=self.request('GET',route,token=self.token)
+        self.assertEqual(status,200)
+        result=json.loads(body)
+        self.assertTrue(result['offline_only'])
+        self.assertNotIn('password',body.decode())
+        self.assertNotIn('key_file',body.decode())
+
     def test_unauthenticated_private_api_and_files_denied(self):
         for path in ('/api/me', '/api/files', '/api/smb', '/api/download?path=test'):
             self.assertEqual(self.request('GET', path)[0], 401)
