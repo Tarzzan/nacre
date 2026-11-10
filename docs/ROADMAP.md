@@ -12,6 +12,10 @@ Les versions futures sont des objectifs sans date promise. Chaque étape demande
 | **1.0 — cible à qualifier** | Version exploitable avec périmètre de support précis | Revue de sécurité, endurance, mises à jour et reprise éprouvées ; aucun défaut critique connu |
 | **Après stabilisation** | Gestion de plusieurs NAS | Identités inter-hôtes, révocation, fonctionnement déconnecté et politiques de groupe spécifiés |
 
+## Alertes locales 0.8.0-alpha.4
+
+Collecte indépendante du navigateur, incidents persistants, prise en compte versionnée, historique et badge global. Couverture initiale des services connus, du débit caméra, des derniers résultats de sauvegarde et de l’espace du volume de Nacre. La notification externe, les diagnostics d’intégrité vidéo et les alertes de tous les pools restent ouverts. [Guide](LOCAL-ALERTS.md).
+
 ## Préparation et persistance 0.8.0-alpha.3
 
 Plan/apply pour les prérequis Ubuntu 24.04 et installation du service utilisateur par `installer.py --service`. Retour après redémarrage et tâches systemd vérifiés sur VM ARM64 neuve. La préparation multi-distribution, une matrice matérielle étendue et la mise à jour transactionnelle restent ouvertes. [Recette](HOST-BOOTSTRAP.md).

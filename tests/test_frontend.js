@@ -102,3 +102,20 @@ test('component status distinguishes container health and names installation job
  assert.equal(f.run('componentState({}, {state:"running",health:"healthy"})'),'En service');
  assert.match(f.run('deploymentRows([{ts:0,kind:"component_install",component:"video",status:"done",result:{},progress:{}}])[0]'),/Installation · Frigate/);
 });
+test('late alert response does not overwrite another page or a logged out session',async()=>{
+ let complete;const f=fixture(()=>new Promise(resolve=>{complete=resolve;}));
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/alerts.js'),'utf8'),f.context);
+ f.run('user={name:"admin",role:"admin"};shell();page="alerts";');
+ const pending=f.run('renderAlerts()');f.run('page="files";$("#content").innerHTML="files remain visible";');
+ complete(response(200,{}));await pending;
+ assert.equal(f.elements.get('#content').innerHTML,'files remain visible');
+ const badge=f.run('refreshAlertBadge()');f.run('login()');complete(response(200,{attention:1}));
+ await assert.rejects(badge,{name:'AbortError'});
+});
+test('alert card escapes labels and acknowledgement does not pretend to resolve',()=>{
+ const f=fixture(async()=>response(200,{}));
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/alerts.js'),'utf8'),f.context);
+ const html=f.run('alertCard({id:"abc",title:"<script>x</script>",message:"<img>",page:"camera",first:1,acknowledged:2,ackby:"<admin>",severity:"warning"})');
+ assert.match(html,/Pris en compte/);assert.doesNotMatch(html,/>Résolu</);
+ assert.doesNotMatch(html,/<script>|<img>|<admin>/);assert.match(html,/&lt;script&gt;/);
+});

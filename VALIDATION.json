@@ -1277,5 +1277,22 @@
     "worker_backend": "systemd user transient unit",
     "production_changed": false,
     "scope": "host preparation, persistent console and Samba across planned reboots; no new Frigate/camera test"
+  },
+  "local_alerts_0_8_alpha4": {
+    "simulated_sources": true,
+    "initial_active": 3,
+    "acknowledged_by_browser": 1,
+    "acknowledgement_survived_process_restart": true,
+    "resolved_by_periodic_monitor": 2,
+    "remaining_active": 1,
+    "acknowledged_camera_in_history": true,
+    "verified_at_utc": "2026-11-10T12:02:00Z",
+    "python_tests": 146,
+    "javascript_tests": 11,
+    "background_interval_seconds": 30,
+    "history_resolved_limit": 100,
+    "production_changed": false,
+    "external_notifications": false,
+    "scope": "HTTP browser workflow with simulated observations, actual process restart, unit collector fixtures; no real camera fault or hardware failure injected"
   }
 }

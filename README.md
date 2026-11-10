@@ -15,6 +15,12 @@ Nacre réunit l’administration des fichiers, des partages réseau, des volumes
 
 ## Dans le navigateur
 
+### Repérer les incidents et suivre leur résolution
+
+Un centre **Alertes** rassemble les incidents locaux, leur prise en compte et les retours à la normale. Le compteur reste accessible dans la console ; aucun envoi extérieur n’est activé. [Périmètre et fonctionnement](docs/LOCAL-ALERTS.md).
+
+![Centre d’alertes — sources simulées](docs/images/alertes-locales.jpg)
+
 ### Prendre les commandes au premier démarrage
 
 **Nouveau : préparation Ubuntu et démarrage persistant.** Examiner le plan des prérequis, l’appliquer sur un hôte neuf, puis lancer `python3 installer.py --service`. Nacre revient automatiquement après redémarrage lorsque le maintien de session est configuré. [Parcours illustré et limites](docs/HOST-BOOTSTRAP.md).

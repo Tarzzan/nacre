@@ -90,7 +90,7 @@ def load_config(path):
             compose_arguments(ROOT, 'exec', '-T',
              'video', 'python3', '-c',
              'import json,sys,yaml; print(json.dumps(yaml.safe_load(sys.stdin.read())))'),
-            cwd=ROOT, input=text, capture_output=True, text=True)
+            cwd=ROOT, input=text, capture_output=True, text=True, timeout=20)
         if result.returncode:
             raise RuntimeError('Lecture YAML impossible. Démarrer le service vidéo avant de configurer la caméra.')
         return json.loads(result.stdout)
