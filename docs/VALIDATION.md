@@ -1,5 +1,9 @@
 # Validation
 
+## Alertes locales — 0.8.0-alpha.4
+
+146 tests Python et 11 JavaScript. Sources simulées sur banc HTTP local : trois incidents, prise en compte caméra depuis le navigateur, persistance après redémarrage du processus, clôture périodique de deux incidents après retour simulé. Tests de contrôles inconnus, confirmations, version périmée, regroupement de sauvegardes, accès administrateur et absence de secrets. [Protocole et captures](LOCAL-ALERTS.md). Aucun nouveau test de panne matérielle ou caméra réelle.
+
 ## Préparation Ubuntu et service persistant — 0.8.0-alpha.3
 
 136 tests Python et 9 JavaScript. Préparation des paquets Ubuntu sur une VM ARM64 vierge, service Nacre actif avant la connexion SSH après deux redémarrages, Docker accessible au gestionnaire utilisateur, installation Samba par tâche systemd depuis le navigateur et fichier témoin relu par SMB3 après redémarrage. [Protocole et limites](HOST-BOOTSTRAP.md). Aucun nouveau test Frigate ou caméra dans ce banc.

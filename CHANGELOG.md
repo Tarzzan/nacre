@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0-alpha.4 — Alertes locales persistantes
+
+Centre Alertes administrateur et compteur global : services connus indisponibles, caméra activée sans flux, dernières sauvegardes échouées ou incomplètes et volume de Nacre presque plein. Confirmation temporelle, prise en compte versionnée, récidive et historique des retours à la normale. Les contrôles inconnus ne résolvent pas les incidents ; aucune notification extérieure ni correction automatique.
+
+146 tests Python et 11 JavaScript. Parcours navigateur sur sources simulées, prise en compte conservée après redémarrage réel de la console, puis résolutions enregistrées par le collecteur périodique. [Guide, captures et limites](docs/LOCAL-ALERTS.md).
+
 ## 0.8.0-alpha.3 — Préparation Ubuntu et service persistant
 
 Plan puis préparation explicite des prérequis Ubuntu 24.04 : paquets de la distribution, accès Docker et maintien du gestionnaire utilisateur. Les distributions Docker externes sont conservées avec un refus avant modification. `installer.py --service` installe et démarre Nacre sans sudo, avec port local configurable, validation de l’unité et restitution après échec.

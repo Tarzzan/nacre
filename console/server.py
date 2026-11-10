@@ -556,7 +556,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise Problem('Ce lien de connexion a expiré ou a déjà été utilisé.', 401)
                 session_token, _ = make_session('admin')
                 return self.reply(303, b'', extra={'Location': '/', 'Set-Cookie': f'nas_session={session_token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800'})
-            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/components.js', '/style.css'):
+            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/components.js', '/alerts.js', '/style.css'):
                 path = STATIC / ('index.html' if url.path == '/' else url.path[1:])
                 return self.reply(200, path.read_bytes(), mimetypes.guess_type(path)[0] or 'text/plain')
             if post and url.path == '/api/login':
@@ -592,6 +592,10 @@ class Handler(BaseHTTPRequestHandler):
                     raise Problem('Accès réservé aux administrateurs.', 403)
                 from onboarding import status
                 return self.reply(200, status(sys.modules[__name__]))
+            if url.path == '/api/alerts':
+                if session['role'] != 'admin':raise Problem('Accès réservé aux administrateurs.',403)
+                from alerts import listing
+                return self.reply(200,listing(sys.modules[__name__]))
             if url.path == '/api/overview':
                 return self.reply(200, overview())
             if url.path == '/api/areas':
@@ -716,6 +720,9 @@ class Handler(BaseHTTPRequestHandler):
                 with database() as db:
                     db.execute('DELETE FROM sessions WHERE token=?', (session['token'],))
                 return {'ok': True}
+            if route == '/api/alerts/acknowledge':
+                from alerts import acknowledge
+                return acknowledge(sys.modules[__name__],body,user)
             if route == '/api/components/install':
                 from deployment import submit
                 return submit(sys.modules[__name__],body,user)
@@ -1044,6 +1051,8 @@ if __name__ == '__main__':
         protection().recover()
         protection().start_scheduler()
         shares().start_watch()
+        from alerts import start as start_alerts
+        start_alerts(sys.modules[__name__])
         port=int(os.environ.get('NAS_PORT','8766'))
         print(f'Console NAS sur http://127.0.0.1:{port}', flush=True)
         Server(('127.0.0.1', port), Handler).serve_forever()
