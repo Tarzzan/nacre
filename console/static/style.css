@@ -23,3 +23,5 @@
 
 .notification-transport{border:0;padding:0;margin:0;min-width:0}
 dialog:has(#notification-smtp:not([hidden])){width:min(740px,calc(100% - 30px));max-height:94vh}#notification-smtp:not([hidden]){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:18px}#notification-smtp>.checks,#notification-smtp>.field:has(#smtp-password){grid-column:1/-1}dialog:has(#notification-smtp) .modalhead{position:sticky;top:0;background:white;z-index:1}@media(max-width:600px){#notification-smtp:not([hidden]){grid-template-columns:1fr}}
+
+#side-version{display:block;margin-top:10px;font-size:10px;opacity:.85}
