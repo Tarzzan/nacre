@@ -965,5 +965,201 @@
       "Cross-architecture or UID/GID remapping",
       "Video retention over multiple days"
     ]
+  },
+  "active_writes_powercut_0_7_alpha4": {
+    "verified_at_utc": "2026-11-10T04:01:19.713480+00:00",
+    "version": "0.7.0-alpha.4",
+    "python_tests": 107,
+    "python_skipped": 0,
+    "javascript_tests": 5,
+    "arm64_result": {
+      "complete": true,
+      "cuts": [
+        {
+          "boot_id": "6333ec8a-cf83-4d5d-81f2-9a65cf7f36f5",
+          "done": 523776,
+          "total": 4188160,
+          "phase": "repairing",
+          "action": "running",
+          "sync_action": "recover",
+          "degraded": 1,
+          "epoch": 1,
+          "threshold": 0.12,
+          "confirmed_before_cut": {
+            "local": 36,
+            "http": 34,
+            "smb": 63
+          },
+          "http_body_incomplete": {
+            "declared_bytes": 2097152,
+            "sent_bytes": 1048576,
+            "server_temporary_bytes": 1048576
+          },
+          "hypervisor_paused_then_sigkill": true
+        },
+        {
+          "boot_id": "002296b8-72ff-4b2f-823b-8084f0d49d02",
+          "done": 1833216,
+          "total": 4188160,
+          "phase": "repairing",
+          "action": "running",
+          "sync_action": "recover",
+          "degraded": 1,
+          "epoch": 2,
+          "threshold": 0.42,
+          "confirmed_before_cut": {
+            "local": 6,
+            "http": 6,
+            "smb": 12
+          },
+          "http_body_incomplete": {
+            "declared_bytes": 2097152,
+            "sent_bytes": 1048576,
+            "server_temporary_bytes": 1048576
+          },
+          "hypervisor_paused_then_sigkill": true
+        },
+        {
+          "boot_id": "5522647d-9bd7-4c7c-8586-5d1cbef131a9",
+          "done": 3142656,
+          "total": 4188160,
+          "phase": "repairing",
+          "action": "running",
+          "sync_action": "recover",
+          "degraded": 1,
+          "epoch": 3,
+          "threshold": 0.72,
+          "confirmed_before_cut": {
+            "local": 59,
+            "http": 56,
+            "smb": 104
+          },
+          "http_body_incomplete": {
+            "declared_bytes": 2097152,
+            "sent_bytes": 1048576,
+            "server_temporary_bytes": 1048576
+          },
+          "hypervisor_paused_then_sigkill": true
+        }
+      ],
+      "checks_after_cuts": [
+        {
+          "architecture": "aarch64",
+          "confirmed_files_verified": {
+            "local": 36,
+            "http": 34,
+            "smb": 63
+          },
+          "confirmed_bytes": 8716288,
+          "missing_or_corrupt_confirmed_files": 0,
+          "incomplete_http_names_absent": 1,
+          "internal_upload_fragments_not_exposed": 2,
+          "http_login_after_cut": true
+        },
+        {
+          "architecture": "aarch64",
+          "confirmed_files_verified": {
+            "local": 42,
+            "http": 40,
+            "smb": 75
+          },
+          "confirmed_bytes": 10289152,
+          "missing_or_corrupt_confirmed_files": 0,
+          "incomplete_http_names_absent": 2,
+          "internal_upload_fragments_not_exposed": 2,
+          "http_login_after_cut": true
+        },
+        {
+          "architecture": "aarch64",
+          "confirmed_files_verified": {
+            "local": 101,
+            "http": 96,
+            "smb": 179
+          },
+          "confirmed_bytes": 24641536,
+          "missing_or_corrupt_confirmed_files": 0,
+          "incomplete_http_names_absent": 3,
+          "internal_upload_fragments_not_exposed": 3,
+          "http_login_after_cut": true
+        }
+      ],
+      "method": "QEMU paused then SIGKILL; data images cache=none; durable reference journal outside guest",
+      "smb_confirmation": "explicit SMB2 FLUSH response, strict sync=yes",
+      "physical_controller_cache_loss_tested": false,
+      "baseline": {
+        "architecture": "aarch64",
+        "original_md_and_fs_uuid_preserved": true,
+        "data_64_mib_sha256_preserved": true,
+        "snapshot_sha256_preserved": true,
+        "two_expected_members_synchronized": true,
+        "mdadm_add_executions": 1,
+        "audited_readwrite_requests": 0,
+        "catalog_resume_requests": 0,
+        "no_force_or_create_after_fault": true,
+        "consumed_plan_replay_refused": true,
+        "repair_journal_single_action": true
+      },
+      "final": {
+        "architecture": "aarch64",
+        "confirmed_files_verified": {
+          "local": 101,
+          "http": 96,
+          "smb": 179
+        },
+        "confirmed_bytes": 24641536,
+        "missing_or_corrupt_confirmed_files": 0,
+        "incomplete_http_names_absent": 3,
+        "internal_upload_fragments_not_exposed": 3,
+        "http_login_after_cut": true
+      }
+    },
+    "confirmed_files": 376,
+    "bytes_per_confirmed_file": 65536,
+    "reference_journal_external_and_fsynced": true,
+    "smb_client": "smbprotocol 1.15.0; explicit SMB2 FLUSH",
+    "controller_resumed_after_smb_startup_wait_adjustments": 2,
+    "post_cut_services": {
+      "fresh_official_linux": true,
+      "no_previous_docker_images_or_volumes": true,
+      "separate_source_vm_stopped": true,
+      "restored_keys_unlock_history": true,
+      "original_console_password_http": true,
+      "samba_secondary_password_and_disabled_account": true,
+      "samba_readonly_enforced": true,
+      "numeric_owners_preserved": true,
+      "new_btrfs_raid1_created": true,
+      "data_repopulated_on_new_pool": true,
+      "automatic_plans_disabled": true,
+      "pool": "managed-caacc0b166a9ae2d3771",
+      "fresh_linux_reboot_services_and_pool": true,
+      "architecture": "aarch64",
+      "samba_sid_compared_to_source": true,
+      "synthetic_video_and_frigate_database_restored": true
+    },
+    "host_health_after_tests": {
+      "console_http": 200,
+      "services": {
+        "fichiers": "running",
+        "video": "healthy"
+      },
+      "native_helper_absent": true,
+      "isolated_vm_directory_removed": true,
+      "container_start_times_unchanged_from_previous_validation": true,
+      "configuration_counts": {
+        "repositories": 0,
+        "plans": 0,
+        "storage_profiles": 0
+      }
+    },
+    "production_software_deployed": false,
+    "production_services_restarted": false,
+    "test_vm_images_and_host_test_key_removed": true,
+    "remaining": [
+      "Physical disk/controller cache power loss",
+      "Endurance and larger sustained write workloads",
+      "Clients that do not request SMB FLUSH",
+      "Other filesystems and physical hotplug",
+      "Managed reclamation of interrupted internal upload fragments"
+    ]
   }
 }

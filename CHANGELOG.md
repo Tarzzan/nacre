@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.0-alpha.4 — Coupures pendant les écritures
+
+Un dépôt web n’est confirmé qu’après synchronisation du fichier et de son nom sur le volume. Un échec avant publication ne laisse pas de nom final ; un échec de synchronisation du dossier conserve le fichier complet sans réponse de succès et sans écrasement lors d’une nouvelle tentative.
+
+Banc ARM64 de trois coupures QEMU pendant reconstruction et écritures HTTP/locales/SMB avec FLUSH explicite. Les confirmations sont synchronisées dans un journal externe à la VM, puis toutes leurs empreintes sont contrôlées à chaque reprise. Un dépôt HTTP à moitié reçu doit rester non publié. 107 tests Python et 5 JavaScript ; protocole et résultats dans [la recette dédiée](docs/ACTIVE-WRITES-POWER-CUT.md). La perte des caches physiques reste hors qualification.
+
 ## 0.7.0-alpha.3 — Écritures en reconstruction et reprise caméra ARM64
 
 Les volumes RAID1 vérifiés restent disponibles par HTTP et Samba pendant la reconstruction, y compris la transition MD `write-pending` observée à l’arrivée des écritures. Un état incertain, un membre inattendu et les restrictions de lecture seule conservent leurs contrôles.

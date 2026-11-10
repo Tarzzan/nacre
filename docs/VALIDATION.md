@@ -1,5 +1,13 @@
 # Validation
 
+## Coupures pendant écritures — 0.7.0-alpha.4
+
+107 tests Python sans test ignoré avec restic vérifié, et 5 tests JavaScript. Trois nouveaux cas vérifient l’ordre des synchronisations HTTP, le refus de confirmer une erreur de synchronisation du fichier et la conservation sans écrasement d’un fichier publié dont la synchronisation du dossier a échoué.
+
+Le [banc de coupures avec écritures](ACTIVE-WRITES-POWER-CUT.md) conserve les confirmations dans un journal externe synchronisé, utilise SMB2 FLUSH avec `strict sync=yes`, et impose un dépôt HTTP réellement reçu à moitié avant chaque arrêt brutal. Les contrôles après reprise sont cumulatifs. Les noms finaux incomplets restent absents et les fragments internes sont inaccessibles par l’API. Les UUID, le témoin de 64 Mio, le snapshot antérieur et l’unicité de la réparation sont revérifiés en fin de reconstruction. Les nombres mesurés sont dans `VALIDATION.json`.
+
+Le système invité est ARM64/Btrfs RAID1 ; l’hôte QEMU reste alimenté. Ces essais ne couvrent pas la perte du cache physique, tous les clients SMB, les erreurs matérielles multiples ou l’endurance. Les validations précédentes ci-dessous restent historiques.
+
 ## Écritures et caméra ARM64 — 0.7.0-alpha.3
 
 104 tests Python sans test ignoré avec restic vérifié, et 5 JavaScript. Les régressions ajoutées contrôlent la publication du miroir en reconstruction, `write-pending`, la lecture seule, les refus d’identités/journaux incohérents, les montages du conteneur vidéo, les archives, l’arrêt du conteneur auxiliaire après erreur de copie et la restitution des propriétaires/modes de la racine des volumes.

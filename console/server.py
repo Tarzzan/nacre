@@ -907,9 +907,16 @@ class Handler(BaseHTTPRequestHandler):
                             raise OSError(errno.ENOSPC, 'Espace physique épuisé')
                         output.write(data)
                         remaining -= len(data)
+                    output.flush()
+                    os.fsync(output.fileno())
                 rename_noreplace(fd, temporary_name, fd, name)
+                # Le succès HTTP suit la synchronisation du contenu et du nom.
+                os.fsync(fd)
             except Exception:
-                os.unlink(temporary_name, dir_fd=fd)
+                # Après publication, une erreur de fsync du dossier laisse un
+                # fichier complet à vérifier ; ne pas le supprimer ni l’écraser.
+                try:os.unlink(temporary_name, dir_fd=fd)
+                except FileNotFoundError:pass
                 raise
         audit(session['name'], 'Fichier déposé', path + '/' + name)
         return self.reply(200, {'ok': True})

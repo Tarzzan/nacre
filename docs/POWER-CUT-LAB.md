@@ -58,3 +58,7 @@ Dans l’essai de développement, QEMU et ses dépendances Ubuntu ont été extr
 Cette preuve concerne une reprise **ARM64 vers ARM64 avec mêmes UID/GID principaux**. Elle ne qualifie ni la migration x86→ARM, ni le démarrage réel de Frigate avec une caméra, ni les accélérateurs GPU, ACL/xattrs, RAID ext4 ou boîtiers NAS propriétaires.
 
 Références : [états MD et progression dans le noyau Linux](https://cdn.kernel.org/doc/html/latest/admin-guide/md.html), [plateforme virtuelle ARM de QEMU](https://www.qemu.org/docs/master/system/arm/virt.html), [images officielles Ubuntu Minimal](https://cloud-images.ubuntu.com/minimal/releases/noble/release/). Résultats mesurés dans [VALIDATION.json](../VALIDATION.json).
+
+## Complément 0.7.0-alpha.4
+
+Les [coupures pendant des écritures actives](ACTIVE-WRITES-POWER-CUT.md) disposent désormais d’un banc ARM64 distinct avec journal de confirmations externe. Les limites de cette recette historique restent inchangées ; les résultats du nouveau scénario sont séparés dans `VALIDATION.json`.

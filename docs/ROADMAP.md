@@ -12,9 +12,9 @@ Les versions futures sont des objectifs sans date promise. Chaque étape demande
 | **1.0 — cible à qualifier** | Version exploitable avec périmètre de support précis | Revue de sécurité, endurance, mises à jour et reprise éprouvées ; aucun défaut critique connu |
 | **Après stabilisation** | Gestion de plusieurs NAS | Identités inter-hôtes, révocation, fonctionnement déconnecté et politiques de groupe spécifiés |
 
-## Avancement 0.7.0-alpha.3
+## Avancement 0.7.0-alpha.4
 
-Reprise sur Ubuntu vierge x86-64 et ARM64, création d’un nouveau miroir Btrfs et remplacement d’un membre RAID1 validés sur disques images, avec redémarrage et contrôle des comptes. Trois coupures virtuelles pendant reconstruction sont ajoutées, avec correction de la reprise `read-auto`. Les écritures HTTP/SMB/locales pendant reconstruction et la reprise d’une vraie caméra sur Linux ARM64 vierge complètent ce parcours ; les fichiers privés root de Frigate sont désormais inclus dans le kit. Le cycle 0.7 reste ouvert : import dégradé, hotplug matériel, perte des caches physiques lors d’une coupure électrique et autres combinaisons de systèmes de fichiers restent à qualifier.
+Reprise sur Ubuntu vierge x86-64 et ARM64, création d’un nouveau miroir Btrfs et remplacement d’un membre RAID1 validés sur disques images, avec redémarrage et contrôle des comptes. Trois coupures virtuelles pendant reconstruction sont ajoutées, avec correction de la reprise `read-auto`. Les écritures HTTP/SMB/locales pendant reconstruction et la reprise d’une vraie caméra sur Linux ARM64 vierge complètent ce parcours ; les fichiers privés root de Frigate sont désormais inclus dans le kit. Le jalon suivant combine trois coupures virtuelles avec des écritures actives et un journal de confirmations externe ; les dépôts web sont synchronisés avant succès. Le cycle 0.7 reste ouvert : import dégradé, hotplug matériel, perte des caches physiques lors d’une coupure électrique et autres combinaisons de systèmes de fichiers restent à qualifier.
 
 ## Priorités transverses
 
