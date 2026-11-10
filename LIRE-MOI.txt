@@ -1,4 +1,4 @@
-NACRE 0.6 ALPHA — SYSTÈME NAS LOCAL ET PORTABLE
+NACRE 0.7 ALPHA — SYSTÈME NAS LOCAL ET PORTABLE
 9 novembre 2026
 
 PÉRIMÈTRE DE CETTE VERSION
@@ -29,8 +29,9 @@ unique ou miroir RAID1, Btrfs/ext4) et le pilotage optionnel de snapshots
 Btrfs, ZFS et LVM sur les volumes explicitement autorisés. Un profil reste
 sans effet jusqu’au choix de disques et à la confirmation du plan. Son application
 crée maintenant un volume sur disque entier ou un miroir RAID1 logiciel. Le
-partitionnement, le remplacement et la reconstruction de disque restent à
-développer. Aucun helper natif n’est installé ni activé sur Spark ; les essais
+remplacement d’un membre absent est maintenant disponible pour un RAID1 Nacre
+monté ; qualification Btrfs en VM, détails dans docs/POOL-RECOVERY.md.
+Le partitionnement reste à développer. Aucun helper natif n’est installé ni activé sur Spark ; les essais
 privilégiés ont lieu uniquement dans une VM QEMU avec des disques images.
 
 
@@ -128,7 +129,8 @@ disques D/E/F vierges pour tests/integration_provision_vm.py, puis deux
 disques G/H pour vérifier la préparation de plans dans le navigateur. Le
 miroir et le volume unique sont créés via le vrai socket du daemon systemd,
 puis testés après redémarrage. La copie LVM est validée pour ext4 et XFS.
-Le hotplug et la reconstruction d’un miroir après panne ne sont pas validés.
+Le hotplug matériel reste à qualifier. La reconstruction RAID1 Btrfs est
+maintenant couverte par le banc 0.7 décrit dans tests/VM-LAB.txt.
 
 APPLICATION DES PROFILS ET MONTAGE (VERSION 0.4)
 La page Volumes natifs propose : préparer un profil, choisir ses disques,
@@ -214,8 +216,8 @@ de ce volume. Les dépôts internes, corbeilles et transferts incomplets sont ex
 Aucune de ces nouvelles fonctions ne configure de volume, partage natif, dépôt
 ou plan sur Spark : les essais complets utilisent exclusivement la VM QEMU.
 
-Restent à développer : partitionnement, pools ZFS neufs, remplacement/reconstruction
-de membres RAID, import dégradé et gestion du hotplug, exposition des clones ZFS
+Restent à développer : partitionnement, pools ZFS neufs, reconstruction
+des autres géométries RAID, import dégradé et gestion du hotplug, exposition des clones ZFS
 montés, hooks de cohérence applicative, programmation et rétention des snapshots
 natifs. Les plans automatiques restic sont disponibles.
 
@@ -357,3 +359,10 @@ vérifiée. Une base d’une version plus récente est refusée. La page Snapsho
 affiche les copies et la procédure. console/recover_database.py prépare un
 nouveau fichier, révoque les sessions et désactive les plans ; il ne remplace
 pas la base active. Voir docs/RECOVERY.md pour la portée et les dépendances.
+
+REPRISE SUR LINUX NEUF ET MIROIR — 0.7.0-alpha.1
+Voir docs/FRESH-LINUX.md et docs/POOL-RECOVERY.md. Banc Ubuntu vierge x86-64 :
+clés, comptes web/Samba, copie sur miroir neuf, remplacement B→C et redémarrage.
+Le parcours RAID1 journalise avant ajout, ne rejoue pas la commande après
+interruption et contrôle les deux membres synchronisés avant clôture.
+Les anciens snapshots d’un pool perdu ne sont pas recréés par une copie de fichiers.

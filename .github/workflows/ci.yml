@@ -36,6 +36,7 @@ jobs:
       - name: Vérifier le JavaScript
         run: |
           node --check console/static/app.js
+          node --check console/static/native.js
           node --test tests/test_frontend.js
   secrets:
     name: Secrets / Gitleaks

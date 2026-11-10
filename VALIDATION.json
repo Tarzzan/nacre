@@ -579,5 +579,49 @@
     "passwords_changed": false,
     "other_application_cookies_deleted": false,
     "production_diagnostic_removed": true
+  },
+  "fresh_linux_and_mirror_v07_alpha1": {
+    "environment": "Fresh official Ubuntu 24.04 minimal x86-64 in QEMU; source VM stopped; three synthetic 2 GiB disks; no host block devices",
+    "base_image_sha256": "406630c08b5e545fcc7209854b129d47e3af822db128c9f19336593b5a2d3fe0",
+    "python_tests": 90,
+    "javascript_tests": 5,
+    "restic_test_skipped": false,
+    "result": {
+      "fresh_official_linux": true,
+      "no_previous_docker_images_or_volumes": true,
+      "separate_source_vm_stopped": true,
+      "restored_keys_unlock_history": true,
+      "original_console_password_http": true,
+      "samba_secondary_password_and_disabled_account": true,
+      "samba_readonly_enforced": true,
+      "numeric_owners_preserved": true,
+      "new_btrfs_raid1_created": true,
+      "data_repopulated_on_new_pool": true,
+      "automatic_plans_disabled": true,
+      "pool": "managed-cf4d0110e7c282ca7280",
+      "fresh_linux_reboot_services_and_pool": true,
+      "native_snapshot_preserved_after_repair": true,
+      "mirror_rebuilt_on_replacement": true,
+      "data_hash_preserved_after_member_loss": true,
+      "old_member_signature_preserved": true,
+      "repair_restart_without_replay": true,
+      "healthy_mirror_repair_refused": true,
+      "exact_confirmation_required": true,
+      "original_pool_filesystem_preserved": true
+    },
+    "browser_verified": [
+      "native service connected",
+      "managed mirror mounted and synchronized",
+      "pre-failure Btrfs snapshot available",
+      "repair action done"
+    ],
+    "remaining": [
+      "Complete recovery on ARM64 hardware",
+      "ext4 mirror repair integration",
+      "Power loss mid-rebuild and hardware hotplug",
+      "Foreign/degraded array import",
+      "ACL/xattr and large-volume endurance"
+    ],
+    "production_block_operations": false
   }
 }

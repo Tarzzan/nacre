@@ -144,12 +144,12 @@ Le démarrage réutilise l’image Samba importée, sans la reconstruire. Le lan
 
 Contrôler la connexion web avec le compte antérieur, un accès SMB autorisé, un compte désactivé, un partage en lecture seule et une restauration témoin depuis chaque dépôt. Vérifier séparément le flux caméra, la base vidéo et la rétention. Ne réactiver les plans qu’après choix de leurs destinations et examen des sources : les anciennes zones natives ont été regroupées sous `fichiers`.
 
-La reconstruction des pools et l’import de snapshots natifs demandent une qualification distincte. `state/native-recovery.tar` sert d’inventaire, pas de commande à réappliquer aveuglément sur d’autres disques.
+Le parcours [Linux neuf et pool de remplacement](FRESH-LINUX.md) complète cette restitution. L’import des anciens snapshots natifs reste distinct. `state/native-recovery.tar` sert d’inventaire, pas de commande à réappliquer aveuglément sur d’autres disques.
 
 ## Preuves et limites
 
 Le scénario [integration_system_recovery_vm.py](../tests/integration_system_recovery_vm.py) rend l’ancienne installation et sa racine externe inaccessibles par leurs chemins, puis récupère données, clés, comptes et configuration. Il ouvre l’ancien dépôt, vérifie les UID, le SID Samba, les mots de passe secondaires, un compte désactivé, la lecture seule et la persistance après recréation du conteneur. Il teste aussi la connexion HTTP avec le mot de passe administrateur initial. Les vidéos sont des octets synthétiques ; ce test ne valide pas le décodage d’un enregistrement réel ni la remise en route d’une caméra.
 
-Le banc est QEMU x86-64, avec Docker et un système de fichiers ordinaire pour le volume externe. Les reprises intégrales sur ARM64, les ACL/POSIX étendues, les très gros volumes, la panne pendant l’import Docker et la reconstruction complète du système Linux restent à qualifier. Les tests ordinaires et leur CI couvrent séparément x86-64/ARM64.
+Le banc est QEMU x86-64, avec Docker et un système de fichiers ordinaire pour le volume externe. Les reprises intégrales sur ARM64, les ACL/POSIX étendues, les très gros volumes, la panne pendant l’import Docker restent à qualifier. La reprise sur Linux vierge x86-64 est maintenant couverte par le [banc complémentaire](FRESH-LINUX.md). Les tests ordinaires et leur CI couvrent séparément x86-64/ARM64.
 
 Références : [restic — restauration](https://restic.readthedocs.io/en/stable/050_restore.html), [Docker — copie de fichiers](https://docs.docker.com/reference/cli/docker/container/cp/), [Docker — export d’image](https://docs.docker.com/reference/cli/docker/image/save/).

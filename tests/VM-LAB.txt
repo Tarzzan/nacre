@@ -139,3 +139,39 @@ Le chemin du runtime restic est celui du banc v05 documenté dans le script.
 Il capture un dépôt chiffré, rend la source inaccessible par ses anciens chemins,
 restaure les données et comptes, puis contrôle Samba et l’authentification web.
 Ne pas lancer sur Spark ni sur un NAS réel. Arrêter la VM après le scénario.
+
+
+EXTENSION 0.7 — LINUX VIERGE ET RECONSTRUCTION RAID1
+
+Préparer une capture synthétique avec integration_system_recovery_vm.py dans
+une VM source, puis l’arrêter. Sous un parent privé, conserver recovery-repo/,
+history/, bootstrap.key et source-lost/state/console/{last-system-recovery.json,
+acces.txt}. Ces fixtures contiennent des secrets de test : jamais dans Git.
+
+La VM cible doit démarrer d’un overlay NEUF de l’image Ubuntu 24.04 minimal
+officielle vérifiée, et non d’un disque système du banc précédent. Banc qualifié :
+image SHA256 406630c08b5e545fcc7209854b129d47e3af822db128c9f19336593b5a2d3fe0,
+QEMU x86-64, UEFI, 4 Gio RAM, deux CPU, système 16 Gio et trois disques raw
+jetables de 2 Gio avec séries virtio NACRE-V08-A, NACRE-V08-B, NACRE-V08-C.
+Aucun /dev de l’hôte. Attacher le disque OS en premier avec bootindex=1.
+Sur l’image minimale utilisée, attacher le seed NoCloud en virtio raw readonly
+(plutôt qu’en CD-ROM AHCI) pour que cloud-init le lise.
+
+Cloud-init installe python3, docker.io, docker-compose-v2, mdadm, btrfs-progs,
+rsync et ajoute ubuntu au groupe docker. UID/GID principal 1000 ; nouvelle
+session SSH après installation. Exposer SSH uniquement sur loopback hôte.
+Copier le code dans /home/ubuntu/nacre-code et installer son runtime restic
+vérifié. Copier les fixtures ci-dessus dans /home/ubuntu/nacre-fresh-test/bundle
+sous un parent 0700 ; la cible restored doit être absente.
+
+NACRE_VM_LAB=1 python3 /home/ubuntu/nacre-code/tests/integration_fresh_linux_vm.py
+NACRE_VM_LAB=1 python3 /home/ubuntu/nacre-code/tests/integration_mirror_repair_vm.py
+sudo reboot
+NACRE_VM_LAB=1 python3 /home/ubuntu/nacre-code/tests/integration_fresh_linux_vm.py --after-reboot
+
+Le premier script refuse un catalogue natif ou des images/volumes Docker
+préexistants. Le second vérifie QEMU et les trois séries avant d’injecter la
+panne avec mdadm --fail/--remove. Le produit ne fait pas cette injection.
+Le résultat non secret est /home/ubuntu/nacre-fresh-test/result.json. La clé
+externe et le mot de passe fixture ne sont jamais imprimés. Après collecte,
+arrêter toute console de QA, ses tunnels et les VM. Ne pas exécuter sur Spark.

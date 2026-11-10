@@ -144,7 +144,7 @@ CREATE TABLE IF NOT EXISTS actions (id TEXT PRIMARY KEY, ts REAL, actor TEXT, ac
             self.provisioning()
             with self.db:
                 self.db.execute("UPDATE points SET status='uncertain', detail='Service interrompu pendant la création ; vérifier le stockage.' WHERE status='creating'")
-                self.db.execute("UPDATE actions SET status='uncertain' WHERE status='running' AND id NOT IN (SELECT id FROM native_jobs WHERE status IN ('queued','running'))")
+                self.db.execute("UPDATE actions SET status='uncertain' WHERE status='running' AND action!='repair' AND id NOT IN (SELECT id FROM native_jobs WHERE status IN ('queued','running'))")
                 self.db.execute("UPDATE deployments SET phase='uncertain',error='Service interrompu pendant l’initialisation. Vérifier le stockage ; aucun formatage ne sera rejoué.' WHERE phase='creating'")
 
     def policy(self):
@@ -341,6 +341,12 @@ CREATE TABLE IF NOT EXISTS actions (id TEXT PRIMARY KEY, ts REAL, actor TEXT, ac
 
     def prepare(self, uid, actor, body):
         action = body.get('action')
+        if action == 'repair-review':
+            from mirror_repair import MirrorRepair
+            return MirrorRepair(self).review(uid,actor,body)
+        if action == 'repair':
+            from mirror_repair import MirrorRepair
+            return MirrorRepair(self).prepare(uid,actor,body)
         if action == 'provision':
             return self.provisioning().prepare(uid,actor,body)
         if action not in ('snapshot', 'clone'):
@@ -379,6 +385,12 @@ CREATE TABLE IF NOT EXISTS actions (id TEXT PRIMARY KEY, ts REAL, actor TEXT, ac
         plan = json.loads(row['payload'])
         if body.get('confirmation') != plan['confirmation']:
             raise NativeError('Recopier exactement la confirmation du plan.')
+        if plan['action']=='repair-review':
+            from mirror_repair import MirrorRepair
+            return MirrorRepair(self).commit_review(row,plan)
+        if plan['action']=='repair':
+            from mirror_repair import MirrorRepair
+            return MirrorRepair(self).commit(row,plan)
         if plan['action']=='provision':
             return self.provisioning().commit(row,plan)
         volume = self.volume(plan['volume'])
