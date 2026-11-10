@@ -1,5 +1,9 @@
 # Validation
 
+## Connexion 0.6.0-alpha.3
+
+84 tests Python et 5 tests JavaScript. Les régressions isolées reproduisent un cookie tiers qui perturbe le parseur, refusent les cookies de session ambigus, vérifient l’expiration pendant la navigation et les réponses tardives d’une ancienne session. La connexion Chrome a été rétablie sur l’installation existante sans effacement des cookies ni modification d’identifiants.
+
 ## Reprise d’installation 0.6.0-alpha.2
 
 82 tests ordinaires. Le scénario `integration_system_recovery_vm.py` vérifie séparément une perte simulée, une nouvelle racine, les UID des fichiers, les clés retrouvées, le dépôt historique déchiffré, les comptes web/Samba, le SID, le compte désactivé et la lecture seule, puis la persistance après recréation du conteneur Samba. L’export natif est testé avec une politique vide dans cette VM ; aucune reconstruction de disques n’est revendiquée. Configuration et base Frigate utilisent des fixtures synthétiques.
@@ -18,6 +22,7 @@ Le [rapport structuré](../VALIDATION.json) consigne la validation de développe
 python3 console/install_restic.py
 NAS_RESTIC_BIN="$PWD/.tools/restic" python3 -m unittest discover -s tests -v
 node --check console/static/app.js
+node --test tests/test_frontend.js
 ```
 
 Sans `NAS_RESTIC_BIN`, le test de dépôt réel est ignoré : cela ne constitue pas la validation complète annoncée. Le runtime installé est contrôlé par SHA-256. Prévoir de l’espace temporaire pour les essais de transfert et d’archive volumineux.

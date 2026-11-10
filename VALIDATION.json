@@ -71,7 +71,7 @@
     "enabled": true,
     "linger": true,
     "cloud_published": false,
-    "automated_tests": 82,
+    "automated_tests": 84,
     "browser_live_image": [
       1280,
       720
@@ -569,5 +569,15 @@
       "tests_per_job": 82,
       "gitleaks": "passed"
     }
+  },
+  "chrome_session_fix": {
+    "python_tests": 84,
+    "javascript_tests": 5,
+    "isolated_cookie_header_regression": true,
+    "isolated_session_lifecycle_regressions": true,
+    "existing_chrome_session_restored": true,
+    "passwords_changed": false,
+    "other_application_cookies_deleted": false,
+    "production_diagnostic_removed": true
   }
 }

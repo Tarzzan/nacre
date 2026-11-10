@@ -8,7 +8,6 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 import hashlib
 import hmac
-from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import mimetypes
@@ -489,11 +488,16 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def session(self):
-        try:
-            cookie = SimpleCookie(self.headers.get('Cookie', ''))
-            token = cookie['nas_session'].value
-        except (KeyError, ValueError):
+        # Les cookies sont partagés entre les ports d’un même hôte. Un cookie
+        # tiers non reconnu par SimpleCookie ne doit pas masquer celui de Nacre.
+        values=[]
+        for part in self.headers.get('Cookie','').split(';'):
+            name,separator,value=part.strip().partition('=')
+            if separator and name=='nas_session':values.append(value)
+        # Refuser les doublons ambigus et n’accepter que nos jetons URL-safe.
+        if len(values)!=1 or not re.fullmatch(r'[A-Za-z0-9_-]{43}',values[0]):
             raise Problem('Connexion requise.', 401)
+        token=values[0]
         with database() as db:
             session = db.execute('SELECT s.*,u.role FROM sessions s JOIN users u ON u.name=s.name WHERE token=? AND expires>? AND u.active=1', (digest(token), time.time())).fetchone()
         if not session:

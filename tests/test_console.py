@@ -44,11 +44,13 @@ class ConsoleSecurityTests(unittest.TestCase):
         cls.http.server_close()
         cls.temp.cleanup()
 
-    def request(self, method, path, body=None, token=None, csrf=None, origin=None, raw=None, host=None):
+    def request(self, method, path, body=None, token=None, csrf=None, origin=None, raw=None, host=None, cookie=None):
         conn = http.client.HTTPConnection('127.0.0.1', self.http.server_port, timeout=4)
         headers = {'Content-Type': 'application/json'}
         if token:
             headers['Cookie'] = 'nas_session=' + token
+        if cookie is not None:
+            headers['Cookie']=cookie
         if csrf:
             headers['X-CSRF-Token'] = csrf
         if origin:
@@ -65,6 +67,27 @@ class ConsoleSecurityTests(unittest.TestCase):
 
     def admin_post(self, route, body):
         return self.request('POST', route, body, self.token, self.csrf)
+
+    def test_session_cookie_survives_unrelated_local_cookies(self):
+        # Des applications sur d’autres ports déposent des valeurs JSON libres.
+        for header in (
+            'other=ok; preferences={"mode": "dark"}; nas_session='+self.token,
+            'nas_session='+self.token+'; preferences={"mode": "dark"}',
+        ):
+            with self.subTest(header_order=header.startswith('nas_session')):
+                code,payload=self.request('GET','/api/me',cookie=header)
+                self.assertEqual(code,200)
+                self.assertEqual(json.loads(payload)['name'],'admin')
+
+    def test_ambiguous_or_malformed_session_cookie_is_refused(self):
+        for header in (
+            'nas_session='+self.token+'; nas_session='+self.reader,
+            'nas_session='+self.token+'; nas_session='+self.token,
+            'nas_session=', 'nas_session=invalid',
+            'other_nas_session='+self.token,
+            'nas_session='+self.token+'=suffix',
+        ):
+            self.assertEqual(self.request('GET','/api/me',cookie=header)[0],401)
 
     def test_installation_recovery_status_is_admin_only_and_has_no_secrets(self):
         route='/api/protection/installation'
