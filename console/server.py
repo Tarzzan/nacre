@@ -34,6 +34,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(ROOT))
 from lab import private_write, load_config
+from release import version as release_version
 
 STATIC = Path(__file__).resolve().parent / 'static'
 STATE = ROOT / 'state/console'
@@ -586,7 +587,7 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == '/api/me':
                 from onboarding import read
                 setup = read(sys.modules[__name__])
-                return self.reply(200, {**{key: session[key] for key in ('name', 'csrf', 'role')}, 'setup_required': session['role'] == 'admin' and setup['phase'] != 'complete', 'timezone': setup['timezone'], 'nas_name': setup['name']})
+                return self.reply(200, {**{key: session[key] for key in ('name', 'csrf', 'role')}, 'setup_required': session['role'] == 'admin' and setup['phase'] != 'complete', 'timezone': setup['timezone'], 'nas_name': setup['name'], 'app_version': release_version()})
             if url.path == '/api/setup':
                 if session['role'] != 'admin':
                     raise Problem('Accès réservé aux administrateurs.', 403)
