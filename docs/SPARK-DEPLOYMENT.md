@@ -1,0 +1,49 @@
+# Mise à jour de Spark vers 0.8.0-alpha.6
+
+Le 10 novembre 2026, l’installation existante de Spark (Linux ARM64, Python 3.12.3) est passée de **0.7.0-alpha.1** à **0.8.0-alpha.6**. Le code déployé est le commit [`c453124`](https://github.com/Tarzzan/nacre/commit/c45312410406fb871588fea3ac6bf34978454ae6), qui inclut le correctif d’affichage ajouté après le tag alpha.6.
+
+La version de Spark a été vérifiée par son API authentifiée et dans le navigateur. Le port local **8766** donne accès à Spark via le tunnel SSH existant ; **8768** reste une console de test distincte.
+
+![Notifications sur Spark après mise à jour, envois désactivés](images/spark-alpha6-notifications.jpg)
+
+## Résultats observés
+
+| Contrôle | Résultat |
+| --- | --- |
+| Sources installées | 40 fichiers, empreintes SHA-256 conformes au commit déployé |
+| Base SQLite | Schéma 1 → 2 ; `quick_check` réussi |
+| Comptes, droits, empreintes des mots de passe | Identiques avant et après |
+| Clés de sauvegarde et configurations contrôlées | Empreintes identiques |
+| Dépôts, plans et profils de stockage | Enregistrements identiques |
+| Tâches actives / plans activés au déploiement | 0 / 0 |
+| Samba et Frigate | Identifiants de conteneurs et dates de démarrage identiques |
+| Samba après déploiement | Réponse au contrôle `smbcontrol smbd ping` |
+| Caméra existante | Une caméra dans les statistiques Frigate ; réception d’images positive |
+| Accès web | Huit routes authentifiées contrôlées ; vues Notifications et Services vérifiées |
+| Notifications externes | Désactivées, aucune destination ni livraison en attente |
+
+Les huit routes sont `/api/me`, `/api/notifications`, `/api/setup`, `/api/alerts`, `/api/smb`, `/api/storage`, `/api/protection/plans` et `/api/protection/migrations`. La session temporaire utilisée pour ces contrôles a été supprimée après vérification.
+
+Seule la console a été arrêtée et relancée. La durée mesurée entre son arrêt terminé et la fin des contrôles du script est de 0,82 seconde ; ce chiffre ne mesure pas une interruption vidéo. Aucun disque, pool, compte ou destination de sauvegarde n’a été créé. Le fichier Compose existant et les configurations privées ont été conservés.
+
+## Préparation et retour arrière
+
+Les 11 tests de migration SQLite ont été exécutés sur des bases temporaires locales et ont réussi. Le commit produit disposait également d’une [CI réussie](https://github.com/Tarzzan/nacre/actions/runs/42820854577) avant son installation.
+
+Un paquet limité aux sources de la console, aux modules Python nécessaires et au changelog a été préparé depuis Git. Son empreinte a été vérifiée sur Spark, puis les fichiers Python ont été compilés avant de remplacer le code installé. Un verrou exclusif a protégé la copie de base et le remplacement des sources pendant l’arrêt de la console.
+
+Dans le répertoire privé `.updates/alpha6-20261110/` de l’installation restent :
+
+- `before-code.tar.gz` : versions précédentes des fichiers remplacés ;
+- `before.sqlite3` : copie cohérente de la base avant migration ;
+- `added.json` : fichiers introduits par la mise à jour ;
+- `manifest.json` : commit et empreintes du paquet ;
+- `result.json` : résultat synthétique des contrôles.
+
+Ces copies restent sur Spark. La base contient des informations privées et ne doit pas être publiée. Un retour au code précédent exige aussi le retour à son schéma de base, avec console et tâches arrêtées. Il faut examiner les changements intervenus depuis la mise à jour avant de restaurer cette copie : elle ne contient pas les opérations ultérieures.
+
+Le script de déploiement prévoyait un retour au code et à la base précédents en cas d’échec de ses contrôles. Cette branche de retour arrière n’a pas été déclenchée sur Spark ; aucun échec n’a été injecté sur l’installation réelle.
+
+## Portée
+
+Ce compte rendu atteste la mise à jour de la console et la continuité des services observée. Il ne constitue pas une nouvelle qualification destructive des pools, un test de remise d’email externe ou une installation de l’agent de stockage privilégié. Cet agent n’était pas actif sur Spark. Les essais de coupure et de reconstruction restent documentés dans les laboratoires isolés.
