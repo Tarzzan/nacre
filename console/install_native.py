@@ -43,7 +43,7 @@ def stage(target, uid):
     files = {'usr/local/lib/nacre-storage/native_storage.py': Path(__file__).with_name('native_storage.py').read_text(),
              'etc/nacre-storage/policy.json': json.dumps({'version': 1, 'allowed_uid': uid, 'volumes': []}, indent=2) + '\n',
              'etc/systemd/system/nacre-storage.service': UNIT}
-    for name in ('provisioning.py','native_restore.py'):
+    for name in ('provisioning.py','native_restore.py','mirror_repair.py'):
         files['usr/local/lib/nacre-storage/'+name]=Path(__file__).with_name(name).read_text()
     for name, content in files.items():
         path = target / name

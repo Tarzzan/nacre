@@ -179,6 +179,9 @@ class Provisioning:
                     self.e.run(['btrfs','subvolume','create',str(target/'data')])
                     (target/'snapshots').mkdir(mode=0o700)
                     (target/'restores').mkdir(mode=0o755)
+                    # Le démon utilise umask 077 ; la console doit pouvoir traverser
+                    # ce parent root pour lire ses restitutions autorisées.
+                    (target/'restores').chmod(0o755)
                     text=self.e.run(['btrfs','subvolume','show',str(target/'data')])
                     subvolume_uuid=re.search(r'^\s*UUID:\s+(\S+)',text,re.M)[1]
                     record['native_volume']={'id':identifier,'name':record['name'],'family':'btrfs','source':str(target/'data'),
@@ -221,6 +224,8 @@ class Provisioning:
         return [(dict(row),json.loads(row['record'])) for row in self.e.db.execute('SELECT * FROM deployments ORDER BY created DESC')]
 
     def status(self):
+        from mirror_repair import MirrorRepair
+        MirrorRepair(self.e).reconcile()
         try:
             settings=self.settings()
         except (NativeError,OSError):
@@ -238,8 +243,8 @@ class Provisioning:
         deployments=[]
         for row,record in self.records():
             view={k:record[k] for k in ('id','name','filesystem','layout','mountpoint')}
-            view.update(phase=row['phase'],mounted=False,error=row['error'],raid=None)
-            if row['phase']=='ready':
+            view.update(phase=row['phase'],mounted=False,error=row['error'],raid=None,repair=record.get('repair'),members=[s['id'] for s in record['specs']])
+            if row['phase'] in ('ready','repairing'):
                 try:
                     self.authorize(record)
                     self.check_mount(record)
@@ -310,7 +315,7 @@ class Provisioning:
         except (NativeError,OSError):return
         if settings.get('mount_on_start') is not True:return
         for row,record in self.records():
-            if row['phase']!='ready':continue
+            if row['phase'] not in ('ready','repairing'):continue
             try:self.mount_existing(record)
             except (NativeError,OSError,ValueError,KeyError):
                 self.save_record(record['id'],record,error='Remontage automatique non abouti ; vérifier identité et disponibilité.')

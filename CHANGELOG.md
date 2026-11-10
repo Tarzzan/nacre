@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.0-alpha.1 — Linux neuf et reconstruction RAID1
+
+Reprise qualifiée sur Ubuntu vierge : données, clés historiques, comptes web/Samba, nouveau miroir Btrfs, raccordement des partages et redémarrage. Ajout du parcours navigateur de remplacement d’un membre RAID1 absent, avec disque vierge explicitement autorisé, plan à usage unique, journal préalable et vérification des deux membres synchronisés. Aucun rejeu automatique après interruption ; validation distincte du catalogue en cas de résultat ambigu.
+
+Correction des droits du dossier parent des restitutions Btrfs nouvellement créé sous le service root. 90 tests Python et 5 JavaScript ; bancs privilégiés réservés à QEMU. La reconstruction préserve les données, un snapshot antérieur et la signature de l’ancien membre. Linux neuf ARM64, autres géométries RAID et perte électrique pendant reconstruction restent à qualifier.
+
 ## 0.6.0-alpha.3 — Connexion Chrome et sessions
 
 Un cookie d’une autre application locale pouvait empêcher la reconnaissance du cookie Nacre après un mot de passe accepté. Lecture ciblée du jeton Nacre, avec refus des doublons et des formats invalides. L’interface vérifie la session avant d’ouvrir l’espace, conserve l’écran de connexion en cas d’expiration et ignore les réponses d’une ancienne session ; l’erreur `Cannot set properties of null` ne masque plus la cause initiale.
