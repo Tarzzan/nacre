@@ -1,5 +1,11 @@
 # Validation
 
+## Rétention — 0.8.0-alpha.7
+
+180 tests Python et 18 JavaScript. Les nouveaux cas couvrent la sélection conservatrice, les groupes, la confirmation à usage unique, l’auteur et l’expiration, les contrôles administrateur/CSRF, les changements de dépôt, l’annulation et les résultats partiels. Restic réel : simulation sans suppression, oubli d’un ancien point, nettoyage, `check --read-data` et restauration du contenu conservé. Une interruption pendant le nettoyage et un worker disparu sont signalés sans rejeu.
+
+Banc web local distinct : simulation et fenêtre de confirmation vérifiées dans le navigateur, application par l’API authentifiée sur cinq versions synthétiques, trois suppressions et deux points conservés, restauration de la cinquième version et résultat vérifié dans l’interface. Aucun accès à Spark, caméra réelle ou disque de production pour ces essais. [Guide et captures](BACKUP-RETENTION.md).
+
 ## Emails SMTP — 0.8.0-alpha.6
 
 170 tests Python et 16 JavaScript. Récepteur SMTP loopback avec TLS éphémère : STARTTLS, TLS direct, authentification après chiffrement, certificat non approuvé refusé, refus 535/550, erreur 451 et reprise. Parcours navigateur avec redémarrage réel de la console, Message-ID conservé et résolution livrée après l’incident. Aucune boîte ou infrastructure de messagerie extérieure utilisée. [Guide et preuves](SMTP-NOTIFICATIONS.md).
