@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0-alpha.1 — Composants et caméras dans le navigateur
+
+Installation applicative de restic, Samba et Frigate par tâches persistantes. Ajout et correction de connexions Tapo/RTSP, ONVIF optionnel et sélection de caméra pour direct, clips et PTZ. Configuration validée par Frigate avant publication, copie privée préalable et erreurs explicites après redémarrage non confirmé. Docker et service natif restent des préparations Linux séparées.
+
+Correction d’une soumission native GET lorsque le champ caméra `id` masquait l’identifiant du formulaire ; les formulaires sensibles utilisent désormais POST et le gestionnaire lit l’attribut DOM. 126 tests Python et 8 JavaScript ; restic installé réellement sur banc local et configurations validées par Frigate ARM64 isolé. [Guide, preuves et limites](docs/COMPONENTS-CAMERAS.md).
+
 ## 0.7.0-alpha.5 — Première configuration depuis le navigateur
 
 Une commande prépare et ouvre la console sans Docker obligatoire. L’assistant authentifié sécurise le compte provisoire, présente les capacités accessibles et enregistre le nom du NAS et son fuseau. Le tableau de bord reste utilisable sans les services Docker. Les composants supplémentaires se configurent séparément.

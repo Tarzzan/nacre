@@ -319,6 +319,14 @@ class Protection:
                 except BlockingIOError:
                     time.sleep(.25)
             self.update(identifier, status='running')
+            if row['kind'] == 'component_install':
+                from deployment import install
+                install(self.app,row)
+                return
+            if row['kind'] == 'camera_add':
+                from cameras import apply
+                apply(self.app,row)
+                return
             if row['kind'] == 'backup':
                 self.app.run_backup(identifier, row['username'])
                 return
@@ -406,6 +414,8 @@ class Protection:
             fcntl.flock(lock, fcntl.LOCK_UN)
             lock.close()
             shutil.rmtree(self.app.STATE / 'tasks' / identifier, ignore_errors=True)
+            if row['kind']=='camera_add' and re.fullmatch(r'[a-f0-9]{24}',options.get('candidate','')):
+                (self.app.STATE/'camera-pending'/(options['candidate']+'.json')).unlink(missing_ok=True)
 
     def plans(self):
         with self.app.database() as db:
@@ -463,7 +473,7 @@ class Protection:
 
     def recover(self):
         with self.app.database() as db:
-            rows = db.execute("SELECT id,pid,status,ts FROM jobs WHERE status IN ('running','queued')").fetchall()
+            rows = db.execute("SELECT id,pid,status,ts,kind,options FROM jobs WHERE status IN ('running','queued')").fetchall()
         for row in rows:
             if not row['pid'] and time.time() - row['ts'] < 30:
                 continue
@@ -473,7 +483,11 @@ class Protection:
             except (OSError, TypeError):
                 live = False
             if not live:
-                self.update(row['id'], status='failed', result={'error': 'Processus interrompu avant la fin de la tâche.'})
+                self.update(row['id'], status='failed', result={'error': 'Processus interrompu avant la fin de la tâche. Vérifier les services et la configuration avant de réessayer.'})
+                if row['kind']=='camera_add':
+                    token=json.loads(row['options']).get('candidate','')
+                    if re.fullmatch(r'[a-f0-9]{24}',token):
+                        (self.app.STATE/'camera-pending'/(token+'.json')).unlink(missing_ok=True)
 
     def start_scheduler(self):
         def loop():

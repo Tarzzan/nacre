@@ -23,8 +23,8 @@ function fixture(fetch){
   setTimeout:()=>1,clearTimeout(){},setInterval:()=>1,clearInterval(){},
   FormData:class{constructor(form){return new Map(Object.entries(form.values));}},console});
  vm.runInContext(source,context);
- return {elements,context,run:code=>vm.runInContext(code,context),submit:async()=>{
-  const button=element(),form={id:'login-form',values:{username:'admin',password:'fixture-only'},querySelector:()=>button};
+ return {elements,context,listeners,run:code=>vm.runInContext(code,context),submit:async()=>{
+  const button=element(),form={id:'login-form',getAttribute:()=> 'login-form',values:{username:'admin',password:'fixture-only'},querySelector:()=>button};
   for(const fn of listeners.get('submit'))await fn({target:form,preventDefault(){}});
   assert.equal(button.disabled,false);
  }};
@@ -79,4 +79,17 @@ test('setup detection completing after navigation does not overwrite the new pag
  f.run('page="files";$("#content").innerHTML="files remain visible";');
  complete(response(200,{phase:'system'}));await pending;
  assert.equal(f.elements.get('#content').innerHTML,'files remain visible');
+});
+test('camera identifier field cannot shadow modal form id and cause a native GET',async()=>{
+ const f=fixture(async()=>response(200,{}));
+ let submitted=false,prevented=false;
+ f.elements.get('#modal').close=()=>{};
+ f.run('user={name:"admin"};render=async()=>{};');
+ f.context.recordSubmission=()=>{submitted=true;};
+ f.run('modalSubmit=async()=>recordSubmission();');
+ const button={disabled:false};
+ const form={id:{value:'atelier'},getAttribute:attribute=>attribute==='id'?'modal-form':null,values:{id:'atelier'},querySelector:()=>button};
+ for(const listener of f.listeners.get('submit'))await listener({target:form,preventDefault(){prevented=true;}});
+ assert.equal(prevented,true);assert.equal(submitted,true);assert.equal(button.disabled,false);
+ assert.match(source,/<form id="modal-form" method="post">/);
 });

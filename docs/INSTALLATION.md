@@ -16,7 +16,7 @@ python3 installer.py
 
 `installer.py` prépare les fichiers privés, conserve la configuration existante et lance la console au premier plan. Dans un second terminal, `python3 lab.py acces` affiche les accès provisoires. Le premier administrateur choisit son mot de passe dans le navigateur. `--prepare-only` prépare les fichiers sans lancer le serveur. Voir le [parcours illustré](FIRST-RUN.md).
 
-Après installation de Docker et Compose avec les droits du compte dédié, les composants peuvent être activés séparément :
+Dans **Services**, installer restic puis Samba et Frigate selon les besoins. Docker et Compose doivent d’abord être installés sur Linux et accessibles au compte dédié. Voir le [parcours web](COMPONENTS-CAMERAS.md). Les commandes suivantes restent disponibles comme alternative :
 
 ```bash
 python3 console/install_restic.py  # moteur de sauvegarde
@@ -41,7 +41,7 @@ Exemple de tunnel, en remplaçant l’hôte SSH :
 ssh -N -L 8766:127.0.0.1:8766 votre-serveur
 ```
 
-L’interface permet la gestion des partages, des plans et des réglages d’une caméra configurée. Pour ajouter initialement la caméra, créer son compte local dans l’application constructeur puis utiliser `python3 lab.py camera --ip ADRESSE_LOCALE` sur le serveur. Les plans sont désactivés par défaut. Choisir une destination distincte des données pour se protéger d’une panne de leur support et conserver la clé de récupération hors du serveur.
+L’interface permet la gestion des partages, des plans et des réglages d’une caméra configurée. Pour ajouter une caméra, créer son compte local dans l’application constructeur puis utiliser **Surveillance → Ajouter une caméra**. La commande `python3 lab.py camera --ip ADRESSE_LOCALE` reste une alternative pour la caméra historique `tapo`. Les plans sont désactivés par défaut. Choisir une destination distincte des données pour se protéger d’une panne de leur support et conserver la clé de récupération hors du serveur.
 
 ## Activer les fonctions natives
 
