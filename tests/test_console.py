@@ -212,6 +212,35 @@ class ConsoleSecurityTests(unittest.TestCase):
         self.assertEqual((server.ROOT/'data/fichiers/grand-depot.bin').stat().st_size,length)
         (server.ROOT/'data/fichiers/grand-depot.bin').unlink()
 
+    def test_upload_syncs_content_before_publication_and_directory_before_success(self):
+        target=server.ROOT/'data/fichiers/sync-order.bin';observed=[];real_fsync=os.fsync
+        def sync(fd):
+            directory=stat.S_ISDIR(os.fstat(fd).st_mode)
+            observed.append(('directory' if directory else 'file',target.exists()))
+            real_fsync(fd)
+        with patch.object(server.os,'fsync',side_effect=sync):
+            status,_=self.request('POST','/api/upload?name='+target.name,token=self.token,csrf=self.csrf,raw=b'confirmed')
+        self.assertEqual(status,200);self.assertEqual(observed,[('file',False),('directory',True)])
+        self.assertEqual(target.read_bytes(),b'confirmed')
+
+    def test_upload_file_sync_failure_is_not_acknowledged_or_published(self):
+        target=server.ROOT/'data/fichiers/sync-file-failure.bin'
+        before=set(target.parent.glob('.nacre-upload-*'))
+        with patch.object(server.os,'fsync',side_effect=OSError('test sync failure')):
+            status,_=self.request('POST','/api/upload?name='+target.name,token=self.token,csrf=self.csrf,raw=b'unconfirmed')
+        self.assertEqual(status,500);self.assertFalse(target.exists())
+        self.assertEqual(set(target.parent.glob('.nacre-upload-*')),before)
+
+    def test_upload_directory_sync_failure_preserves_complete_file_without_success(self):
+        target=server.ROOT/'data/fichiers/sync-directory-failure.bin';real_fsync=os.fsync
+        def sync(fd):
+            if stat.S_ISDIR(os.fstat(fd).st_mode):raise OSError('test directory sync failure')
+            real_fsync(fd)
+        with patch.object(server.os,'fsync',side_effect=sync):
+            status,_=self.request('POST','/api/upload?name='+target.name,token=self.token,csrf=self.csrf,raw=b'complete but unconfirmed')
+        self.assertEqual(status,500);self.assertEqual(target.read_bytes(),b'complete but unconfirmed')
+        self.assertEqual(self.request('POST','/api/upload?name='+target.name,token=self.token,csrf=self.csrf,raw=b'retry')[0],409)
+
     def test_physical_capacity_guard_rejects_without_receiving_body(self):
         conn=http.client.HTTPConnection('127.0.0.1',self.http.server_port,timeout=5)
         conn.putrequest('POST','/api/upload?name=impossible.bin')

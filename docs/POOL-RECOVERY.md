@@ -1,6 +1,6 @@
 # Reconstruire un miroir RAID1
 
-> **0.7.0-alpha.3 · miroir créé et catalogué par Nacre, deux membres, métadonnées mdadm 1.2.**
+> **0.7.0-alpha.4 · miroir créé et catalogué par Nacre, deux membres, métadonnées mdadm 1.2.**
 > La qualification réelle porte sur Btrfs dans QEMU x86-64 et ARM64, y compris trois coupures virtuelles pendant reconstruction par architecture. Ce parcours conserve le système de fichiers et ses snapshots ; il recopie le membre sain vers un disque de remplacement.
 
 ## Conditions avant ouverture du plan
@@ -42,3 +42,5 @@ Références techniques : [noyau Linux — état et synchronisation MD](https://
 La simulation de coupure brutale et la reprise ARM64 sont détaillées dans [POWER-CUT-LAB.md](POWER-CUT-LAB.md), avec leur portée et leurs limites.
 
 Pendant une reconstruction vérifiée, le volume reste accessible par HTTP et Samba. Les vérifications portent sur les identités, le montage, les UUID et le journal. L’état transitoire `write-pending` est reconnu ; un `readonly` explicite reste non inscriptible. Voir les [72 écritures concurrentes qualifiées sur ARM64](CONCURRENT-IO-CAMERA.md). Aucune coupure n’est injectée pendant ces écritures.
+
+Le [banc 0.7.0-alpha.4](ACTIVE-WRITES-POWER-CUT.md) combine reconstruction et coupures pendant écritures sur ARM64. Il distingue confirmations durables observées et transferts incomplets, avec une référence située hors de la VM. La perte du cache d’un contrôleur physique reste à tester séparément.
