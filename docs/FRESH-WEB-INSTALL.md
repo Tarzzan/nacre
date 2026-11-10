@@ -1,6 +1,6 @@
 # Samba et Frigate : installation web sur Linux neuf
 
-> **Vérifié le 10 novembre 2026 · 0.8.0-alpha.2**  
+> **Vérifié le 10 novembre 2026 · 0.8.0-alpha.2**
 > Installation réelle depuis Nacre sur Ubuntu 24.04 ARM64 vierge, puis relance avec conservation des données.
 
 ![Samba et Frigate installés depuis Nacre sur Linux neuf](images/linux-neuf-services.jpg)
