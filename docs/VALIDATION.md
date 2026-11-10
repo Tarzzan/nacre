@@ -48,7 +48,7 @@ La validation native couvre Btrfs, ZFS, LVM, copie ext4/XFS, provisionnement dis
 
 ## Captures
 
-Les captures de `docs/images/` proviennent de bancs virtuels 0.5/0.6 : données synthétiques, compte de laboratoire et aucun flux vidéo personnel. Elles illustrent une version précise et doivent être actualisées lors d’une modification significative de l’interface.
+Les captures de `docs/images/` proviennent de bancs virtuels 0.5/0.6/0.7 : données synthétiques, compte de laboratoire et aucun flux vidéo personnel. Elles illustrent une version précise et doivent être actualisées lors d’une modification significative de l’interface.
 
 ## Limites des preuves
 

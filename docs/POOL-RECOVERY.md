@@ -13,7 +13,7 @@ Conserver une sauvegarde indépendante avant intervention. Un miroir protège co
 
 ## Depuis le navigateur
 
-1. Ouvrir **Stockage natif**, actualiser et repérer le volume dégradé dans **Volumes créés par Nacre**.
+1. Ouvrir **Volumes natifs**, actualiser et repérer le volume dégradé dans **Volumes créés par Nacre**.
 2. Choisir **Reconstruire…**, sélectionner le membre absent et le nouveau disque. La préparation contrôle les identités sans ajouter de membre.
 3. Relire la série et les effets, puis recopier la confirmation `RECONSTRUIRE <volume> AVEC <disque>`. Le plan est lié à l’opérateur, valable deux minutes et utilisable une seule fois.
 4. Actualiser pour suivre la synchronisation. « Commande acceptée » signifie que le noyau poursuit le travail ; l’action n’est terminée que lorsque les deux membres attendus sont synchronisés et le miroir non dégradé.

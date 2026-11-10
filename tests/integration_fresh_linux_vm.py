@@ -43,10 +43,18 @@ smbclient "//127.0.0.1/$1" -A "$p" -c "$2" >/dev/null 2>&1
 
 if '--after-reboot' in sys.argv:
  result=json.loads((BASE/'result.json').read_text());identifier=result['pool']
- login();state=request('status');volume=next(v for v in state['provisioning']['deployments'] if v['id']==identifier)
- assert volume['mounted'] and volume['raid']['degraded']==0 and volume['raid']['sync_action']=='idle'
- assert Path(volume['mountpoint'],'data/temoin.txt').read_text().startswith('Contenu retrouvé')
- smb('alice','fichiers','ls',True);smb('desactive','fichiers','ls',False)
+ login()
+ # La console écoute avant la première convergence du watcher SMB (5 s).
+ for attempt in range(60):
+  try:
+   state=request('status');volume=next(v for v in state['provisioning']['deployments'] if v['id']==identifier)
+   assert volume['mounted'] and volume['raid']['degraded']==0 and volume['raid']['sync_action']=='idle'
+   assert Path(volume['mountpoint'],'data/temoin.txt').read_text().startswith('Contenu retrouvé')
+   smb('alice','fichiers','ls',True);smb('desactive','fichiers','ls',False)
+   break
+  except (AssertionError,OSError,StopIteration):
+   if attempt==59:raise
+   time.sleep(.5)
  result['fresh_linux_reboot_services_and_pool']=True
  (BASE/'result.json').write_text(json.dumps(result,indent=2));print(json.dumps(result));sys.exit()
 

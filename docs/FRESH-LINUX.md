@@ -39,7 +39,7 @@ Les anciennes sessions sont révoquées, les plans restent désactivés. L’imp
 
 Installer explicitement le service natif selon [INSTALLATION.md](INSTALLATION.md) et la section native du [guide détaillé](../LIRE-MOI.txt). Relever les chemins persistants, séries et capacités du nouvel équipement, puis établir une **nouvelle politique root** limitée aux disques vierges choisis. Ne pas réutiliser aveuglément les chemins de la source.
 
-Dans **Stockage natif**, préparer le profil, vérifier chaque série et confirmer la création. Le banc qualifie un miroir mdadm RAID1 à deux disques entiers avec Btrfs. Attendre sa synchronisation initiale avant de poursuivre. Aucun disque système ne fait partie de cette sélection.
+Dans **Volumes natifs**, préparer le profil, vérifier chaque série et confirmer la création. Le banc qualifie un miroir mdadm RAID1 à deux disques entiers avec Btrfs. Attendre sa synchronisation initiale avant de poursuivre. Aucun disque système ne fait partie de cette sélection.
 
 ## 4. Repeupler et raccorder les partages
 
@@ -57,7 +57,7 @@ Démarrer la console, puis modifier la destination des partages dans **SMB** pou
 
 ## 5. Valider la remise en service
 
-Vérifier la connexion avec l’ancien compte web, un accès Samba autorisé, le refus d’un compte désactivé et le refus d’écriture sur un partage en lecture seule. Créer un snapshot de test, restituer un fichier témoin, puis redémarrer Linux et vérifier à nouveau les montages et les accès. N’activer les plans qu’après validation de leurs sources et destinations.
+Vérifier la connexion avec l’ancien compte web, un accès Samba autorisé, le refus d’un compte désactivé et le refus d’écriture sur un partage en lecture seule. Au démarrage, la console peut répondre avant que Docker et la surveillance des montages aient rétabli les partages ; attendre leur disponibilité et vérifier les accès, pas seulement la page web. Créer un snapshot de test, restituer un fichier témoin, puis redémarrer Linux et vérifier à nouveau les montages et les accès. N’activer les plans qu’après validation de leurs sources et destinations.
 
 Le banc neuf vérifie console, Samba, données, clés, pool et redémarrage. La caméra et le décodage Frigate doivent être requalifiés séparément. La reprise ARM64 complète, le changement d’UID/architecture, les très gros volumes et la perte électrique pendant ces opérations restent hors du périmètre qualifié.
 

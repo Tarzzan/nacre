@@ -41,6 +41,10 @@ Nacre réunit l’administration des fichiers, des partages réseau, des volumes
 
 ### Retrouver le NAS sur un Linux neuf
 
+![Miroir reconstruit et snapshot conservé sur le banc neuf](docs/images/pool-reconstruit.png)
+
+*Capture réelle après reconstruction et redémarrage : pool et snapshot synthétiques du banc QEMU.*
+
 La [reprise sur Linux neuf](docs/FRESH-LINUX.md) retrouve données, clés et comptes, puis les raccorde à un nouveau pool. La [reconstruction RAID1](docs/POOL-RECOVERY.md) remplace un membre absent par un disque vierge avec confirmation et contrôle de synchronisation. Les deux parcours sont éprouvés sur images de disques isolées ; aucun disque de production n’est utilisé par les tests.
 
 ## Capacités et maturité
