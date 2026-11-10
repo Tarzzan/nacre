@@ -7,3 +7,5 @@ Ce numéro identifie la version déclarée de la distribution. Il ne prouve pas 
 Une console de test locale et une installation sur un NAS peuvent utiliser des versions différentes. Publier une release GitHub ou actualiser la console de test ne met pas automatiquement à jour un autre hôte.
 
 Le 10 novembre 2026, le texte historique `Nacre 0.6-dev` a été trouvé dans l’interface de Spark. Les 22 fichiers de code comparés (console Python, JavaScript, CSS, HTML et `lab.py`) correspondaient exactement à `v0.7.0-alpha.1`. Seul le libellé a été corrigé avec copie de retour arrière, sans redémarrer la console, Samba ou Frigate. Cela ne constitue pas un déploiement des fonctions 0.8 sur Spark.
+
+Plus tard le même jour, le code `c45312410406fb871588fea3ac6bf34978454ae6` a effectivement été installé sur Spark : version déclarée **0.8.0-alpha.6**, incluant le correctif d’affichage de version. La base a été migrée du schéma 1 au schéma 2. Voir le [compte rendu du déploiement](SPARK-DEPLOYMENT.md) pour les contrôles, les copies de retour arrière et la portée de cette validation.
