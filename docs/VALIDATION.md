@@ -1,5 +1,9 @@
 # Validation
 
+## Préparation Ubuntu et service persistant — 0.8.0-alpha.3
+
+136 tests Python et 9 JavaScript. Préparation des paquets Ubuntu sur une VM ARM64 vierge, service Nacre actif avant la connexion SSH après deux redémarrages, Docker accessible au gestionnaire utilisateur, installation Samba par tâche systemd depuis le navigateur et fichier témoin relu par SMB3 après redémarrage. [Protocole et limites](HOST-BOOTSTRAP.md). Aucun nouveau test Frigate ou caméra dans ce banc.
+
 ## Installation web sur Linux neuf — 0.8.0-alpha.2
 
 129 tests Python et 9 JavaScript. Déploiement réel depuis le navigateur dans une VM Ubuntu 24.04 ARM64 sans images ni conteneurs préexistants : Samba 4.22.10, Frigate 0.18.2 sain, lecture/écriture SMB3, refus d’écriture sur la vidéo, nouvelles demandes web conservant le fichier témoin. Docker 29.9.3 et Compose 5.7.0 préparés dans l’invité ; aucun service de production modifié. [Recette et capture](FRESH-WEB-INSTALL.md).

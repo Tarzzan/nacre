@@ -1250,5 +1250,32 @@
     "docker_prepared_outside_browser": true,
     "production_changed": false,
     "scope": "Samba/Frigate fresh ARM64 install and prepare/start again; no new real camera, no host reboot, no fresh x86 deployment"
+  },
+  "host_bootstrap_0_8_alpha3": {
+    "after_reboot": true,
+    "console_before_ssh": true,
+    "service_active": true,
+    "service_enabled": true,
+    "linger": true,
+    "docker_user_manager": "29.1.3",
+    "compose": "2.40.3+ds1-0ubuntu1~24.04.1",
+    "job_preserved": true,
+    "smb_sha256": "e2718241fc98ef2fd1c62ea1410bd4b376fb6a896fb216be84f2a3cdbec5bb6f",
+    "smb_read_after_reboot": true,
+    "backup_plans": 0,
+    "backup_repositories": 0,
+    "verified_at_utc": "2026-11-10T11:38:00Z",
+    "environment": "Ubuntu 24.04 ARM64 QEMU/KVM, 2 vCPU, 3 GiB RAM, 16 GiB disk",
+    "planned_reboots": 2,
+    "port": 8769,
+    "python_tests": 136,
+    "javascript_tests": 9,
+    "packages": "Ubuntu distribution repositories",
+    "initial_packages_missing": true,
+    "repeat_plan_has_no_apt": true,
+    "samba_installed_from_browser": true,
+    "worker_backend": "systemd user transient unit",
+    "production_changed": false,
+    "scope": "host preparation, persistent console and Samba across planned reboots; no new Frigate/camera test"
   }
 }

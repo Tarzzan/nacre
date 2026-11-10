@@ -17,6 +17,8 @@ Nacre réunit l’administration des fichiers, des partages réseau, des volumes
 
 ### Prendre les commandes au premier démarrage
 
+**Nouveau : préparation Ubuntu et démarrage persistant.** Examiner le plan des prérequis, l’appliquer sur un hôte neuf, puis lancer `python3 installer.py --service`. Nacre revient automatiquement après redémarrage lorsque le maintien de session est configuré. [Parcours illustré et limites](docs/HOST-BOOTSTRAP.md).
+
 ![Assistant de première configuration Nacre](docs/images/premiere-configuration.png)
 
 *Capture réelle de Chrome sur une installation locale isolée, sans caméra ni données utilisateur. L’assistant sécurise le compte initial, présente les composants disponibles et enregistre le nom du NAS et son fuseau. [Parcours de démarrage](docs/FIRST-RUN.md).*

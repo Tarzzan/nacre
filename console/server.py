@@ -1039,10 +1039,11 @@ if __name__ == '__main__':
         with database() as db:
             db.execute('DELETE FROM tickets WHERE expires<?', (time.time(),))
             db.execute('INSERT INTO tickets VALUES (?,?)', (digest(token), time.time() + 60))
-        print('http://127.0.0.1:8766/connexion-locale?ticket=' + token)
+        print('http://127.0.0.1:'+str(int(os.environ.get('NAS_PORT','8766')))+'/connexion-locale?ticket=' + token)
     else:
         protection().recover()
         protection().start_scheduler()
         shares().start_watch()
-        print('Console NAS sur http://127.0.0.1:8766', flush=True)
-        Server(('127.0.0.1', int(os.environ.get('NAS_PORT', '8766'))), Handler).serve_forever()
+        port=int(os.environ.get('NAS_PORT','8766'))
+        print(f'Console NAS sur http://127.0.0.1:{port}', flush=True)
+        Server(('127.0.0.1', port), Handler).serve_forever()

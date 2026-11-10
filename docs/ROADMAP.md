@@ -12,6 +12,10 @@ Les versions futures sont des objectifs sans date promise. Chaque étape demande
 | **1.0 — cible à qualifier** | Version exploitable avec périmètre de support précis | Revue de sécurité, endurance, mises à jour et reprise éprouvées ; aucun défaut critique connu |
 | **Après stabilisation** | Gestion de plusieurs NAS | Identités inter-hôtes, révocation, fonctionnement déconnecté et politiques de groupe spécifiés |
 
+## Préparation et persistance 0.8.0-alpha.3
+
+Plan/apply pour les prérequis Ubuntu 24.04 et installation du service utilisateur par `installer.py --service`. Retour après redémarrage et tâches systemd vérifiés sur VM ARM64 neuve. La préparation multi-distribution, une matrice matérielle étendue et la mise à jour transactionnelle restent ouvertes. [Recette](HOST-BOOTSTRAP.md).
+
 ## Avancement produit 0.8.0-alpha.1
 
 Installation des composants applicatifs depuis Services ; ajout et correction Tapo/RTSP depuis Surveillance, sélection de caméra et ONVIF optionnel. Les tâches et secrets restent séparés. La préparation de Docker sur Linux, la politique du service natif, la qualification multi-caméra réelle et l’installation transactionnelle restent ouvertes.
