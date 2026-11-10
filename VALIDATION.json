@@ -823,5 +823,147 @@
       "ACL/xattrs and interrupted Docker import",
       "Real Frigate/camera restart on recovered ARM64 guest"
     ]
+  },
+  "concurrent_io_camera_0_7_alpha3": {
+    "verified_at_utc": "2026-11-10T02:33:42.841767+00:00",
+    "version": "0.7.0-alpha.3",
+    "python_tests": 104,
+    "python_skipped": 0,
+    "javascript_tests": 5,
+    "concurrent_io_arm64": {
+      "architecture": "aarch64",
+      "bytes_per_file": 524288,
+      "acknowledged_during_recover": {
+        "local": 24,
+        "http": 24,
+        "smb": 24
+      },
+      "all_hashes_after_rebuild": true,
+      "snapshot_before_writes_unchanged": true,
+      "filesystem_uuid_preserved": true,
+      "readonly_and_disabled_smb_refused": true,
+      "orderly_reboot_hashes_and_services": true,
+      "power_cut_during_writes_tested": false,
+      "observed_progress_percent": [
+        6.25,
+        12.51
+      ],
+      "total_bytes": 37748736
+    },
+    "video_synthetic_arm64": {
+      "phase": "synthetic",
+      "architecture": "aarch64",
+      "frigate_image_arm64": true,
+      "camera_fps": 5.1,
+      "recordings_observed": 2,
+      "nacre_authenticated_snapshot_jpeg": true,
+      "nacre_authenticated_live_mjpeg": true,
+      "nacre_authenticated_recording_list": true,
+      "nacre_authenticated_clip_decoded": true,
+      "recording_decoded": true,
+      "source_recordings_restored_with_identical_hashes": 0,
+      "new_recordings_after_start": false,
+      "frames_or_credentials_published": false
+    },
+    "video_source_arm64": {
+      "phase": "source",
+      "architecture": "aarch64",
+      "frigate_image_arm64": true,
+      "camera_fps": 4.21,
+      "recordings_observed": 2,
+      "nacre_authenticated_snapshot_jpeg": true,
+      "nacre_authenticated_live_mjpeg": true,
+      "nacre_authenticated_recording_list": true,
+      "nacre_authenticated_clip_decoded": true,
+      "recording_decoded": true,
+      "source_recordings_restored_with_identical_hashes": 0,
+      "new_recordings_after_start": false,
+      "frames_or_credentials_published": false
+    },
+    "fresh_camera_recovery_arm64": {
+      "architecture": "aarch64",
+      "fresh_guest_without_images_volumes_or_native_catalog": true,
+      "restored_camera_configuration_exact": true,
+      "root_private_video_files_hashes_owners_modes_preserved": true,
+      "restored_original_recording_hashes": 2,
+      "concurrent_files_restored": 72,
+      "historical_repository_unlocked": true,
+      "samba_sid_preserved": true,
+      "samba_password_and_permissions": true,
+      "sessions_revoked_and_plans_disabled": true,
+      "native_data_restored_to_ordinary_directories": true,
+      "samba_access_and_restrictions_after_reboot": true,
+      "native_share_root_mode_restored": "0770"
+    },
+    "video_recovered_arm64": {
+      "phase": "target",
+      "architecture": "aarch64",
+      "frigate_image_arm64": true,
+      "camera_fps": 5.0,
+      "recordings_observed": 28,
+      "nacre_authenticated_snapshot_jpeg": true,
+      "nacre_authenticated_live_mjpeg": true,
+      "nacre_authenticated_recording_list": true,
+      "nacre_authenticated_clip_decoded": true,
+      "recording_decoded": true,
+      "source_recordings_restored_with_identical_hashes": 2,
+      "new_recordings_after_start": true,
+      "frames_or_credentials_published": false
+    },
+    "video_recovered_after_reboot_arm64": {
+      "phase": "reboot",
+      "architecture": "aarch64",
+      "frigate_image_arm64": true,
+      "camera_fps": 5.1,
+      "recordings_observed": 32,
+      "nacre_authenticated_snapshot_jpeg": true,
+      "nacre_authenticated_live_mjpeg": true,
+      "nacre_authenticated_recording_list": true,
+      "nacre_authenticated_clip_decoded": true,
+      "recording_decoded": true,
+      "source_recordings_restored_with_identical_hashes": 2,
+      "new_recordings_after_start": true,
+      "frames_or_credentials_published": false
+    },
+    "host_health_after_tests": {
+      "console_http": 200,
+      "services": {
+        "fichiers": "running",
+        "video": "healthy"
+      },
+      "native_helper_absent": true,
+      "camera_fps": 5.0,
+      "production_container_start_times_unchanged": true,
+      "configuration_counts": {
+        "repositories": 0,
+        "plans": 0,
+        "storage_profiles": 0
+      },
+      "isolated_vm_directory_removed": true
+    },
+    "isolation": {
+      "qemu_kvm_architecture": "aarch64",
+      "vcpus": 2,
+      "ram_mib": 3072,
+      "source_and_target_sequential": true,
+      "source_stopped_before_fresh_target": true,
+      "data_disks": "three 2 GiB raw images with cache=none",
+      "replacement_write_throttle_mib_s": 16,
+      "host_block_devices_exposed": false,
+      "production_services_restarted": false,
+      "production_software_deployed": false,
+      "camera_reset_or_ptz_movement": false,
+      "private_camera_data_or_credentials_published": false,
+      "vm_images_and_private_camera_fixtures_removed": true
+    },
+    "remaining": [
+      "Power loss while concurrent application writes are in flight",
+      "Physical controller and disk cache loss",
+      "Long endurance, multiple cameras and GPU decoding",
+      "Physical hotplug and ext4 reconstruction",
+      "ACL/xattrs and interrupted Docker import",
+      "Cross-architecture or UID/GID remapping",
+      "Video retention over multiple days"
+    ]
   }
 }

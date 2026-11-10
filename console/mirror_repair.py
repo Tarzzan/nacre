@@ -111,6 +111,28 @@ class MirrorRepair:
         if len(observed['members'])!=2 or expected!=actual or observed['degraded']!=0 or observed['sync_action']!='idle':
             raise NativeError('Les deux membres attendus ne sont pas encore synchronisés.')
 
+    def access_during_repair(self,record):
+        """Vérification sans mutation avant publication d’un volume en reconstruction."""
+        row=self.e.db.execute('SELECT * FROM deployments WHERE id=?',(record['id'],)).fetchone()
+        if (not row or row['phase']!='repairing' or not record.get('repair')
+                or fingerprint(json.loads(row['record']))!=fingerprint(record)
+                or record['layout']!='mirror' or len(record['specs'])!=2):
+            raise NativeError('Catalogue de reconstruction non vérifié.')
+        action=self.e.db.execute('SELECT * FROM actions WHERE id=?',(record['repair']['plan'],)).fetchone()
+        if not action or action['action']!='repair' or action['volume']!=record['id'] or action['status']!='running':
+            raise NativeError('Journal de reconstruction incomplet.')
+        self.p.authorize(record)
+        observed=self.observe(record)
+        expected=sorted(self.p.probe(s,blank=False)['device'] for s in record['specs'])
+        states=sorted(m['state'] for m in observed['members'])
+        valid_states=([['in_sync'],['spare']] if observed['degraded']==1 else [['in_sync'],['in_sync']])
+        if (len(set(expected))!=2 or sorted(m['device'] for m in observed['members'])!=expected
+                or observed['degraded'] not in (0,1) or states!=valid_states
+                or observed['sync_action'] not in ('idle','recover','resync')
+                or observed['array_state'] not in ('clean','active','active-idle','read-auto','readonly','write-pending')):
+            raise NativeError('État ou membres du miroir non vérifiés.')
+        return observed['array_state']!='readonly'
+
     def resume_after_mount(self,record):
         """Réactiver uniquement un ajout déjà journalisé, assemblé en read-auto."""
         row=self.e.db.execute('SELECT * FROM deployments WHERE id=?',(record['id'],)).fetchone()

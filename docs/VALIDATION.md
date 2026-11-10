@@ -1,5 +1,15 @@
 # Validation
 
+## Écritures et caméra ARM64 — 0.7.0-alpha.3
+
+104 tests Python sans test ignoré avec restic vérifié, et 5 JavaScript. Les régressions ajoutées contrôlent la publication du miroir en reconstruction, `write-pending`, la lecture seule, les refus d’identités/journaux incohérents, les montages du conteneur vidéo, les archives, l’arrêt du conteneur auxiliaire après erreur de copie et la restitution des propriétaires/modes de la racine des volumes.
+
+Le [banc ARM64](CONCURRENT-IO-CAMERA.md) vérifie 24 écritures locales, 24 dépôts HTTP authentifiés et 24 transferts Samba pendant la reconstruction. Les 72 empreintes sont conservées après reconstruction et redémarrage normal ; le snapshot antérieur reste inchangé. Les premiers essais ont détecté les refus HTTP liés à `write-pending`, corrigés avant la répétition finale.
+
+La vidéo est testée avec un générateur, puis une Tapo C530WS réelle en flux secondaire. Une seconde VM ARM64 vierge récupère le point chiffré après arrêt de la source. Les deux anciens segments sont retrouvés avec les mêmes empreintes et métadonnées, le clip est décodé via l’API web authentifiée et de nouveaux enregistrements apparaissent, puis les contrôles vidéo sont répétés après redémarrage. Les fichiers root privés de Frigate conservent leurs empreintes, UID/GID et modes. Les comptes Samba, SID, clé historique et les 72 fichiers du pool sont également contrôlés sur la cible.
+
+Aucune image réelle, clé ou archive de reprise n’est publiée. Le banc ne qualifie pas une coupure simultanée aux écritures, la charge multi-caméra, le GPU, la rétention longue ni les caches physiques. Les preuves antérieures ci-dessous restent datées de leur propre version.
+
 ## Coupure et reprise ARM64 — 0.7.0-alpha.2
 
 94 tests Python, sans test ignoré avec restic vérifié, et 5 tests JavaScript. Les nouveaux refus couvrent membres absents/inattendus/défaillants, retrait de politique, catalogue modifié, journal absent, état incertain et MD explicitement `readonly`. Le test positif vérifie une demande `--readwrite` journalisée sans nouvel ajout.

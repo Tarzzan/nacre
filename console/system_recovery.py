@@ -61,17 +61,51 @@ def offline(root):
     return states,samba
 
 
-def tar_safe(path):
+def tar_safe(path,required='passdb.tdb'):
     with tarfile.open(path,'r:') as archive:
-        names=set()
+        names=set();files=set()
         for member in archive:
             parts=PurePosixPath(member.name).parts
             if member.name.startswith('/') or '..' in parts or not (member.isfile() or member.isdir()):
-                raise RecoveryError('Archive Samba contenant un chemin ou un type non autorisé.')
-            if member.name in names:raise RecoveryError('Archive Samba ambiguë.')
-            names.add(member.name)
-        if not any(n.endswith('/passdb.tdb') or n=='passdb.tdb' for n in names):
-            raise RecoveryError('Base de comptes Samba absente de la capture.')
+                raise RecoveryError('Archive contenant un chemin ou un type non autorisé.')
+            name=str(PurePosixPath(member.name))
+            if name in names:raise RecoveryError('Archive ambiguë.')
+            names.add(name)
+            if member.isfile():files.add(name)
+        if not any(n.endswith('/'+required) or n==required for n in files):
+            raise RecoveryError('Fichier requis absent de la capture : '+required)
+
+
+def video_config_container(root,states):
+    videos=[c for c in states if c['Config']['Labels'].get('com.docker.compose.service')=='video']
+    if not videos:return None
+    if len(videos)!=1:raise RecoveryError('Conteneur vidéo ambigu.')
+    video=videos[0]
+    for destination,relative in (('/config','state/frigate'),('/media/frigate','data/video')):
+        mounts=[m for m in video.get('Mounts',[]) if m['Destination']==destination]
+        if len(mounts)!=1 or mounts[0]['Type']!='bind' or Path(mounts[0]['Source']).resolve()!=(root/relative).resolve():
+            raise RecoveryError('Le conteneur vidéo ne correspond pas aux données de cette installation.')
+    return video
+
+
+def restore_video_config(root,image,manifest):
+    if manifest['format']==1:return
+    archive=root/'state/recovery-kit/frigate.tar'
+    if checksum(archive)!=manifest['sha256'].get('frigate.tar'):raise RecoveryError('Empreinte de la configuration vidéo incorrecte.')
+    tar_safe(archive,required='frigate.db')
+    target=root/'state/frigate'
+    if target.exists() or target.is_symlink():raise RecoveryError('Destination vidéo déjà présente dans le point de reprise.')
+    target.mkdir(mode=0o700)
+    container='nacre-recovery-video-'+secrets.token_hex(12);created=False
+    try:
+        # Copie des fichiers root privés avec leurs UID et modes, sans démarrer
+        # de processus ni exposer un autre chemin en écriture.
+        run(['docker','create','--name',container,'--network','none','--read-only','--cap-drop','ALL',
+             '--security-opt','no-new-privileges','--mount','type=bind,source='+str(target)+',target=/restore',
+             '--entrypoint','/bin/true',image]);created=True
+        with archive.open('rb') as stream:run(['docker','cp','-a','-',container+':/restore/'],stdin=stream)
+    finally:
+        if created:run(['docker','rm',container])
 
 
 def native_sources(root):
@@ -128,6 +162,7 @@ def capture(root,repository,key):
     if repository.is_relative_to(root):raise RecoveryError('Le dépôt de reprise doit être hors de l’installation.')
     with held(root,True), ExitStack() as pins:
         states,samba=offline(root)
+        video=video_config_container(root,states)
         volumes=native_sources(root)
         for source in [str(root),*volumes.values()]:
             if key.is_relative_to(source):raise RecoveryError('Clé de reprise présente dans une source de données.')
@@ -151,11 +186,19 @@ def capture(root,repository,key):
                 fd=os.open(kit/name,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600)
                 with os.fdopen(fd,'wb') as output:run(cmd,stdout=output)
             tar_safe(kit/'samba.tar')
+            captured=['samba.tar','samba-image.tar'];exclusions=[]
+            if video:
+                # Frigate crée .jwt_secret en root:0600. Ne pas changer ses
+                # droits ni omettre ce fichier dans la sauvegarde chiffrée.
+                fd=os.open(kit/'frigate.tar',os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600)
+                with os.fdopen(fd,'wb') as output:run(['docker','cp',video['Id']+':/config/.','-'],stdout=output)
+                tar_safe(kit/'frigate.tar',required='frigate.db')
+                captured.append('frigate.tar');exclusions=['--exclude',str(root/'state/frigate')]
             token='nacre-installation-id:'+secrets.token_hex(16)
-            manifest={'format':1,'token':token,'root':str(root),'volumes':volumes,'uid':os.getuid(),'gid':os.getgid(),
+            manifest={'format':2 if video else 1,'token':token,'root':str(root),'volumes':volumes,'uid':os.getuid(),'gid':os.getgid(),
                       'architecture':platform.machine(),'samba_image':samba['Image'],'samba_hostname':samba['Config']['Hostname'],'repositories':identifiers,
                       'created':datetime.now(timezone.utc).isoformat(),
-                      'sha256':{n:checksum(kit/n) for n in ('samba.tar','samba-image.tar')}}
+                      'sha256':{n:checksum(kit/n) for n in captured}}
             write(kit/'manifest.json',manifest)
             # Le journal peut être très volumineux : stockage temporaire hors source,
             # puis lecture ligne par ligne, sans plafond arbitraire ni accumulation RAM.
@@ -163,7 +206,7 @@ def capture(root,repository,key):
                 restic(repository,key,'backup','--json','--tag',PENDING,'--tag',token,
                        '--exclude','**/.nacre-repos','--exclude','**/.git','--exclude','**/.tools',
                        '--exclude',str(root/'state/console/tasks'),'--exclude',str(root/'state/console/restic-cache'),
-                       str(root),*volumes.values(),stdout=output)
+                       *exclusions,str(root),*volumes.values(),stdout=output)
                 output.seek(0);summary=None
                 for line in output:
                     item=json.loads(line)
@@ -247,6 +290,28 @@ def validate_tree(root):
                 raise RecoveryError('Objet non ordinaire dans la configuration restaurée.')
 
 
+def source_directory_metadata(repository,key,snapshot,source):
+    # Le restore snapshot:sous-dossier ne réapplique pas les métadonnées du
+    # dossier racine à une destination déjà créée. Lire son entrée originale.
+    found=None
+    with tempfile.TemporaryFile() as output:
+        restic(repository,key,'ls','--json',snapshot,source,stdout=output)
+        output.seek(0)
+        for line in output:
+            row=json.loads(line)
+            if row.get('path')!=source:continue
+            if found is not None or row.get('type')!='dir':raise RecoveryError('Racine de restitution ambiguë.')
+            if any(type(row.get(k)) is not int or not 0<=row[k]<2**32-1 for k in ('uid','gid','mode')):
+                raise RecoveryError('Propriétaires ou mode de la racine invalides.')
+            # restic expose un FileMode Go : bits spéciaux distincts de chmod.
+            mode=row['mode'];permissions=mode&0o777
+            for flag,unix in ((1<<23,0o4000),(1<<22,0o2000),(1<<20,0o1000)):
+                if mode&flag:permissions|=unix
+            found=(row['uid'],row['gid'],format(permissions,'04o'))
+    if found is None:raise RecoveryError('Métadonnées de la racine absentes du point.')
+    return found
+
+
 def prepare(repository,key,snapshot,destination):
     repository=Path(repository).resolve();key=Path(key).resolve()
     destination=Path(destination).absolute()
@@ -264,7 +329,7 @@ def prepare(repository,key,snapshot,destination):
         except (RecoveryError,ValueError):continue
         if manifest is not None:raise RecoveryError('Plusieurs installations dans le même point.')
         manifest=value
-    if not isinstance(manifest,dict) or manifest.get('format')!=1:raise RecoveryError('Manifest de reprise absent ou invalide.')
+    if not isinstance(manifest,dict) or manifest.get('format') not in (1,2):raise RecoveryError('Manifest de reprise absent ou invalide.')
     if manifest.get('token') not in points[0].get('tags',[]):raise RecoveryError('Identité du kit incohérente.')
     if manifest.get('architecture')!=platform.machine():raise RecoveryError('Architecture de l’image Samba non qualifiée pour cette cible.')
     if (manifest['uid'],manifest['gid'])!=(os.getuid(),os.getgid()):raise RecoveryError('Utiliser un compte cible de mêmes UID/GID ; remappage non qualifié.')
@@ -281,6 +346,7 @@ def prepare(repository,key,snapshot,destination):
         with package.open('rb') as stream:run(['docker','image','load'],stdin=stream)
         run(['docker','image','inspect',image])
         def restore_tree(source,target):
+            uid,gid,mode=source_directory_metadata(repository,key,snapshot,source)
             target.mkdir(mode=0o700,parents=True)
             # Root seulement dans un conteneur sans réseau, avec écriture limitée
             # à une nouvelle destination. Les UID/GID des données sont préservés.
@@ -294,10 +360,19 @@ def prepare(repository,key,snapshot,destination):
                   '--entrypoint','/recovery-restic',image,'--repo','/repository','--password-file','/recovery-key','--no-cache','--no-lock',
                   'restore',snapshot+':'+source,'--target','/restore','--overwrite','never','--sparse','--verify']
             run(args)
+            # Seule la nouvelle racine est modifiée, après copie vérifiée. Les
+            # descendants ont leurs métadonnées restaurées par restic.
+            run(['docker','run','--rm','--network','none','--read-only','--cap-drop','ALL',
+                 '--cap-add','CHOWN','--cap-add','FOWNER','--security-opt','no-new-privileges',
+                 '--mount','type=bind,source='+str(target)+',target=/restore',
+                 '--entrypoint','/bin/sh',image,'-c','chown "$1:$2" /restore && chmod "$3" /restore',
+                 'sh',str(uid),str(gid),mode])
         root=scratch/'installation';restore_tree(manifest['root'],root);validate_tree(root)
         for name in ('samba.tar','samba-image.tar'):
             if checksum(root/'state/recovery-kit'/name)!=manifest['sha256'][name]:raise RecoveryError('Empreinte du kit invalide.')
         tar_safe(root/'state/recovery-kit/samba.tar')
+        restore_video_config(root,image,manifest)
+        validate_tree(root)
         for area,source in manifest['volumes'].items():
             if not re.fullmatch(r'native_[a-z][a-z0-9_-]{0,80}',area):raise RecoveryError('Volume invalide.')
             folder=scratch/'volumes'/area
