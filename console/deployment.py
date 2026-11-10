@@ -31,7 +31,7 @@ def catalog(app):
     docker = next(c for c in setup['capabilities'] if c['id']=='docker')['ready']
     restic = next(c for c in setup['capabilities'] if c['id']=='restic')['ready']
     with app.database() as db:
-        rows = db.execute("SELECT id,kind,status,result,progress,ts FROM jobs WHERE kind IN ('component_install','camera_add') ORDER BY ts DESC LIMIT 12").fetchall()
+        rows = db.execute("SELECT id,kind,status,result,progress,ts,options FROM jobs WHERE kind IN ('component_install','camera_add') ORDER BY ts DESC LIMIT 12").fetchall()
     return {'docker_ready': docker, 'components': [
         {'id':'restic','name':'Sauvegardes · restic','available':restic,'installable':True,
          'description':'Télécharger le moteur officiel avec vérification SHA-256. Aucun dépôt ni plan créé.'},
@@ -39,7 +39,32 @@ def catalog(app):
          'description':'Construire le service de fichiers et publier les partages configurés sur le port local 1445.'},
         {'id':'video','name':'Surveillance · Frigate','available':False,'installable':docker,
          'description':'Télécharger l’image prévue pour cette architecture et démarrer la vidéo sur le port local 8971.'}],
-        'jobs':[{**dict(row),'result':json.loads(row['result']),'progress':json.loads(row['progress'])} for row in rows]}
+        'jobs':[public_job(row) for row in rows]}
+
+
+def public_job(row):
+    value = {key: row[key] for key in ('id', 'kind', 'status', 'ts')}
+    value.update(result=json.loads(row['result']), progress=json.loads(row['progress']))
+    component = json.loads(row['options']).get('component')
+    if row['kind'] == 'component_install' and component in COMPONENTS:
+        value['component'] = component
+    return value
+
+
+def ready(app, component):
+    lines = app.compose('ps','--all','--format','json',component,timeout=10).splitlines()
+    if not lines:
+        return False
+    items = [json.loads(line) for line in lines]
+    if not all(item.get('State') == 'running' for item in items):
+        return False
+    if component == 'video':
+        return all(item.get('Health') == 'healthy' for item in items)
+    # Le conteneur peut tourner alors que l'entrypoint prépare encore Samba.
+    try:
+        return 'PONG from pid ' in app.compose('exec','-T','fichiers','smbcontrol','smbd','ping',timeout=10)
+    except app.Problem:
+        return False
 
 
 def install(app, row):
@@ -67,20 +92,18 @@ def install(app, row):
                 app.compose('build','fichiers',timeout=1200)
         progress('Démarrage et contrôle du service…')
         app.compose('up','-d','--no-deps','--no-build',component,timeout=180)
+        # Un code de sortie Compose réussi ne suffit pas à annoncer un service prêt.
+        confirmed = False
+        for _ in range(30):
+            if ready(app, component):
+                confirmed = True
+                break
+            time.sleep(2)
+        if not confirmed:
+            raise app.Problem('Composant préparé, mais son démarrage n’est pas confirmé. Consultez Services avant de réessayer.')
         if component == 'fichiers':
             manager.set_intent(True)
             manager.apply(app.smb_state())
-        # Un code de sortie Compose réussi ne suffit pas à annoncer un service prêt.
-        ready = False
-        for _ in range(30):
-            lines = app.compose('ps','--all','--format','json',component,timeout=10).splitlines()
-            for line in lines:
-                item = json.loads(line)
-                ready = item.get('State')=='running' and (component!='video' or item.get('Health')=='healthy')
-            if ready: break
-            time.sleep(2)
-        if not ready:
-            raise app.Problem('Composant préparé, mais son démarrage n’est pas confirmé. Consultez Services avant de réessayer.')
         result = {'message':'Service installé et démarrage confirmé.'}
     app.protection().update(row['id'], status='done', result=result, progress={'message':'Terminé','percent_done':1})
     app.audit(row['username'], 'Composant installé', component)

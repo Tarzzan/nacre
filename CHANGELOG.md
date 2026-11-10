@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0-alpha.2 — Installation web sur Linux neuf
+
+Samba et Frigate installés réellement par le navigateur dans une VM Ubuntu 24.04 ARM64 vierge, puis relancés avec conservation d’un fichier témoin. Lecture/écriture SMB3 vérifiée, écriture vidéo refusée, Frigate sain et API disponible. Docker reste un prérequis préparé sur Linux.
+
+Le déploiement attend la réponse du démon Samba avant d’appliquer les partages. Le suivi nomme chaque composant et distingue le démarrage de Frigate d’un état sain ou dégradé. 129 tests Python et 9 JavaScript. [Parcours, capture et protocole](docs/FRESH-WEB-INSTALL.md).
+
 ## 0.8.0-alpha.1 — Composants et caméras dans le navigateur
 
 Installation applicative de restic, Samba et Frigate par tâches persistantes. Ajout et correction de connexions Tapo/RTSP, ONVIF optionnel et sélection de caméra pour direct, clips et PTZ. Configuration validée par Frigate avant publication, copie privée préalable et erreurs explicites après redémarrage non confirmé. Docker et service natif restent des préparations Linux séparées.

@@ -2,7 +2,7 @@
 
 ## Préparer l’hôte
 
-Linux x86-64 ou ARM64, Python 3.11+ et util-linux. Docker Engine et le plugin Compose v2 sont requis pour Samba et Frigate, mais pas pour ouvrir la console et son assistant. Le compte dédié doit pouvoir exécuter Docker ; ce droit équivaut à un accès privilégié à l’hôte. Le service utilisateur demande systemd. SMART nécessite smartmontools et des permissions adaptées au périphérique.
+Linux x86-64 ou ARM64, Python 3.11+ et util-linux. Docker Engine et le plugin Compose (`docker compose`, v2 ou supérieur) sont requis pour Samba et Frigate, mais pas pour ouvrir la console et son assistant. Le compte dédié doit pouvoir exécuter Docker ; ce droit équivaut à un accès privilégié à l’hôte. Le service utilisateur demande systemd. SMART nécessite smartmontools et des permissions adaptées au périphérique.
 
 Les images Docker et le runtime restic sont référencés dans le code. L’installation initiale nécessite Internet pour les récupérer. Aucune dépendance Python tierce n’est nécessaire à la suite de tests standard.
 
@@ -16,7 +16,7 @@ python3 installer.py
 
 `installer.py` prépare les fichiers privés, conserve la configuration existante et lance la console au premier plan. Dans un second terminal, `python3 lab.py acces` affiche les accès provisoires. Le premier administrateur choisit son mot de passe dans le navigateur. `--prepare-only` prépare les fichiers sans lancer le serveur. Voir le [parcours illustré](FIRST-RUN.md).
 
-Dans **Services**, installer restic puis Samba et Frigate selon les besoins. Docker et Compose doivent d’abord être installés sur Linux et accessibles au compte dédié. Voir le [parcours web](COMPONENTS-CAMERAS.md). Les commandes suivantes restent disponibles comme alternative :
+Dans **Services**, installer restic puis Samba et Frigate selon les besoins. Docker et Compose doivent d’abord être installés sur Linux et accessibles au compte dédié. Voir le [parcours web](COMPONENTS-CAMERAS.md) et la [recette complète sur Linux neuf](FRESH-WEB-INSTALL.md). Les commandes suivantes restent disponibles comme alternative :
 
 ```bash
 python3 console/install_restic.py  # moteur de sauvegarde
