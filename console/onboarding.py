@@ -1,0 +1,109 @@
+"""Première configuration authentifiée ; détection sans modification de l’hôte."""
+import json
+import os
+import platform
+import secrets
+import shutil
+import subprocess
+import sys
+import time
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+
+def read(app, db=None):
+    if db is None:
+        with app.database() as connection:
+            return read(app, connection)
+    row = db.execute("SELECT value FROM settings WHERE key='onboarding'").fetchone()
+    # Une mise à jour n’impose pas de réinitialiser les comptes existants.
+    return json.loads(row[0]) if row else {'phase': 'complete', 'name': 'Nacre', 'timezone': 'UTC', 'existing': True}
+
+
+def write(db, value):
+    db.execute("INSERT INTO settings(key,value) VALUES('onboarding',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (json.dumps(value),))
+
+
+def account(app, body, session):
+    password = body.get('password')
+    if not isinstance(password, str) or not 12 <= len(password) <= 128:
+        raise app.Problem('Choisissez un mot de passe de 12 à 128 caractères.')
+    if password != body.get('confirmation'):
+        raise app.Problem('Les deux mots de passe ne correspondent pas.')
+    with app.database() as db:
+        db.execute('BEGIN IMMEDIATE')
+        state = read(app, db)
+        if state['phase'] != 'account' or session['name'] != 'admin':
+            raise app.Problem('Le compte initial est déjà configuré. Utilisez la page Utilisateurs.', 409)
+        old = db.execute("SELECT * FROM users WHERE name='admin' AND active=1 AND role='admin'").fetchone()
+        if not old:
+            raise app.Problem('Le compte initial n’est plus disponible.', 409)
+        if app.password_hash(password, old['salt']) == old['hash']:
+            raise app.Problem('Choisissez un mot de passe différent de l’accès provisoire.')
+        salt, csrf = secrets.token_hex(16), secrets.token_urlsafe(24)
+        db.execute("UPDATE users SET salt=?,hash=? WHERE name='admin'", (salt, app.password_hash(password, salt)))
+        db.execute('DELETE FROM sessions WHERE token<>?', (session['token'],))
+        db.execute('UPDATE sessions SET csrf=? WHERE token=?', (csrf, session['token']))
+        db.execute('DELETE FROM tickets')
+        state['phase'] = 'system'
+        write(db, state)
+        db.execute('INSERT INTO audit(ts,username,action,detail) VALUES(?,?,?,?)', (time.time(), session['name'], 'Compte initial sécurisé', ''))
+    # Le mot de passe choisi ne quitte jamais la base sous forme lisible.
+    app.private_write(app.STATE/'acces.txt', 'Console Nacre — utilisateur admin.\nUtiliser le mot de passe choisi dans l’assistant.\n')
+    return {'csrf': csrf, 'phase': 'system'}
+
+
+def finish(app, body, session):
+    name, timezone = body.get('name'), body.get('timezone')
+    if not isinstance(name, str) or not 1 <= len(name.strip()) <= 48 or any(ord(c) < 32 for c in name):
+        raise app.Problem('Le nom du NAS doit contenir de 1 à 48 caractères.')
+    if not isinstance(timezone, str) or len(timezone) > 100:
+        raise app.Problem('Choisissez un fuseau horaire valide.')
+    try:
+        ZoneInfo(timezone)
+    except (ValueError, ZoneInfoNotFoundError):
+        raise app.Problem('Fuseau horaire inconnu sur ce système.') from None
+    with app.database() as db:
+        db.execute('BEGIN IMMEDIATE')
+        state = read(app, db)
+        if state['phase'] == 'account':
+            raise app.Problem('Sécurisez d’abord le compte administrateur.', 409)
+        state.update(phase='complete', name=name.strip(), timezone=timezone)
+        write(db, state)
+        db.execute('INSERT INTO audit(ts,username,action,detail) VALUES(?,?,?,?)', (time.time(), session['name'], 'Première configuration enregistrée', ''))
+    return state
+
+
+def probe(args):
+    try:
+        return subprocess.run(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=3).returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
+def status(app):
+    state = read(app)
+    capacity = shutil.disk_usage(app.ROOT)
+    docker = bool(shutil.which('docker'))
+    engine = docker and probe(['docker', 'info', '--format', '{{.ServerVersion}}'])
+    compose = docker and probe(['docker', 'compose', 'version'])
+    protection = app.protection().capabilities()
+    from native_storage import SOCKET
+    native_socket = os.path.exists(SOCKET)
+    with app.database() as db:
+        repositories = db.execute('SELECT count(*) FROM repositories').fetchone()[0]
+        plans = db.execute('SELECT count(*) FROM plans WHERE enabled=1').fetchone()[0]
+    return {**state, 'system': {'os': platform.system(), 'architecture': platform.machine(),
+            'python': platform.python_version(), 'cpus': os.cpu_count(), 'free': capacity.free,
+            'supported': platform.system() == 'Linux' and platform.machine() in ('x86_64', 'amd64', 'aarch64', 'arm64') and sys.version_info >= (3, 11),
+            'non_root': os.getuid() != 0},
+        'capabilities': [
+            {'id': 'files', 'title': 'Fichiers', 'ready': os.access(app.ROOT/'data/fichiers', os.W_OK),
+             'detail': 'Espace local de fichiers de cette installation.', 'page': 'files'},
+            {'id': 'docker', 'title': 'Partages et vidéo', 'ready': bool(engine and compose),
+             'detail': 'Docker et Compose accessibles. Démarrez les services lorsque vous êtes prêt.' if engine and compose else 'Installer Docker Engine et Compose v2, puis autoriser le compte de console.', 'page': 'services'},
+            {'id': 'restic', 'title': 'Sauvegardes', 'ready': protection['available'],
+             'detail': f'{repositories} dépôt(s), {plans} plan(s) actif(s).' if protection['available'] else 'Installer le moteur restic sur le serveur pour créer des sauvegardes.', 'page': 'backups'},
+            {'id': 'native', 'title': 'Pools et snapshots natifs', 'ready': False,
+             'detail': 'Service natif détecté : vérifier ses droits et volumes dans Stockage.' if native_socket else 'Service natif optionnel à installer avec une politique de disques explicite.', 'page': 'native',
+             'detected': native_socket},
+        ]}

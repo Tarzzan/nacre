@@ -15,6 +15,12 @@ Nacre réunit l’administration des fichiers, des partages réseau, des volumes
 
 ## Dans le navigateur
 
+### Prendre les commandes au premier démarrage
+
+![Assistant de première configuration Nacre](docs/images/premiere-configuration.png)
+
+*Capture réelle de Chrome sur une installation locale isolée, sans caméra ni données utilisateur. L’assistant sécurise le compte initial, présente les composants disponibles et enregistre le nom du NAS et son fuseau. [Parcours de démarrage](docs/FIRST-RUN.md).*
+
 ### Gérer les fichiers d’un volume
 
 ![Explorateur Nacre sur un volume Btrfs de laboratoire](docs/images/fichiers-volume.png)
@@ -63,19 +69,15 @@ La [reprise sur Linux neuf](docs/FRESH-LINUX.md) retrouve données, clés et com
 
 ## Démarrer
 
-Prévoir un hôte **Linux x86-64 ou ARM64**, Python 3.11+, Docker avec Compose v2 et un compte dédié non root. Lire le [guide d’installation](docs/INSTALLATION.md) avant toute activation sur une machine contenant des données.
+Prévoir un hôte **Linux x86-64 ou ARM64**, Python 3.11+ et un compte dédié non root. Docker et Compose v2 seront nécessaires pour les partages et la vidéo ; ils ne sont pas requis pour ouvrir l’assistant. Lire le [guide d’installation](docs/INSTALLATION.md) avant toute activation sur une machine contenant des données.
 
 ```bash
 git clone https://github.com/Tarzzan/nacre.git
 cd nacre
-python3 lab.py init
-python3 console/server.py init
-python3 console/install_restic.py
-python3 lab.py start
-python3 console/install_service.py
+python3 installer.py
 ```
 
-La console écoute sur `http://127.0.0.1:8766/`. À distance, utiliser un tunnel SSH. Les identifiants sont générés localement ; `python3 lab.py acces` les affiche dans votre terminal. Aucun mot de passe universel n’est fourni par le dépôt.
+La console écoute sur `http://127.0.0.1:8766/`. À distance, utiliser un tunnel SSH. Dans un second terminal, `python3 lab.py acces` affiche les identifiants provisoires générés localement. Le premier accès conduit à l’assistant, qui permet de choisir le mot de passe administrateur. Aucun mot de passe universel n’est fourni par le dépôt.
 
 Le service natif privilégié est **optionnel** et demande une installation et une politique explicites. Il n’est pas activé par ces commandes. Aucun disque n’est initialisé et aucun plan de sauvegarde n’est créé automatiquement.
 
@@ -98,7 +100,7 @@ La console web tourne en utilisateur. Le service natif expose des opérations fe
 
 ## Ce qui est vérifié
 
-- **107 tests Python et 5 tests JavaScript**, dont reprise après arrêt brutal, intégrité des copies, protection des clés, refus de reprise dangereuse et expiration de session. Un scénario QEMU distinct vérifie comptes web/Samba, SID, données et rattachement du dépôt.
+- **113 tests Python et 7 tests JavaScript**, dont reprise après arrêt brutal, intégrité des copies, protection des clés, refus de reprise dangereuse et expiration de session. Un scénario QEMU distinct vérifie comptes web/Samba, SID, données et rattachement du dépôt.
 - Dépôt HTTP de 257 Mio et archive contenant un fichier de 1 Gio + 7 octets.
 - Sauvegarde chiffrée, restauration multivolume, droits SMB et exclusion des dossiers internes.
 - Banc QEMU avec vrais systèmes de fichiers et disques images : snapshots, provisionnement, restauration LVM, perte/remontage d’un volume.
@@ -111,6 +113,7 @@ La CI rejoue les tests ordinaires ; **les tests privilégiés QEMU et matériels
 | Document | Contenu |
 | :--- | :--- |
 | [Vision](docs/VISION.md) | Positionnement, principes et ambition reformulée |
+| [Premier démarrage](docs/FIRST-RUN.md) | Assistant, composants optionnels et reprise du parcours |
 | [Installation](docs/INSTALLATION.md) | Prérequis, accès, configuration et mise à jour |
 | [Architecture](docs/ARCHITECTURE.md) | Composants, données persistantes, frontières de confiance |
 | [Feuille de route](docs/ROADMAP.md) | Étapes et critères de sortie |

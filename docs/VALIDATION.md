@@ -1,5 +1,9 @@
 # Validation
 
+## Première configuration — 0.7.0-alpha.5
+
+113 tests Python et 7 JavaScript. Les nouveaux cas couvrent autorisations et CSRF, rotation du mot de passe et révocation, reprise de l’assistant, préférences, composants manquants, migration 1 → 2 conservant les comptes, redirection initiale et réponse tardive après navigation. Parcours réel Chrome et vue mobile sur installation locale distincte ; démarrage CLI répété sans outils externes dans PATH. [Procédure et limites](FIRST-RUN.md). Aucun nouvel essai privilégié ni accès à la caméra.
+
 ## Coupures pendant écritures — 0.7.0-alpha.4
 
 107 tests Python sans test ignoré avec restic vérifié, et 5 tests JavaScript. Trois nouveaux cas vérifient l’ordre des synchronisations HTTP, le refus de confirmer une erreur de synchronisation du fichier et la conservation sans écrasement d’un fichier publié dont la synchronisation du dossier a échoué.

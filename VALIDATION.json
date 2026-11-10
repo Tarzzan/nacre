@@ -1161,5 +1161,38 @@
       "Other filesystems and physical hotplug",
       "Managed reclamation of interrupted internal upload fragments"
     ]
+  },
+  "first_run_0_7_alpha5": {
+    "environment": "isolated local application and temporary databases; no production deployment",
+    "python_tests": 113,
+    "javascript_tests": 7,
+    "browser": "Chrome headless, real HTTP server",
+    "viewports": [
+      {
+        "width": 1440,
+        "height": 1080
+      },
+      {
+        "width": 390,
+        "height": 844
+      }
+    ],
+    "checks": [
+      "initial bookmark redirects to authenticated assistant",
+      "password rotation and revocation",
+      "reload resumes system step",
+      "name and timezone persisted",
+      "completion opens configuration choices",
+      "overview without Docker services",
+      "assistant remains accessible",
+      "no page errors or mobile horizontal overflow",
+      "prepare-only repeated with no external tools in PATH",
+      "v1 upgrade preserves accounts and skips mandatory setup"
+    ],
+    "schema_version": 2,
+    "production_services_restarted": false,
+    "disk_mutations": false,
+    "camera_access": false,
+    "screenshot": "docs/images/premiere-configuration.png"
   }
 }

@@ -65,3 +65,18 @@ test('valid session reaches the requested page after password login',async()=>{
  assert.equal(f.elements.get('#content').innerHTML,'ready');
  assert.equal(f.elements.has('#login-error'),false);
 });
+test('fresh administrator is guided to setup even from an old bookmark',async()=>{
+ const f=fixture(async()=>response(200,{}));
+ f.run('user={name:"admin",role:"admin",setup_required:true};shell();render=async()=>{};');
+ await f.run('go("snapshots")');
+ assert.equal(f.run('page'),'setup');
+});
+test('setup detection completing after navigation does not overwrite the new page',async()=>{
+ let complete;const f=fixture(()=>new Promise(resolve=>{complete=resolve;}));
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/onboarding.js'),'utf8'),f.context);
+ f.run('user={name:"admin",role:"admin"};page="setup";shell();');
+ const pending=f.run('renderSetup()');
+ f.run('page="files";$("#content").innerHTML="files remain visible";');
+ complete(response(200,{phase:'system'}));await pending;
+ assert.equal(f.elements.get('#content').innerHTML,'files remain visible');
+});
