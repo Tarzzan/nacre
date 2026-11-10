@@ -3,7 +3,15 @@ let selectedCamera='',cameraCatalog=[];
 function cameraQuery(){return '?camera='+encodeURIComponent(selectedCamera);}
 function deploymentRows(jobs){
  const states={queued:'En attente',running:'En cours',done:'Terminée',failed:'À vérifier',cancelled:'Annulée'};
- return jobs.map(j=>`<tr><td>${date(j.ts)}</td><td>${j.kind==='camera_add'?'Configuration caméra':'Installation'}</td><td><span class="badge ${j.status==='failed'?'warn':''}">${esc(states[j.status]||j.status)}</span></td><td>${esc(j.result.error||j.result.message||j.progress.message||'Préparation…')}</td></tr>`);
+ return jobs.map(j=>`<tr><td>${date(j.ts)}</td><td>${j.kind==='camera_add'?'Configuration caméra':'Installation · '+esc(({video:'Frigate',fichiers:'Samba',restic:'restic'})[j.component]||'composant')}</td><td><span class="badge ${j.status==='failed'?'warn':''}">${esc(states[j.status]||j.status)}</span></td><td>${esc(j.result.error||j.result.message||j.progress.message||'Préparation…')}</td></tr>`);
+}
+function componentState(c,service){
+ if(c.available)return 'Disponible';
+ if(!service)return 'À installer';
+ if(service.state!=='running')return 'Arrêté';
+ if(service.health==='unhealthy')return 'À vérifier';
+ if(service.health==='starting')return 'Démarrage en cours';
+ return 'En service';
 }
 async function renderComponents(){
  const generation=sessionGeneration;
@@ -11,8 +19,8 @@ async function renderComponents(){
  if(generation!==sessionGeneration||page!=='services')return;
  const busy=catalog.jobs.some(j=>['queued','running'].includes(j.status));
  $('#content').innerHTML=heading('Composez votre NAS.','Installez les composants et suivez leur démarrage depuis cette console.',button('components-refresh','Actualiser','activity'))+
- (!catalog.docker_ready?'<div class="notice neutral"><strong>Docker reste à préparer sur Linux.</strong> Les partages et la vidéo nécessitent Docker Engine et Compose v2 accessibles au compte Nacre. Le moteur de sauvegarde peut être installé dès maintenant. L’installation des paquets système et les droits du service natif restent du ressort de l’administrateur de l’hôte.</div>':'')+
- `<div class="native-summary">${catalog.components.map(c=>{const service=d.services.find(s=>s.name===c.id);return `<section class="card cardpad"><span class="appicon">${icon(c.id==='video'?'camera':c.id==='restic'?'backup':'folder')}</span><h2>${esc(c.name)}</h2><p>${esc(c.description)}</p><p><span class="badge ${service?.state==='running'||c.available?'':'dim'}">${c.available?'Disponible':service?.state==='running'?'En service':service?'Arrêté':'À installer'}</span></p>${button('component-install',c.available?'Réinstaller le moteur':service?'Préparer et démarrer':'Installer et démarrer','download','primary',`data-component="${c.id}" ${!c.installable||busy?'disabled':''}`)}${service?`<div class="service-control">${['restart','stop'].map(action=>button('service',action==='restart'?'Redémarrer':'Arrêter',null,'small',`data-name="${c.id}" data-operation="${action}" ${busy?'disabled':''}`)).join('')}</div>`:''}</section>`;}).join('')}</div><section class="card"><div class="cardhead"><h2>Installations et caméras</h2><span class="muted">Le suivi continue après fermeture du navigateur</span></div>${catalog.jobs.length?table(['Date','Opération','État','Progression / résultat'],deploymentRows(catalog.jobs)):empty('Les prochaines installations apparaîtront ici.','server')}</section><p class="capacity-note">Une réinstallation utilise les versions prévues par Nacre. Les données existantes sont conservées. Le démarrage vidéo est distinct de la réception d’un flux caméra.</p>`;
+ (!catalog.docker_ready?'<div class="notice neutral"><strong>Docker reste à préparer sur Linux.</strong> Les partages et la vidéo nécessitent Docker Engine et le plugin Compose accessibles au compte Nacre. Le moteur de sauvegarde peut être installé dès maintenant. L’installation des paquets système et les droits du service natif restent du ressort de l’administrateur de l’hôte.</div>':'')+
+ `<div class="native-summary">${catalog.components.map(c=>{const service=d.services.find(s=>s.name===c.id);return `<section class="card cardpad"><span class="appicon">${icon(c.id==='video'?'camera':c.id==='restic'?'backup':'folder')}</span><h2>${esc(c.name)}</h2><p>${esc(c.description)}</p><p><span class="badge ${['Disponible','En service'].includes(componentState(c,service))?'':'dim'}">${componentState(c,service)}</span></p>${button('component-install',c.available?'Réinstaller le moteur':service?'Préparer et démarrer':'Installer et démarrer','download','primary',`data-component="${c.id}" ${!c.installable||busy?'disabled':''}`)}${service?`<div class="service-control">${['restart','stop'].map(action=>button('service',action==='restart'?'Redémarrer':'Arrêter',null,'small',`data-name="${c.id}" data-operation="${action}" ${busy?'disabled':''}`)).join('')}</div>`:''}</section>`;}).join('')}</div><section class="card"><div class="cardhead"><h2>Installations et caméras</h2><span class="muted">Le suivi continue après fermeture du navigateur</span></div>${catalog.jobs.length?table(['Date','Opération','État','Progression / résultat'],deploymentRows(catalog.jobs)):empty('Les prochaines installations apparaîtront ici.','server')}</section><p class="capacity-note">Une réinstallation utilise les versions prévues par Nacre. Les données existantes sont conservées. Le démarrage vidéo est distinct de la réception d’un flux caméra.</p>`;
 }
 async function renderSurveillance(){
  const generation=sessionGeneration;

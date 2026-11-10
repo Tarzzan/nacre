@@ -1219,5 +1219,36 @@
     "production_services_restarted": false,
     "real_camera_access": false,
     "documentation": "docs/COMPONENTS-CAMERAS.md"
+  },
+  "fresh_web_install_0_8_alpha2": {
+    "architecture": "aarch64",
+    "docker": "29.9.3",
+    "compose": "5.7.0",
+    "samba": "Version 4.22.10",
+    "frigate": "0.18.2-cfa08c5",
+    "web_jobs_done": [
+      "fichiers",
+      "video"
+    ],
+    "smb_roundtrip_bytes": 1048576,
+    "smb_sha256": "e46506159ae3d91558421ad71d039f094b41ffe0d5c667c8dd2884be7832b996",
+    "smb_video_write_denied": true,
+    "frigate_health": "healthy",
+    "camera_count": 0,
+    "backup_plans": 0,
+    "backup_repositories": 0,
+    "verified_at_utc": "2026-11-10T06:26:00Z",
+    "environment": "Ubuntu 24.04 ARM64, QEMU/KVM, 2 vCPU, 3 GiB, disposable 16 GiB disk",
+    "initial_docker_images": 0,
+    "initial_docker_containers": 0,
+    "browser_install_tasks_completed": 4,
+    "baseline_source": "c512e965d39138bf06f1c09302f206aeedd98fd0",
+    "reinstall_with_alpha2_changes": true,
+    "witness_preserved_sha256": "3ae8dd0698c985dec82fbe4e7679189d56b2a1ac147c9a1d2e169fbcd188d73c",
+    "python_tests": 129,
+    "javascript_tests": 9,
+    "docker_prepared_outside_browser": true,
+    "production_changed": false,
+    "scope": "Samba/Frigate fresh ARM64 install and prepare/start again; no new real camera, no host reboot, no fresh x86 deployment"
   }
 }

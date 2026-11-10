@@ -1,5 +1,9 @@
 # Validation
 
+## Installation web sur Linux neuf — 0.8.0-alpha.2
+
+129 tests Python et 9 JavaScript. Déploiement réel depuis le navigateur dans une VM Ubuntu 24.04 ARM64 sans images ni conteneurs préexistants : Samba 4.22.10, Frigate 0.18.2 sain, lecture/écriture SMB3, refus d’écriture sur la vidéo, nouvelles demandes web conservant le fichier témoin. Docker 29.9.3 et Compose 5.7.0 préparés dans l’invité ; aucun service de production modifié. [Recette et capture](FRESH-WEB-INSTALL.md).
+
 ## Composants et caméras — 0.8.0-alpha.1
 
 126 tests Python, 8 JavaScript. Installation réelle de restic depuis le navigateur dans une instance isolée, suivi après actualisation, ajout refusé proprement sans Frigate, sélection de deux fixtures et correction de connexion. Deux configurations de deux caméras validées par Frigate 0.18.2 ARM64 dans un conteneur sans réseau ni montage de production. Les commandes de déploiement Samba/Frigate sont simulées dans les tests, sans nouveau déploiement intégral ni mesure multi-caméra réelle. [Détail et captures](COMPONENTS-CAMERAS.md).

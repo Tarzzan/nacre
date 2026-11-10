@@ -1,7 +1,7 @@
 <div align="center">
   <img src="docs/images/nacre-banner.svg" alt="Nacre — Vos données. Votre infrastructure. Votre autonomie." width="100%" />
   <p><strong>Une console indépendante pour administrer stockage, sauvegardes et vidéosurveillance depuis le navigateur.</strong></p>
-  <p><a href="https://github.com/Tarzzan/nacre/actions/workflows/ci.yml"><img src="docs/images/ci-status.svg" alt="Consulter les résultats CI" /></a> <img src="https://img.shields.io/badge/version-0.8_alpha-245762" alt="Version 0.7 alpha" /> <img src="https://img.shields.io/badge/Linux-x86__64%20%7C%20ARM64-102e38" alt="Linux x86-64 et ARM64" /></p>
+  <p><a href="https://github.com/Tarzzan/nacre/actions/workflows/ci.yml"><img src="docs/images/ci-status.svg" alt="Consulter les résultats CI" /></a> <img src="https://img.shields.io/badge/version-0.8_alpha-245762" alt="Version 0.8 alpha" /> <img src="https://img.shields.io/badge/Linux-x86__64%20%7C%20ARM64-102e38" alt="Linux x86-64 et ARM64" /></p>
   <p><a href="#découvrir-nacre">Découvrir</a> · <a href="docs/INSTALLATION.md">Installation</a> · <a href="docs/ARCHITECTURE.md">Architecture</a> · <a href="docs/VALIDATION.md">Validation</a> · <a href="docs/ROADMAP.md">Feuille de route</a></p>
 </div>
 
@@ -22,6 +22,10 @@ Nacre réunit l’administration des fichiers, des partages réseau, des volumes
 *Capture réelle de Chrome sur une installation locale isolée, sans caméra ni données utilisateur. L’assistant sécurise le compte initial, présente les composants disponibles et enregistre le nom du NAS et son fuseau. [Parcours de démarrage](docs/FIRST-RUN.md).*
 
 ### Installer les composants et connecter les caméras
+
+**Samba et Frigate : installation réelle vérifiée sur Linux ARM64 neuf.** Déclenchement depuis Services, suivi nommé, contrôle de disponibilité et conservation des données à la relance. [Procédure, versions et résultats](docs/FRESH-WEB-INSTALL.md).
+
+![Services installés sur Linux neuf](docs/images/linux-neuf-services.jpg)
 
 La page **Services** installe restic, Samba et Frigate avec suivi des tâches. **Surveillance** ajoute ou corrige les connexions Tapo/RTSP et permet de choisir la caméra à consulter. Docker reste un prérequis d’administration Linux pour les services conteneurisés. [Guide illustré et périmètre](docs/COMPONENTS-CAMERAS.md).
 

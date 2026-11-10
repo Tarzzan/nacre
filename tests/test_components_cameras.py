@@ -177,7 +177,7 @@ class ComponentsCameraTests(unittest.TestCase):
         _,raw=self.post('/api/components/install',{'component':'fichiers','confirm':True});job=json.loads(raw)['job']
         (server.ROOT/'state/samba/recovery.compose.json').write_text('{}')
         manager=MagicMock()
-        with patch('onboarding.probe',return_value=True),patch.object(server,'shares',return_value=manager),patch.object(server,'compose',return_value='{"State":"running"}') as compose:
+        with patch('onboarding.probe',return_value=True),patch.object(server,'shares',return_value=manager),patch.object(server,'compose',side_effect=lambda *a,**kw: 'PONG from pid 1' if a[0]=='exec' else '{"State":"running"}') as compose:
             server.protection().run_job(job)
         self.assertEqual(self.row(job)['status'],'done')
         self.assertNotIn('build',[call.args[0] for call in compose.call_args_list])
@@ -186,3 +186,32 @@ class ComponentsCameraTests(unittest.TestCase):
         with patch('onboarding.probe',return_value=True),patch('deployment.time.sleep'),patch.object(server,'compose',return_value='{"State":"running","Health":"unhealthy"}'):
             server.protection().run_job(job)
         self.assertEqual(self.row(job)['status'],'failed')
+
+    def test_samba_waits_for_daemon_before_applying_shares(self):
+        _,raw=self.post('/api/components/install',{'component':'fichiers','confirm':True});job=json.loads(raw)['job']
+        manager=MagicMock();pings=[]
+        def compose(*args,**kwargs):
+            if args[0]=='ps':return '{"State":"running"}'
+            if args[0]=='exec':
+                manager.apply.assert_not_called();pings.append(True)
+                if len(pings)==1:raise server.Problem('starting')
+                return 'PONG from pid 1'
+            return ''
+        with patch('onboarding.probe',return_value=True),patch('deployment.time.sleep'),patch.object(server,'shares',return_value=manager),patch.object(server,'compose',side_effect=compose):
+            server.protection().run_job(job)
+        self.assertEqual(self.row(job)['status'],'done');self.assertEqual(len(pings),2)
+        manager.apply.assert_called_once()
+
+    def test_running_samba_without_daemon_is_not_success(self):
+        _,raw=self.post('/api/components/install',{'component':'fichiers','confirm':True});job=json.loads(raw)['job']
+        manager=MagicMock()
+        with patch('onboarding.probe',return_value=True),patch('deployment.time.sleep'),patch.object(server,'shares',return_value=manager),patch.object(server,'compose',return_value='{"State":"running"}'):
+            server.protection().run_job(job)
+        self.assertEqual(self.row(job)['status'],'failed');manager.apply.assert_not_called()
+
+    def test_catalog_exposes_component_but_never_private_job_options(self):
+        _,raw=self.post('/api/components/install',{'component':'video','confirm':True});job=json.loads(raw)['job']
+        with server.database() as db:db.execute('UPDATE jobs SET options=? WHERE id=?',(json.dumps({'component':'video','private':'private-fixture'}),job))
+        code,raw=self.request('GET','/api/components',token=self.token)
+        self.assertEqual(code,200);self.assertEqual(json.loads(raw)['jobs'][0]['component'],'video')
+        self.assertNotIn('private-fixture',raw.decode());self.assertNotIn('options',json.loads(raw)['jobs'][0])

@@ -93,3 +93,12 @@ test('camera identifier field cannot shadow modal form id and cause a native GET
  assert.equal(prevented,true);assert.equal(submitted,true);assert.equal(button.disabled,false);
  assert.match(source,/<form id="modal-form" method="post">/);
 });
+
+test('component status distinguishes container health and names installation jobs',()=>{
+ const f=fixture(async()=>response(200,account));
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/components.js'),'utf8'),f.context);
+ assert.equal(f.run('componentState({}, {state:"running",health:"starting"})'),'Démarrage en cours');
+ assert.equal(f.run('componentState({}, {state:"running",health:"unhealthy"})'),'À vérifier');
+ assert.equal(f.run('componentState({}, {state:"running",health:"healthy"})'),'En service');
+ assert.match(f.run('deploymentRows([{ts:0,kind:"component_install",component:"video",status:"done",result:{},progress:{}}])[0]'),/Installation · Frigate/);
+});
