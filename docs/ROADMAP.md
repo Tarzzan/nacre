@@ -12,9 +12,13 @@ Les versions futures sont des objectifs sans date promise. Chaque étape demande
 | **1.0 — cible à qualifier** | Version exploitable avec périmètre de support précis | Revue de sécurité, endurance, mises à jour et reprise éprouvées ; aucun défaut critique connu |
 | **Après stabilisation** | Gestion de plusieurs NAS | Identités inter-hôtes, révocation, fonctionnement déconnecté et politiques de groupe spécifiés |
 
-## Avancement produit 0.7.0-alpha.5
+## Avancement produit 0.8.0-alpha.1
 
-Le développement revient au parcours utilisateur : préparation de la console en une commande, assistant authentifié, capacités lisibles et préférences portables. Les fonctions existantes deviennent accessibles à partir d’un point de départ commun. L’installation automatique des dépendances, l’ajout de caméra entièrement web et la mise à jour transactionnelle restent à développer. Les campagnes longues de qualification sont réservées à la stabilisation.
+Installation des composants applicatifs depuis Services ; ajout et correction Tapo/RTSP depuis Surveillance, sélection de caméra et ONVIF optionnel. Les tâches et secrets restent séparés. La préparation de Docker sur Linux, la politique du service natif, la qualification multi-caméra réelle et l’installation transactionnelle restent ouvertes.
+
+## Premier démarrage 0.7.0-alpha.5
+
+Le développement revient au parcours utilisateur : préparation de la console en une commande, assistant authentifié, capacités lisibles et préférences portables. Les fonctions existantes deviennent accessibles à partir d’un point de départ commun. À ce jalon, l’installation des composants, l’ajout de caméra entièrement web et la mise à jour transactionnelle restaient à développer. Les campagnes longues de qualification sont réservées à la stabilisation.
 
 ## Qualification du stockage 0.7.0-alpha.4
 

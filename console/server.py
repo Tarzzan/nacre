@@ -299,11 +299,13 @@ def ws_frame(payload):
     return head + mask + bytes(byte ^ mask[i % 4] for i, byte in enumerate(data))
 
 
-def ptz_move(action, preset=None):
+def ptz_move(action, preset=None, camera="tapo"):
     allowed = {'left': 'MOVE_LEFT', 'right': 'MOVE_RIGHT', 'up': 'MOVE_UP', 'down': 'MOVE_DOWN', 'stop': 'STOP'}
     if action not in allowed and action != 'preset':
         raise Problem('Commande PTZ non autorisée.')
-    info = video_json('/api/tapo/ptz/info')
+    from cameras import identifier
+    camera=identifier(sys.modules[__name__],camera)
+    info = video_json('/api/'+camera+'/ptz/info')
     if action == 'preset':
         if preset not in info.get('presets', []):
             raise Problem('Point de vue non reconnu.')
@@ -324,12 +326,12 @@ def ptz_move(action, preset=None):
         if not head.startswith(b'HTTP/1.1 101') or expected.lower() not in head.lower():
             raise Problem('Le canal PTZ n’a pas pu être ouvert.', 503)
         try:
-            sock.sendall(ws_frame({'topic': 'tapo/ptz', 'payload': allowed[action]}))
+            sock.sendall(ws_frame({'topic': camera+'/ptz', 'payload': allowed[action]}))
             if action not in ('stop', 'preset'):
                 time.sleep(0.35)
         finally:
             if action != 'preset':
-                sock.sendall(ws_frame({'topic': 'tapo/ptz', 'payload': 'STOP'}))
+                sock.sendall(ws_frame({'topic': camera+'/ptz', 'payload': 'STOP'}))
             time.sleep(0.08)
 
 
@@ -352,8 +354,9 @@ def overview():
     camera = {}
     try:
         stats = video_json('/api/stats') if any(service['name']=='video' and service['state']=='running' for service in services) else {}
-        c = stats.get('cameras', {}).get('tapo', {})
-        camera = {key: c.get(key) for key in ('camera_fps', 'process_fps', 'skipped_fps')}
+        camera_id=next(iter(stats.get('cameras',{})),None)
+        c = stats.get('cameras', {}).get(camera_id, {})
+        camera = {'id':camera_id, **{key: c.get(key) for key in ('camera_fps', 'process_fps', 'skipped_fps')}}
     except Problem:
         pass
     with database() as db:
@@ -553,7 +556,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise Problem('Ce lien de connexion a expiré ou a déjà été utilisé.', 401)
                 session_token, _ = make_session('admin')
                 return self.reply(303, b'', extra={'Location': '/', 'Set-Cookie': f'nas_session={session_token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800'})
-            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/style.css'):
+            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/components.js', '/style.css'):
                 path = STATIC / ('index.html' if url.path == '/' else url.path[1:])
                 return self.reply(200, path.read_bytes(), mimetypes.guess_type(path)[0] or 'text/plain')
             if post and url.path == '/api/login':
@@ -638,6 +641,17 @@ class Handler(BaseHTTPRequestHandler):
                     repository = manager.repository(query['repo'])
                     return self.reply(200, {'repository': repository['path'], 'password': Path(repository['key_file']).read_text().strip(),
                                             'engine': 'restic', 'version': 1}, extra={'Content-Disposition': 'attachment; filename="nacre-cle-de-recuperation.json"'})
+            if url.path == '/api/components':
+                if session['role'] != 'admin':
+                    raise Problem('Accès réservé aux administrateurs.',403)
+                from deployment import catalog
+                return self.reply(200,catalog(sys.modules[__name__]))
+            if url.path == '/api/cameras':
+                from cameras import listing
+                return self.reply(200,listing(sys.modules[__name__]))
+            if url.path.startswith('/api/camera/'):
+                from cameras import identifier
+                camera_id=identifier(sys.modules[__name__],query.get('camera','tapo'))
             if url.path == '/api/smb':
                 return self.reply(200, shares().view(smb_state()))
             if url.path == '/api/users':
@@ -653,23 +667,23 @@ class Handler(BaseHTTPRequestHandler):
                 with database() as db:
                     return self.reply(200, [dict(r) for r in db.execute('SELECT * FROM jobs ORDER BY ts DESC LIMIT 30')])
             if url.path == '/api/camera/info':
-                return self.reply(200, video_json('/api/tapo/ptz/info'))
+                return self.reply(200, video_json('/api/'+camera_id+'/ptz/info'))
             if url.path == '/api/camera/settings':
-                camera = load_config(ROOT / 'state/frigate/config.yml')['cameras']['tapo']
+                camera = load_config(ROOT / 'state/frigate/config.yml')['cameras'][camera_id]
                 return self.reply(200, {'enabled': camera.get('enabled', True), 'days': camera.get('record', {}).get('continuous', {}).get('days', 1)})
             if url.path == '/api/camera/recordings':
                 after = max(time.time() - 86400, float(query.get('after', time.time() - 3600)))
-                return self.reply(200, video_json(f'/api/tapo/recordings?after={after}&before={time.time()}')[-100:])
+                return self.reply(200, video_json(f'/api/{camera_id}/recordings?after={after}&before={time.time()}')[-100:])
             if url.path == '/api/camera/snapshot':
-                with video_get('/api/tapo/latest.jpg?height=720&quality=80') as response:
+                with video_get('/api/'+camera_id+'/latest.jpg?height=720&quality=80') as response:
                     return self.reply(200, response.read(4 * 1024**2), 'image/jpeg')
             if url.path == '/api/camera/live':
-                return self.proxy_stream('/api/tapo?fps=5&height=720', 'multipart/x-mixed-replace; boundary=frame')
+                return self.proxy_stream('/api/'+camera_id+'?fps=5&height=720', 'multipart/x-mixed-replace; boundary=frame')
             if url.path == '/api/camera/clip':
                 start, end = float(query['start']), float(query['end'])
                 if not 0 < end - start <= 300 or start < time.time() - 7 * 86400 or end > time.time() + 60:
                     raise Problem('Intervalle vidéo invalide (5 minutes maximum).')
-                return self.proxy_stream(f'/api/tapo/start/{start}/end/{end}/clip.mp4', 'video/mp4')
+                return self.proxy_stream(f'/api/{camera_id}/start/{start}/end/{end}/clip.mp4', 'video/mp4')
             raise Problem('Ressource inconnue.', 404)
         except Problem as error:
             self.reply(error.status, {'error': error.message})
@@ -695,10 +709,19 @@ class Handler(BaseHTTPRequestHandler):
     def mutate(self, route, body, session):
         user = session['name']
         with LOCK:
+            if route in ('/api/service','/api/camera/settings','/api/smb/user','/api/smb/share'):
+                from deployment import ensure_idle
+                ensure_idle(sys.modules[__name__])
             if route == '/api/logout':
                 with database() as db:
                     db.execute('DELETE FROM sessions WHERE token=?', (session['token'],))
                 return {'ok': True}
+            if route == '/api/components/install':
+                from deployment import submit
+                return submit(sys.modules[__name__],body,user)
+            if route == '/api/cameras/add':
+                from cameras import submit
+                return submit(sys.modules[__name__],body,user)
             if route == '/api/setup/account':
                 from onboarding import account
                 return account(sys.modules[__name__], body, session)
@@ -748,15 +771,17 @@ class Handler(BaseHTTPRequestHandler):
                 else:compose(body['action'],body['name'])
                 audit(user, 'Service ' + body['action'], body['name'])
             elif route == '/api/camera/ptz':
-                ptz_move(body['action'], body.get('preset'))
+                ptz_move(body['action'], body.get('preset'), body.get('camera','tapo'))
                 audit(user, 'Commande PTZ', body.get('preset', body['action']))
             elif route == '/api/camera/settings':
                 days, enabled = body.get('days'), body.get('enabled')
                 if isinstance(days, bool) or not isinstance(days, int) or not 1 <= days <= 30 or not isinstance(enabled, bool):
                     raise Problem('Choisir une durée de 1 à 30 jours et un état valide.')
+                from cameras import identifier
+                camera_id=identifier(sys.modules[__name__],body.get('camera','tapo'))
                 path = ROOT / 'state/frigate/config.yml'
                 config = load_config(path)
-                camera = config['cameras']['tapo']
+                camera = config['cameras'][camera_id]
                 camera['enabled'] = enabled
                 camera.setdefault('record', {}).setdefault('continuous', {})['days'] = days
                 code = 'import json,sys;from frigate.config import FrigateConfig;FrigateConfig.model_validate(json.load(sys.stdin))'

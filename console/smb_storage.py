@@ -171,6 +171,8 @@ class Shares:
         while True:
             try:
                 with self.app.LOCK:
+                    from deployment import ensure_idle
+                    ensure_idle(self.app)
                     config=self.app.smb_state()
                     if any(s['area'].startswith('native_') for s in config['shares']) and self.intent_enabled():
                         self.apply(config,reconcile=True)

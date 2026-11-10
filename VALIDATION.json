@@ -1194,5 +1194,30 @@
     "disk_mutations": false,
     "camera_access": false,
     "screenshot": "docs/images/premiere-configuration.png"
+  },
+  "components_cameras_0_8_alpha1": {
+    "python_tests": 126,
+    "javascript_tests": 8,
+    "environment": "isolated local application, temporary databases and ephemeral ARM64 Frigate validation container",
+    "restic_browser_install": "0.19.1, actual download and checksum validation; task persisted after reload",
+    "camera_browser_submission": "POST, missing Frigate rejected without config replacement",
+    "multi_camera_ui": "two synthetic fixtures, selection and connection editor",
+    "frigate_validation": {
+      "version": "0.18.2",
+      "architecture": "arm64",
+      "configs": 2,
+      "cameras_per_config": 2,
+      "profiles": [
+        "tapo",
+        "rtsp"
+      ],
+      "onvif": true,
+      "network": "none",
+      "production_mounts": false
+    },
+    "deployment_commands": "mocked Samba/Frigate build/pull/start/health; no full new deployment",
+    "production_services_restarted": false,
+    "real_camera_access": false,
+    "documentation": "docs/COMPONENTS-CAMERAS.md"
   }
 }

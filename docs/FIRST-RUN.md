@@ -21,12 +21,12 @@ Une actualisation ou une déconnexion reprend après le mot de passe déjà enre
 | Fonction | Préparation nécessaire | Configuration suivante |
 | --- | --- | --- |
 | Fichiers locaux | Aucune dépendance supplémentaire | Ouvrir Fichiers |
-| Partages Samba et vidéo | Docker Engine et Compose v2 accessibles au compte dédié, puis `python3 lab.py start` | Utilisateurs/Partages SMB, puis configuration caméra |
-| Sauvegardes | `python3 console/install_restic.py` | Choisir une destination, créer le dépôt et décider de l’activation des plans |
+| Partages Samba et vidéo | Docker Engine et Compose v2 accessibles au compte dédié, puis installation dans Services | Utilisateurs/Partages SMB, puis configuration caméra |
+| Sauvegardes | Installer restic dans Services | Choisir une destination, créer le dépôt et décider de l’activation des plans |
 | Pools et snapshots natifs | Service privilégié optionnel et politique explicite | Voir Stockage, Volumes natifs et le guide d’installation |
 | Démarrage persistant | systemd utilisateur ; arrêter d’abord la console au premier plan | `python3 console/install_service.py` |
 
-L’assistant ne télécharge aucun paquet, ne formate aucun disque, ne démarre aucun conteneur et ne crée aucun dépôt ou plan de sauvegarde. Une fonction « Disponible » signifie que son composant répond, pas que sa configuration métier est terminée. L’ajout initial d’une caméra utilise encore la procédure décrite dans [l’installation](INSTALLATION.md) et `lab.py camera` ; l’assistant ne prétend pas effectuer cette connexion.
+L’assistant ne télécharge aucun paquet, ne formate aucun disque, ne démarre aucun conteneur et ne crée aucun dépôt ou plan de sauvegarde. Une fonction « Disponible » signifie que son composant répond, pas que sa configuration métier est terminée. Le bouton **Installer les composants** ouvre Services ; **Surveillance → Ajouter une caméra** permet ensuite la connexion. Voir [le guide dédié](COMPONENTS-CAMERAS.md).
 
 ## Installation existante et migration
 

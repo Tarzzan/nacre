@@ -1,5 +1,9 @@
 # Validation
 
+## Composants et caméras — 0.8.0-alpha.1
+
+126 tests Python, 8 JavaScript. Installation réelle de restic depuis le navigateur dans une instance isolée, suivi après actualisation, ajout refusé proprement sans Frigate, sélection de deux fixtures et correction de connexion. Deux configurations de deux caméras validées par Frigate 0.18.2 ARM64 dans un conteneur sans réseau ni montage de production. Les commandes de déploiement Samba/Frigate sont simulées dans les tests, sans nouveau déploiement intégral ni mesure multi-caméra réelle. [Détail et captures](COMPONENTS-CAMERAS.md).
+
 ## Première configuration — 0.7.0-alpha.5
 
 113 tests Python et 7 JavaScript. Les nouveaux cas couvrent autorisations et CSRF, rotation du mot de passe et révocation, reprise de l’assistant, préférences, composants manquants, migration 1 → 2 conservant les comptes, redirection initiale et réponse tardive après navigation. Parcours réel Chrome et vue mobile sur installation locale distincte ; démarrage CLI répété sans outils externes dans PATH. [Procédure et limites](FIRST-RUN.md). Aucun nouvel essai privilégié ni accès à la caméra.
