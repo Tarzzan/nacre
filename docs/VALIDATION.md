@@ -1,5 +1,9 @@
 # Validation
 
+## Reprise d’installation 0.6.0-alpha.2
+
+82 tests ordinaires. Le scénario `integration_system_recovery_vm.py` vérifie séparément une perte simulée, une nouvelle racine, les UID des fichiers, les clés retrouvées, le dépôt historique déchiffré, les comptes web/Samba, le SID, le compte désactivé et la lecture seule, puis la persistance après recréation du conteneur Samba. L’export natif est testé avec une politique vide dans cette VM ; aucune reconstruction de disques n’est revendiquée. Configuration et base Frigate utilisent des fixtures synthétiques.
+
 ## Référence 0.6 alpha
 
 70 tests ordinaires incluent désormais migration transactionnelle, copie WAL, refus de version future, erreur de copie, arrêt SIGKILL, reprise sans écrasement, révocation de sessions et démarrages concurrents. Le scénario `integration_migrations_vm.py` valide séparément la reprise de la base dans une nouvelle installation et la connexion HTTP avec le compte conservé. Les preuves sont consignées dans `VALIDATION.json`.
@@ -30,7 +34,7 @@ La validation native couvre Btrfs, ZFS, LVM, copie ext4/XFS, provisionnement dis
 
 ## Captures
 
-Les deux captures de `docs/images/` proviennent du banc virtuel 0.5 : données synthétiques, compte de laboratoire et aucun flux vidéo personnel. Elles illustrent une version précise et doivent être actualisées lors d’une modification significative de l’interface.
+Les captures de `docs/images/` proviennent de bancs virtuels 0.5/0.6 : données synthétiques, compte de laboratoire et aucun flux vidéo personnel. Elles illustrent une version précise et doivent être actualisées lors d’une modification significative de l’interface.
 
 ## Limites des preuves
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0-alpha.2 — Reprise d’installation, clés et Samba
+
+Capture hors ligne chiffrée des données et de la configuration, avec clés restic, image et état persistant Samba. Préparation dans une nouvelle racine, UID conservés, sessions révoquées, plans désactivés et dépôts détachés jusqu’à vérification de leur identité. Import Samba dans un volume distinct, avec SID, mots de passe secondaires et comptes désactivés conservés. Export administratif du catalogue natif et reprise des fichiers externes vers des dossiers ordinaires.
+
+État et aide dans Snapshots ; procédure complète illustrée. 82 tests ordinaires et reprise rejouée dans QEMU, y compris connexion HTTP avec l’ancien compte et recréation du conteneur Samba. Parcours actuel : même architecture et UID/GID principal, dépôt monté localement. La reconstruction de Linux, des pools et des snapshots natifs reste distincte.
+
+
 ## 0.6.0-alpha.1 — 2026-11-09
 
 Première étape de fiabilité : schéma SQLite versionné, migration atomique et copie préalable cohérente vérifiée. Refus d’un schéma futur. Outil de préparation hors ligne d’une base récupérée, sans écrasement, avec révocation des sessions et désactivation des plans. État et aide disponibles dans Snapshots. Correction du bouton de restauration des snapshots, désactivé à tort en 0.5.

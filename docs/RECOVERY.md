@@ -1,5 +1,7 @@
 # Reprise de la base de console
 
+Pour les données, clés et comptes Samba, suivre désormais la [reprise d’installation](SYSTEM-RECOVERY.md).
+
 Cette première étape du jalon 0.6 protège **la base SQLite de Nacre** lors d’une évolution de son schéma. Elle ne reconstitue pas à elle seule un NAS après la perte de son disque.
 
 ## Au démarrage
@@ -54,7 +56,7 @@ Une base restaurée contient des références à des chemins, corbeilles, dépô
 | Comptes web, sessions, journal, plans, catalogue de dépôts, profils | `state/console/console.db` | Oui ; sessions révoquées et plans désactivés à la préparation | Vérifier les références après récupération |
 | Clés de dépôts restic | `state/console/keys/` et copie de récupération externe | **Non** | Conserver séparément, accès privé ; sans clé, dépôt inexploitable |
 | Configuration SMB et catalogue d’utilisateurs | `state/console/smb.json`, `state/samba/` | **Non** | Sauvegarde cohérente avec le service |
-| Mots de passe et identité Samba | Secret `state/smb_password`, volume Docker `samba-state` | **Non** | Procédure de sauvegarde/restauration du passdb et des identités à développer |
+| Mots de passe et identité Samba | Secret `state/smb_password`, volume Docker `samba-state` | **Non** | [Capture hors ligne et import dans un volume distinct](SYSTEM-RECOVERY.md) |
 | Configuration et base Frigate | `state/frigate/` | **Non** | Capture séparée et cohérente, clés/accès caméra protégés |
 | Données, vidéos, corbeilles et restaurations | `data/`, volumes gérés | **Non** | Sauvegardes de données sur support distinct et essais de restitution |
 | Dépôts chiffrés restic | Destination choisie et sous-répertoire `.nacre-repos` | Références seulement | Conserver le dépôt et sa clé, vérifier son montage |

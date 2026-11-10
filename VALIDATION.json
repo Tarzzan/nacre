@@ -71,7 +71,7 @@
     "enabled": true,
     "linger": true,
     "cloud_published": false,
-    "automated_tests": 70,
+    "automated_tests": 82,
     "browser_live_image": [
       1280,
       720
@@ -496,5 +496,78 @@
       "gitleaks": "passed"
     },
     "vm_powered_off": true
+  },
+  "installation_recovery_v06_alpha2": {
+    "scope": "Nacre installation, not a bootable OS or native pool rebuild",
+    "test_environment": "isolated QEMU Ubuntu 24.04 x86-64; no host block devices",
+    "automated_tests": 82,
+    "result": {
+      "owner_uid_preserved": true,
+      "console_original_password_http_login": true,
+      "plans_disabled_sessions_revoked": true,
+      "repositories_detached_until_verified": true,
+      "camera_configuration_preserved": true,
+      "frigate_sqlite_restored": true,
+      "native_metadata_exported": true,
+      "samba_recreation_preserves_accounts": true,
+      "files_restored": true,
+      "video_bytes_restored": true,
+      "external_volume_files_restored": true,
+      "keys_recovered_after_source_loss": true,
+      "encrypted_history_unlocked": true,
+      "samba_password_preserved": true,
+      "samba_server_sid_preserved": true,
+      "samba_disabled_flag_preserved": true,
+      "samba_secondary_account_rw": true,
+      "samba_readonly_enforced": true,
+      "disabled_account_refused": true,
+      "separate_docker_volume": true,
+      "running_service_capture_refused": true
+    },
+    "native_metadata_scope": "empty policy/catalog exported; no native volume rebuild",
+    "remaining": [
+      "Full recovery on ARM64",
+      "UID/GID or architecture remapping",
+      "Linux reinstall and native pool/snapshot reconstruction",
+      "ACL and xattr qualification",
+      "Large-volume endurance and interrupted Docker import"
+    ],
+    "deployment": {
+      "software_only": true,
+      "accounts_and_password_hashes_preserved": true,
+      "configuration_secrets_unchanged": true,
+      "samba_and_video_containers_not_restarted": true,
+      "active_jobs": 0,
+      "enabled_plans": 0,
+      "repositories": 0,
+      "plans": 0,
+      "profiles": 0,
+      "native_socket_present": false,
+      "checked_at_utc": "2026-11-10T00:32:42.600263+00:00"
+    },
+    "deployment_health": {
+      "read_only_checks": true,
+      "console_http": 200,
+      "unauthenticated_recovery_api": 401,
+      "services": {
+        "fichiers": "running",
+        "video": "healthy"
+      },
+      "recent_video_segment": true,
+      "checked_at_utc": "2026-11-10T00:33:30.555907+00:00"
+    },
+    "ci": {
+      "source_commit": "01bba7c29593cf5821e682204faa577115d7b1a5",
+      "architectures": [
+        "x86-64",
+        "ARM64"
+      ],
+      "python": [
+        "3.11",
+        "3.12"
+      ],
+      "tests_per_job": 82,
+      "gitleaks": "passed"
+    }
   }
 }

@@ -131,7 +131,7 @@ def main():
             from console import server
             shares = server.shares()
             shares.prepare_start(server.smb_state())
-        compose('up', '-d', '--build')
+        compose('up', '-d', '--no-build' if (ROOT/'state/samba/recovery.compose.json').exists() else '--build')
         if shares:
             shares.apply(server.smb_state())
     elif args.action == 'stop':
@@ -166,4 +166,7 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    sys.path.insert(0,str(Path(__file__).parent/'console'))
+    from installation_lock import held
+    with held(ROOT):
+        main()

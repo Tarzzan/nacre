@@ -6,5 +6,7 @@ import server
 
 if __name__ == '__main__':
     os.umask(0o077)
+    from installation_lock import acquire
+    process_installation_lock = acquire(server.ROOT)
     server.initialize()
     server.protection().run_job(sys.argv[1])
