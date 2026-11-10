@@ -40,6 +40,11 @@ def collect(app):
         component = json.loads(row['options']).get('component')
         if component in ('video','fichiers'):seen.add(component)
     latest = set()
+    from automatic_retention import listing
+    for policy in listing(app):
+        if policy['reason']:
+            scopes['backups'].append(condition('retention:'+policy['repo'],'Rétention automatique suspendue',
+                policy['name']+' : '+policy['reason'],'retention','critical',str(policy['version'])))
     for row in jobs:
         options = json.loads(row['options'])
         target = 'plan:'+str(options['plan']) if options.get('plan') else 'repo:'+str(options['repo']) if options.get('repo') else 'archive'

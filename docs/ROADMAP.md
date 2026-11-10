@@ -12,6 +12,10 @@ Les versions futures sont des objectifs sans date promise. Chaque étape demande
 | **1.0 — cible à qualifier** | Version exploitable avec périmètre de support précis | Revue de sécurité, endurance, mises à jour et reprise éprouvées ; aucun défaut critique connu |
 | **Après stabilisation** | Gestion de plusieurs NAS | Identités inter-hôtes, révocation, fonctionnement déconnecté et politiques de groupe spécifiés |
 
+## Rétention automatique 0.8.0-alpha.8
+
+Activation par dépôt après simulation, déclenchement après les nouvelles captures réussies, déduplication persistante, désactivation versionnée et suspension sur incident avec alerte locale. Reprise de base/NAS neutralisant les règles. Les règles calendaires, le créneau de nettoyage et la reprise d’un nettoyage seul restent ouverts. [Guide](AUTOMATIC-RETENTION.md).
+
 ## Rétention explicite 0.8.0-alpha.7
 
 Simulation depuis Snapshots, conservation des derniers points réussis par groupe, points partiels/importés protégés et confirmation à usage unique. Suppression, nettoyage et contrôle de structure par tâche persistante ; interruption signalée sans rejeu. Dépôt chiffré temporaire et restauration témoin vérifiés. La rétention automatique, les règles calendaires et la reprise d’un nettoyage seul restent ouvertes. [Guide](BACKUP-RETENTION.md).

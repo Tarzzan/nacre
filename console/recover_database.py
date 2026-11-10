@@ -50,6 +50,8 @@ def prepare(source, output):
             for table in ('sessions', 'tickets'):
                 if table in tables: db.execute('DELETE FROM '+table)
             if 'plans' in tables: db.execute('UPDATE plans SET enabled=0,next_run=NULL')
+            from automatic_retention import disable_after_recovery
+            disable_after_recovery(db)
             if 'jobs' in tables:
                 extra = ',pid=NULL' if 'pid' in columns(db, 'jobs') else ''
                 if 'cancel' in columns(db, 'jobs'): extra += ',cancel=1'

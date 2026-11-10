@@ -1,5 +1,11 @@
 # Validation
 
+## Rétention automatique — 0.8.0-alpha.8
+
+193 tests Python et 20 JavaScript. Activation après simulation, historique et captures non réussies exclus, confirmations versionnées, déduplication avec passages concurrents, désactivation, contrôle de l’auteur et du dépôt, suspension après erreur/worker disparu, reprise entre publication de l’échec et suspension, alerte locale et neutralisation des règles dans les deux procédures de reprise.
+
+Restic réel sur dépôts temporaires : nouvelle capture réussie, nettoyage automatique, `check --read-data` et restauration exacte ; interruption de `prune` conservant le succès de la sauvegarde et suspendant la règle. Banc web séparé : simulation/confirmation inspectées, activation par API, redémarrage réel de console, quatrième version synthétique, une tâche automatique supprimant deux anciennes versions, deux points restants et restauration du dernier contenu. Résultat vérifié dans le navigateur. Aucun accès à Spark. [Guide et captures](AUTOMATIC-RETENTION.md).
+
 ## Rétention — 0.8.0-alpha.7
 
 180 tests Python et 18 JavaScript. Les nouveaux cas couvrent la sélection conservatrice, les groupes, la confirmation à usage unique, l’auteur et l’expiration, les contrôles administrateur/CSRF, les changements de dépôt, l’annulation et les résultats partiels. Restic réel : simulation sans suppression, oubli d’un ancien point, nettoyage, `check --read-data` et restauration du contenu conservé. Une interruption pendant le nettoyage et un worker disparu sont signalés sans rejeu.

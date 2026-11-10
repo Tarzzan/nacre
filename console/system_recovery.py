@@ -240,6 +240,8 @@ def neutralize(root,old_root,manifest):
         if not db.execute("SELECT 1 FROM users WHERE role='admin' AND active=1").fetchone():raise RecoveryError('Administrateur actif absent.')
         db.execute('DELETE FROM sessions');db.execute('DELETE FROM tickets')
         db.execute('UPDATE plans SET enabled=0,next_run=NULL')
+        from automatic_retention import disable_after_recovery
+        disable_after_recovery(db)
         db.execute("UPDATE repositories SET target='recovery-detached'")
         for identifier,raw in db.execute('SELECT id,config FROM plans').fetchall():
             config=json.loads(raw)

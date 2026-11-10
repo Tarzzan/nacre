@@ -319,6 +319,10 @@ class Protection:
                 except BlockingIOError:
                     time.sleep(.25)
             self.update(identifier, status='running')
+            if row['kind'] == 'retention_auto':
+                from automatic_retention import run
+                run(self.app,row)
+                return
             if row['kind'] == 'retention':
                 from retention import run
                 run(self.app,row)
@@ -414,12 +418,17 @@ class Protection:
             message = error.message if isinstance(error, self.app.Problem) else 'Tâche interrompue. Vérifier la destination, l’espace disponible et les accès.'
             self.update(identifier, status='failed', result={'error': message})
         finally:
-            for fd,_,_ in guards:os.close(fd)
-            fcntl.flock(lock, fcntl.LOCK_UN)
-            lock.close()
-            shutil.rmtree(self.app.STATE / 'tasks' / identifier, ignore_errors=True)
-            if row['kind']=='camera_add' and re.fullmatch(r'[a-f0-9]{24}',options.get('candidate','')):
-                (self.app.STATE/'camera-pending'/(options['candidate']+'.json')).unlink(missing_ok=True)
+            try:
+                if row['kind']=='retention_auto':
+                    from automatic_retention import finish
+                    finish(self.app,row)
+            finally:
+                for fd,_,_ in guards:os.close(fd)
+                fcntl.flock(lock, fcntl.LOCK_UN)
+                lock.close()
+                shutil.rmtree(self.app.STATE / 'tasks' / identifier, ignore_errors=True)
+                if row['kind']=='camera_add' and re.fullmatch(r'[a-f0-9]{24}',options.get('candidate','')):
+                    (self.app.STATE/'camera-pending'/(options['candidate']+'.json')).unlink(missing_ok=True)
 
     def plans(self):
         with self.app.database() as db:
@@ -477,7 +486,7 @@ class Protection:
 
     def recover(self):
         with self.app.database() as db:
-            rows = db.execute("SELECT id,pid,status,ts,kind,options FROM jobs WHERE status IN ('running','queued')").fetchall()
+            rows = db.execute("SELECT id,pid,status,ts,kind,options,username FROM jobs WHERE status IN ('running','queued')").fetchall()
         for row in rows:
             if not row['pid'] and time.time() - row['ts'] < 30:
                 continue
@@ -487,10 +496,13 @@ class Protection:
             except (OSError, TypeError):
                 live = False
             if not live:
-                if row['kind']=='retention':
+                if row['kind'] in ('retention','retention_auto'):
                     self.update(row['id'],status='partial',result={'warning':'Rétention interrompue : des points peuvent avoir été supprimés. Actualisez le dépôt et refaites une simulation. Aucun rejeu automatique.'})
                 else:
                     self.update(row['id'], status='failed', result={'error': 'Processus interrompu avant la fin de la tâche. Vérifier les services et la configuration avant de réessayer.'})
+                if row['kind']=='retention_auto':
+                    from automatic_retention import finish
+                    finish(self.app,dict(row))
                 if row['kind']=='camera_add':
                     token=json.loads(row['options']).get('candidate','')
                     if re.fullmatch(r'[a-f0-9]{24}',token):
@@ -505,6 +517,8 @@ class Protection:
                         self.recover()
                         last_recovery = time.monotonic()
                     self.scheduler_tick()
+                    from automatic_retention import dispatch
+                    dispatch(self.app)
                 except Exception:
                     pass
                 time.sleep(5)

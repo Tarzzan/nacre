@@ -1,5 +1,7 @@
 # Conserver les versions utiles
 
+Depuis **0.8.0-alpha.8**, la simulation permet aussi d’activer une règle après les prochaines captures réussies. Le parcours ci-dessous décrit l’application unique ; voir le [guide de rétention automatique](AUTOMATIC-RETENTION.md) pour l’activation, la désactivation et la suspension après incident.
+
 Depuis **Snapshots → Gérer la rétention**, choisir un dépôt et le nombre de derniers points réussis à conserver. **Simuler sans supprimer** affiche les points conservés, protégés et proposés à la suppression. Rien n’est effacé à cette étape.
 
 Après examen, **Examiner la confirmation** présente le dépôt, le nombre de points et l’effet du nettoyage. Une case obligatoire confirme la suppression définitive et le nettoyage. La tâche continue sans navigateur ; son état apparaît dans l’historique de rétention et les tâches de protection.
@@ -12,7 +14,7 @@ La règle conserve au minimum un point réussi par groupe. Les groupes distingue
 
 Seuls les points portant le marqueur Nacre et associés à une tâche locale `snapshot` terminée avec succès sont candidats. Les points partiels, importés, étrangers, datés dans le futur ou sans preuve locale de succès restent protégés. Des points peuvent donc rester au-delà du nombre demandé. Supprimer l’historique des tâches ne rend pas leurs points automatiquement éligibles.
 
-Les snapshots natifs Btrfs/ZFS/LVM et les archives tar ne sont pas concernés. Cette version applique une règle **une seule fois après confirmation** ; elle ne programme aucune suppression automatique.
+Les snapshots natifs Btrfs/ZFS/LVM et les archives tar ne sont pas concernés. Le choix **Examiner la confirmation** applique une règle **une seule fois après confirmation** ; ce choix n’active pas la règle automatique proposée séparément.
 
 ## Effet et garanties
 

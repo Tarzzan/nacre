@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0-alpha.8 — Rétention après les sauvegardes réussies
+
+Règle par dépôt activable depuis une simulation : après les prochaines captures réussies, sélection recalculée et nettoyage automatique par tâche persistante. Version de règle et identité du dépôt revalidées, doublons évités, désactivation des tâches en attente et suspension après incident. Alerte locale et réactivation après simulation ; règles et confirmations neutralisées lors d’une reprise de base ou de NAS. Aucun automatisme activé par défaut.
+
+193 tests Python et 20 JavaScript. Banc web isolé avec redémarrage réel de console, nouvelle capture, nettoyage automatique unique et restauration exacte du fichier conservé. [Fonctionnement, preuves et limites](docs/AUTOMATIC-RETENTION.md).
+
 ## 0.8.0-alpha.7 — Rétention des sauvegardes depuis le navigateur
 
 Depuis Snapshots, simulation des derniers points réussis à conserver par groupe, détail des suppressions et confirmation à usage unique. Protection des captures partielles/importées ou sans preuve locale de réussite, revalidation du dépôt et des points avant exécution. Tâche persistante de suppression, nettoyage restic et contrôle de structure ; une interruption est signalée sans rejeu automatique. Aucune rétention automatique activée.

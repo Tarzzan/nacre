@@ -68,30 +68,38 @@ def selection(app, repository, snapshots, keep_last):
             'protected':protected,'groups':len(groups)}
 
 
+def proposal(app, identifier, count, actor):
+    manager=app.protection()
+    repository=manager.repository(identifier)
+    before=identity(manager,repository)
+    points=manager.points(repository['id'])
+    chosen=selection(app,repository,points,count)
+    ids=[p['id'] for p in chosen['remove']]
+    for offset in range(0,len(ids),128):
+        manager.checked(repository,'forget','--dry-run','--json',*ids[offset:offset+128])
+    snapshot_ids=sorted(p['id'] for p in points)
+    if identity(manager,repository)!=before or sorted(p['id'] for p in manager.points(repository['id']))!=snapshot_ids:
+        raise app.Problem('Le dépôt a changé pendant la simulation. Recommencez.',409)
+    plan={'token':secrets.token_hex(24),'actor':actor,'repo':repository['id'],'name':repository['name'],
+          'keep_last':count,'expires':time.time()+TTL,'identity':before,'snapshot_ids':snapshot_ids,**chosen}
+    return plan
+
+
 def preview(app, body, actor):
     count=body.get('keep_last')
     if type(count) is not int or not 1<=count<=1000000:
         raise app.Problem('Conserver au moins un point par groupe (entier de 1 à 1 000 000).')
     manager=app.protection()
     with idle(app):
-        repository=manager.repository(body.get('repo'))
-        before=identity(manager,repository)
-        points=manager.points(repository['id'])
-        chosen=selection(app,repository,points,count)
-        ids=[p['id'] for p in chosen['remove']]
-        for offset in range(0,len(ids),128):
-            manager.checked(repository,'forget','--dry-run','--json',*ids[offset:offset+128])
-        snapshot_ids=sorted(p['id'] for p in points)
-        if identity(manager,repository)!=before or sorted(p['id'] for p in manager.points(repository['id']))!=snapshot_ids:
-            raise app.Problem('Le dépôt a changé pendant la simulation. Recommencez.',409)
-        plan={'token':secrets.token_hex(24),'actor':actor,'repo':repository['id'],'name':repository['name'],
-              'keep_last':count,'expires':time.time()+TTL,'identity':before,'snapshot_ids':snapshot_ids,**chosen}
+        plan=proposal(app,body.get('repo'),count,actor)
         with app.database() as db:
             db.execute('BEGIN IMMEDIATE')
+            from automatic_retention import read
+            plan['policy_version']=read(db,plan['repo'])['version']
             # Une seule proposition par administrateur et dépôt ; nettoyer les expirées.
             for row in db.execute('SELECT key,value FROM settings WHERE key LIKE ?', (PREFIX+'%',)).fetchall():
                 old=json.loads(row['value'])
-                if old['expires']<time.time() or (old['actor']==actor and old['repo']==repository['id']):
+                if old['expires']<time.time() or (old['actor']==actor and old['repo']==plan['repo']):
                     db.execute('DELETE FROM settings WHERE key=?',(row['key'],))
             db.execute('INSERT INTO settings VALUES(?,?)',(PREFIX+plan['token'],json.dumps(plan)))
     return {key:value for key,value in plan.items() if key not in ('actor','identity','snapshot_ids')}
@@ -122,12 +130,13 @@ def repository_detail(plan):
     return plan['name']+' · '+str(len(plan['remove']))+' point(s)'
 
 
-def run(app, row):
+def run(app, row, guard=lambda:None):
     manager=app.protection(); plan=json.loads(row['options']); job=row['id']
     if plan['expires']<time.time():raise app.Problem('Simulation expirée avant exécution. Aucune suppression lancée.')
     repository=manager.repository(plan['repo'])
     expected=set(plan['snapshot_ids']); removed=[]
     def unchanged():
+        guard()
         if identity(manager,repository)!=plan['identity']:
             raise app.Problem('Le dépôt a changé d’identité. Refaire la simulation.',409)
         if {p['id'] for p in manager.points(plan['repo'])}!=expected:

@@ -189,3 +189,19 @@ test('retention summary escapes repository names and disables empty deletion',()
  assert.ok(html.includes('&lt;img src=x&gt;'));assert.ok(!html.includes('<img src=x>'));
  assert.match(html,/data-action="retention-confirm" disabled/);
 });
+
+test('automatic retention can be activated from an empty deletion proposal',()=>{
+ const f=fixture(async()=>response(200,{}));
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/retention.js'),'utf8'),f.context);
+ const html=f.run('retentionSummary({name:"fixture",keep:[],remove:[],protected:[],groups:0,keep_last:7,expires:100,policy_version:0})');
+ assert.match(html,/data-action="retention-confirm" disabled/);
+ assert.match(html,/data-action="retention-enable" >|data-action="retention-enable"\s*>/);
+});
+
+test('suspended automatic policy exposes a safe disable action and escapes its reason',()=>{
+ const f=fixture(async()=>response(200,{}));
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/retention.js'),'utf8'),f.context);
+ const html=f.run('retentionPolicies([{repo:"fixture",name:"Fixture",keep_last:2,version:4,enabled:false,reason:"<script>private</script>"}])');
+ assert.ok(html.includes('Suspendue'));assert.ok(html.includes('&lt;script&gt;private&lt;/script&gt;'));
+ assert.match(html,/data-action="retention-disable"/);assert.match(html,/data-version="4"/);
+});

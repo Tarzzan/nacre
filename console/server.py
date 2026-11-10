@@ -597,6 +597,10 @@ class Handler(BaseHTTPRequestHandler):
                 if session['role'] != 'admin':raise Problem('Accès réservé aux administrateurs.',403)
                 from notifications import status
                 return self.reply(200,status(sys.modules[__name__]))
+            if url.path == '/api/protection/retention-policies':
+                if session['role'] != 'admin':raise Problem('Accès réservé aux administrateurs.',403)
+                from automatic_retention import listing
+                return self.reply(200,listing(sys.modules[__name__]))
             if url.path == '/api/alerts':
                 if session['role'] != 'admin':raise Problem('Accès réservé aux administrateurs.',403)
                 from alerts import listing
@@ -835,6 +839,9 @@ class Handler(BaseHTTPRequestHandler):
             elif route == '/api/protection/retention-preview':
                 from retention import preview
                 return preview(sys.modules[__name__],body,user)
+            elif route == '/api/protection/retention-policy':
+                from automatic_retention import configure
+                return configure(sys.modules[__name__],body,user)
             elif route == '/api/protection/retention-apply':
                 from retention import submit
                 return submit(sys.modules[__name__],body,user)
