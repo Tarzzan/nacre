@@ -71,7 +71,7 @@
     "enabled": true,
     "linger": true,
     "cloud_published": false,
-    "automated_tests": 70,
+    "automated_tests": 82,
     "browser_live_image": [
       1280,
       720
@@ -531,6 +531,43 @@
       "Linux reinstall and native pool/snapshot reconstruction",
       "ACL and xattr qualification",
       "Large-volume endurance and interrupted Docker import"
-    ]
+    ],
+    "deployment": {
+      "software_only": true,
+      "accounts_and_password_hashes_preserved": true,
+      "configuration_secrets_unchanged": true,
+      "samba_and_video_containers_not_restarted": true,
+      "active_jobs": 0,
+      "enabled_plans": 0,
+      "repositories": 0,
+      "plans": 0,
+      "profiles": 0,
+      "native_socket_present": false,
+      "checked_at_utc": "2026-11-10T00:32:42.600263+00:00"
+    },
+    "deployment_health": {
+      "read_only_checks": true,
+      "console_http": 200,
+      "unauthenticated_recovery_api": 401,
+      "services": {
+        "fichiers": "running",
+        "video": "healthy"
+      },
+      "recent_video_segment": true,
+      "checked_at_utc": "2026-11-10T00:33:30.555907+00:00"
+    },
+    "ci": {
+      "source_commit": "01bba7c29593cf5821e682204faa577115d7b1a5",
+      "architectures": [
+        "x86-64",
+        "ARM64"
+      ],
+      "python": [
+        "3.11",
+        "3.12"
+      ],
+      "tests_per_job": 82,
+      "gitleaks": "passed"
+    }
   }
 }
