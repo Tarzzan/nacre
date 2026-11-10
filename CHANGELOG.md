@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0-alpha.3 — Connexion Chrome et sessions
+
+Un cookie d’une autre application locale pouvait empêcher la reconnaissance du cookie Nacre après un mot de passe accepté. Lecture ciblée du jeton Nacre, avec refus des doublons et des formats invalides. L’interface vérifie la session avant d’ouvrir l’espace, conserve l’écran de connexion en cas d’expiration et ignore les réponses d’une ancienne session ; l’erreur `Cannot set properties of null` ne masque plus la cause initiale.
+
+84 tests Python et 5 tests JavaScript, dont cookies tiers, expiration pendant navigation, réponse différée et cookie non transmis. Connexion rétablie dans Chrome avec la session existante, sans changement de mot de passe ni suppression des cookies tiers.
+
+
 ## 0.6.0-alpha.2 — Reprise d’installation, clés et Samba
 
 Capture hors ligne chiffrée des données et de la configuration, avec clés restic, image et état persistant Samba. Préparation dans une nouvelle racine, UID conservés, sessions révoquées, plans désactivés et dépôts détachés jusqu’à vérification de leur identité. Import Samba dans un volume distinct, avec SID, mots de passe secondaires et comptes désactivés conservés. Export administratif du catalogue natif et reprise des fichiers externes vers des dossiers ordinaires.
