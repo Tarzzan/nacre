@@ -212,6 +212,10 @@ class ComponentsCameraTests(unittest.TestCase):
     def test_catalog_exposes_component_but_never_private_job_options(self):
         _,raw=self.post('/api/components/install',{'component':'video','confirm':True});job=json.loads(raw)['job']
         with server.database() as db:db.execute('UPDATE jobs SET options=? WHERE id=?',(json.dumps({'component':'video','private':'private-fixture'}),job))
-        code,raw=self.request('GET','/api/components',token=self.token)
+        # Ce cas teste la confidentialité du catalogue, pas les sondes Docker
+        # du runner (leurs délais peuvent dépasser celui du client HTTP du test).
+        setup={'capabilities':[{'id':'docker','ready':False},{'id':'restic','ready':False}]}
+        with patch('onboarding.status',return_value=setup):
+            code,raw=self.request('GET','/api/components',token=self.token)
         self.assertEqual(code,200);self.assertEqual(json.loads(raw)['jobs'][0]['component'],'video')
         self.assertNotIn('private-fixture',raw.decode());self.assertNotIn('options',json.loads(raw)['jobs'][0])
