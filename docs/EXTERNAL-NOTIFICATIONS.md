@@ -1,6 +1,6 @@
 # Notifications externes · ntfy et webhook JSON
 
-**0.8.0-alpha.5** permet de configurer une destination depuis **Alertes → Notifications**. Les envois automatiques sont désactivés par défaut. Une seule destination est active à la fois : serveur ntfy, y compris auto-hébergé, ou récepteur acceptant le format JSON Nacre. Aucun abonnement ni compte tiers n’est créé par Nacre.
+**0.8.0-alpha.5** permet de configurer une destination depuis **Alertes → Notifications**. Les envois automatiques sont désactivés par défaut. Une seule destination est active à la fois : serveur ntfy, y compris auto-hébergé, ou récepteur acceptant le format JSON Nacre. Aucun abonnement ni compte tiers n’est créé par Nacre. Depuis **0.8.0-alpha.6**, le [profil email SMTP](SMTP-NOTIFICATIONS.md) est également disponible.
 
 ![Livraisons sur récepteur isolé](images/notifications-livraisons.jpg)
 
@@ -77,4 +77,4 @@ Le profil ntfy publie un texte UTF-8 vers l’URL du sujet, avec titre `Nacre`, 
 
 Le parcours navigateur utilise une base dédiée et un récepteur loopback jetable : configuration du webhook, test reçu, incident simulé avec premier HTTP 503, arrêt et redémarrage réels de la console avant reprise, puis résolution livrée après l’incident. Le même récepteur vérifie aussi le format ntfy configuré dans le navigateur, avec les envois automatiques désactivés. Il n’y a pas d’envoi à un service Internet, de push réel vers téléphone ou de modification de la caméra de production. Les preuves structurées sont dans `VALIDATION.json`, entrée `external_notifications_0_8_alpha5`.
 
-Ce jalon ne comprend pas SMTP/email natif, plusieurs destinations simultanées, alertes répétées tant qu’un incident persiste, règles horaires ou suivi d’une lecture. Une panne complète du NAS ou de Nacre nécessite toujours un observateur externe. Les files et livraisons dépendent du processus Nacre en fonctionnement ; une sauvegarde de base restaurée peut réintroduire des envois anciens.
+Le profil SMTP est ajouté en 0.8.0-alpha.6. Restent hors périmètre : plusieurs destinations simultanées, alertes répétées tant qu’un incident persiste, règles horaires ou suivi d’une lecture. Une panne complète du NAS ou de Nacre nécessite toujours un observateur externe. Les files et livraisons dépendent du processus Nacre en fonctionnement ; une sauvegarde de base restaurée peut réintroduire des envois anciens.

@@ -1,4 +1,4 @@
-"""Outbox transactionnelle : webhook JSON / ntfy, sans secret dans les réponses API."""
+"""Outbox transactionnelle : webhook JSON / ntfy / SMTP, sans secret dans les réponses API."""
 import copy
 from datetime import datetime, timezone
 import json
@@ -21,9 +21,12 @@ HISTORY = 100
 
 def read(db):
     row = db.execute('SELECT value FROM settings WHERE key=?', (KEY,)).fetchone()
-    return json.loads(row[0]) if row else {
+    state = json.loads(row[0]) if row else {
         'config': {'version':0, 'enabled':False, 'kind':'webhook', 'url':'', 'token':'', 'minimum':'warning', 'recovery':True},
         'items':[], 'dropped':0, 'last_test':0}
+    from smtp_notifications import defaults
+    state['config'].setdefault('smtp',defaults())
+    return state
 
 
 def write(db, state):
@@ -60,29 +63,42 @@ def status(app):
     # Le chemin et la requête d'un webhook peuvent contenir des secrets.
     parsed=urlsplit(config['url'])
     public={key:config[key] for key in ('version','enabled','kind','minimum','recovery')}
-    public.update(configured=bool(config['url']),has_token=bool(config['token']),destination=(parsed.scheme+'://'+parsed.netloc) if config['url'] else '')
+    public.update(configured=configured(config),has_token=bool(config['token']),destination=(parsed.scheme+'://'+parsed.netloc) if config['url'] else '')
+    public['smtp']={key:value for key,value in config['smtp'].items() if key!='password'}
+    public['smtp']['has_password']=bool(config['smtp']['password'])
+    if config['kind']=='smtp':public['destination']=config['smtp']['host']+':'+str(config['smtp']['port'])
     fields=('id','event','title','severity','created','status','attempts','next','result','finished','config_version')
     return {'config':public, 'pending':sum(i['status'] in PENDING for i in state['items']), 'dropped':state['dropped'],
             'deliveries':[{key:item[key] for key in fields} for item in reversed(state['items'][-100:])]}
+
+
+def configured(config):
+    return bool(config['smtp']['host']) if config['kind']=='smtp' else bool(config['url'])
 
 
 def configure(app, body, actor):
     with app.database() as db:
         db.execute('BEGIN IMMEDIATE');state=read(db);old=state['config'];version(app,body,old)
         config={key:body.get(key) for key in ('enabled','kind','minimum','recovery')}
-        if type(config['enabled']) is not bool or type(config['recovery']) is not bool or config['kind'] not in ('webhook','ntfy') or config['minimum'] not in ('warning','critical'):
+        if type(config['enabled']) is not bool or type(config['recovery']) is not bool or config['kind'] not in ('webhook','ntfy','smtp') or config['minimum'] not in ('warning','critical'):
             raise app.Problem('Options de notification invalides.')
-        url=body.get('url','');token=body.get('token','')
-        if not isinstance(url,str) or not isinstance(token,str) or type(body.get('clear_token',False)) is not bool:
-            raise app.Problem('Destination ou jeton invalide.')
-        config['url']=validate_url(app,url) if url else old['url']
-        if not config['url'] and config['enabled']:raise app.Problem('Renseignez une destination avant d’activer les envois.')
-        # Ne jamais transmettre implicitement un ancien secret à une nouvelle destination.
-        if url and url!=old['url'] and old['token'] and not token and not body.get('clear_token'):
-            raise app.Problem('Pour changer de destination, renseignez le jeton adapté ou choisissez de le supprimer.')
-        if token and (len(token)>4096 or not re.fullmatch(r'[A-Za-z0-9._~+/=-]+',token)):
-            raise app.Problem('Jeton Bearer invalide.')
-        config['token']='' if body.get('clear_token') else token or old['token']
+        from smtp_notifications import configure as configure_smtp, defaults
+        if config['kind']=='smtp':
+            config['smtp']=configure_smtp(app,body,old['smtp'])
+            config['url']='';config['token']=''
+        else:
+            config['smtp']=defaults()
+            url=body.get('url','');token=body.get('token','')
+            if not isinstance(url,str) or not isinstance(token,str) or type(body.get('clear_token',False)) is not bool:
+                raise app.Problem('Destination ou jeton invalide.')
+            config['url']=validate_url(app,url) if url else old['url']
+            if not config['url'] and config['enabled']:raise app.Problem('Renseignez une destination avant d’activer les envois.')
+            # Ne jamais transmettre implicitement un ancien secret à une nouvelle destination.
+            if url and url!=old['url'] and old['token'] and not token and not body.get('clear_token'):
+                raise app.Problem('Pour changer de destination, renseignez le jeton adapté ou choisissez de le supprimer.')
+            if token and (len(token)>4096 or not re.fullmatch(r'[A-Za-z0-9._~+/=-]+',token)):
+                raise app.Problem('Jeton Bearer invalide.')
+            config['token']='' if body.get('clear_token') else token or old['token']
         config['version']=old['version']+1
         now=time.time()
         for item in state['items']:
@@ -119,7 +135,7 @@ def enqueue(db, event, incident, now):
 def test(app, body, actor):
     with app.database() as db:
         db.execute('BEGIN IMMEDIATE');state=read(db);version(app,body,state['config'])
-        if not state['config']['url']:raise app.Problem('Enregistrez une destination avant le test.')
+        if not configured(state['config']):raise app.Problem('Enregistrez une destination avant le test.')
         now=time.time()
         if now-state['last_test']<30:raise app.Problem('Attendez 30 secondes avant un nouveau test.',429)
         identifier=append(state,'test',{'title':'Test de notification Nacre','message':'Ce message de test confirme le trajet depuis Nacre vers votre destination. Aucun incident réel ni donnée de caméra ne sont inclus.','severity':'warning'},now)
@@ -148,6 +164,9 @@ class NoRedirect(HTTPRedirectHandler):
 
 
 def deliver(config, item):
+    if config['kind']=='smtp':
+        from smtp_notifications import deliver as deliver_smtp
+        return deliver_smtp(config['smtp'],item)
     payload={'schema':'nacre.alert.v1','id':item['id'],'event':item['event'],'incident_id':item['incident'],
              'version':item['version'],'severity':item['severity'],'title':item['title'],'message':item['message'],'occurred_at':item['created']}
     headers={'User-Agent':'Nacre/notifications','X-Nacre-Event-Id':item['id']}
@@ -185,7 +204,7 @@ def dispatch(app, now=None):
             item.update(status='cancelled',finished=now,result='Envoi désactivé.');write(db,state);return True
         if item['attempts']>=5:
             item.update(status='failed',finished=now,result='Résultat de la dernière tentative inconnu après interruption.');write(db,state);return True
-        item.update(status='sending',attempts=item['attempts']+1,next=now+LEASE,lease=secrets.token_hex(16),result='Envoi en cours.')
+        item.update(status='sending',attempts=item['attempts']+1,next=now+(180 if state['config']['kind']=='smtp' else LEASE),lease=secrets.token_hex(16),result='Envoi en cours.')
         snapshot=copy.deepcopy(item);config=copy.deepcopy(state['config']);write(db,state)
     # Aucun verrou SQLite pendant le réseau ; une sauvegarde reste possible.
     ok,transient,result=deliver(config,snapshot)
