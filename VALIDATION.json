@@ -1294,5 +1294,22 @@
     "production_changed": false,
     "external_notifications": false,
     "scope": "HTTP browser workflow with simulated observations, actual process restart, unit collector fixtures; no real camera fault or hardware failure injected"
+  },
+  "external_notifications_0_8_alpha5": {
+    "verified_utc": "2026-11-10T12:29:56.432823+00:00",
+    "python_tests": 161,
+    "javascript_tests": 14,
+    "loopback_http_receiver": true,
+    "synthetic_alert_sources": true,
+    "browser_configuration_and_test": true,
+    "http_503_then_200": true,
+    "actual_console_process_restart_with_queued_delivery": true,
+    "event_id_preserved": true,
+    "recovery_delivered_after_incident": true,
+    "browser_ntfy_format_test_with_automatic_delivery_disabled": true,
+    "tls_untrusted_refused_and_test_ca_accepted": true,
+    "internet_delivery": false,
+    "phone_push_qualified": false,
+    "production_changed": false
   }
 }

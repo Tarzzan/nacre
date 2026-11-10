@@ -1,6 +1,6 @@
 # Alertes locales et suivi des incidents
 
-**0.8.0-alpha.4** ajoute un centre **Alertes** réservé aux administrateurs et un compteur accessible depuis toutes les pages. Le contrôle continue tant que le processus Nacre fonctionne, même sans navigateur ouvert. Aucun envoi extérieur, notification du système, email ou action corrective automatique n’est déclenché.
+**0.8.0-alpha.4** ajoute un centre **Alertes** réservé aux administrateurs et un compteur accessible depuis toutes les pages. Le contrôle continue tant que le processus Nacre fonctionne, même sans navigateur ouvert. Par défaut, aucun envoi extérieur ni action corrective automatique n’est déclenché. Depuis **0.8.0-alpha.5**, les [notifications ntfy et webhook JSON](EXTERNAL-NOTIFICATIONS.md) peuvent être configurées explicitement depuis cette page.
 
 ![Incidents simulés et prise en compte](images/alertes-locales.jpg)
 

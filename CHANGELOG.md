@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0-alpha.5 — Notifications externes configurables
+
+Destination ntfy ou webhook JSON réglable depuis Alertes → Notifications : test manuel, activation, gravité minimale, retours à la normale et historique des livraisons. File transactionnelle persistante, tentatives espacées, relance explicite et protection des secrets. HTTPS vérifié ; redirections refusées. Les envois restent désactivés par défaut.
+
+161 tests Python et 14 JavaScript. Récepteur isolé, erreur 503 puis reprise après redémarrage réel, identité conservée et résolution livrée dans l’ordre. Tests TLS locaux et formats ntfy/JSON ; aucun push réel ni service Internet sollicité. [Guide et captures](docs/EXTERNAL-NOTIFICATIONS.md).
+
 ## 0.8.0-alpha.4 — Alertes locales persistantes
 
 Centre Alertes administrateur et compteur global : services connus indisponibles, caméra activée sans flux, dernières sauvegardes échouées ou incomplètes et volume de Nacre presque plein. Confirmation temporelle, prise en compte versionnée, récidive et historique des retours à la normale. Les contrôles inconnus ne résolvent pas les incidents ; aucune notification extérieure ni correction automatique.

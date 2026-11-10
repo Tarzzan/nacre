@@ -17,7 +17,11 @@ Nacre réunit l’administration des fichiers, des partages réseau, des volumes
 
 ### Repérer les incidents et suivre leur résolution
 
-Un centre **Alertes** rassemble les incidents locaux, leur prise en compte et les retours à la normale. Le compteur reste accessible dans la console ; aucun envoi extérieur n’est activé. [Périmètre et fonctionnement](docs/LOCAL-ALERTS.md).
+**Recevoir les alertes à distance.** Une destination ntfy ou webhook JSON se configure depuis le navigateur, avec test manuel, filtre de gravité, retours à la normale et suivi des livraisons. Les tentatives reprennent après redémarrage ; les envois sont désactivés par défaut. [Configurer les notifications](docs/EXTERNAL-NOTIFICATIONS.md).
+
+![Notifications externes — récepteur de test isolé](docs/images/notifications-livraisons.jpg)
+
+Un centre **Alertes** rassemble les incidents locaux, leur prise en compte et les retours à la normale. Le compteur reste accessible dans la console ; aucun envoi extérieur n’est activé par défaut. [Périmètre et fonctionnement](docs/LOCAL-ALERTS.md).
 
 ![Centre d’alertes — sources simulées](docs/images/alertes-locales.jpg)
 

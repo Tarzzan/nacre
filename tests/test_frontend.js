@@ -119,3 +119,29 @@ test('alert card escapes labels and acknowledgement does not pretend to resolve'
  assert.match(html,/Pris en compte/);assert.doesNotMatch(html,/>Résolu</);
  assert.doesNotMatch(html,/<script>|<img>|<admin>/);assert.match(html,/&lt;script&gt;/);
 });
+test('late notification response cannot overwrite navigation or logout',async()=>{
+ let complete;const f=fixture(()=>new Promise(resolve=>{complete=resolve;}));
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/notifications.js'),'utf8'),f.context);
+ f.run('user={name:"admin",role:"admin"};shell();page="notifications";');
+ const pending=f.run('renderNotifications()');f.run('page="files";$("#content").innerHTML="files";');
+ complete(response(200,{}));await pending;assert.equal(f.elements.get('#content').innerHTML,'files');
+ f.run('page="notifications";');const expired=f.run('renderNotifications()');f.run('login()');complete(response(200,{}));
+ await assert.rejects(expired,{name:'AbortError'});
+});
+test('notification history escapes text and only current failed deliveries can retry',()=>{
+ const f=fixture(async()=>response(200,{}));
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/notifications.js'),'utf8'),f.context);
+ f.context.deliveries=[{id:'x',event:'test',created:1,title:'<script>bad</script>',result:'<img>',status:'failed',attempts:1,config_version:2}];
+ const html=f.run('deliveryRows({config:{version:2},deliveries})[0]');
+ assert.doesNotMatch(html,/<script>|<img>/);assert.match(html,/notification-retry/);
+ assert.doesNotMatch(f.run('deliveryRows({config:{version:3},deliveries})[0]'),/notification-retry/);
+});
+test('notification configuration never fills saved secrets and submits explicit choices',async()=>{
+ const f=fixture(async()=>response(200,{}));
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/notifications.js'),'utf8'),f.context);
+ f.context.capture={};
+ f.run('notificationState={config:{version:4,kind:"ntfy",configured:true,enabled:false,recovery:true,minimum:"critical",has_token:true,destination:"https://ntfy.example"}};modal=(title,html,label,submit)=>{capture.html=html;capture.submit=submit;};api=async(route,body)=>{capture.route=route;capture.body=body;};notificationConfigModal();');
+ assert.doesNotMatch(f.context.capture.html,/value="https:/);assert.match(f.context.capture.html,/type="password"/);
+ await f.context.capture.submit(new Map([['kind','ntfy'],['url',''],['token',''],['minimum','critical'],['recovery','on']]));
+ assert.equal(f.context.capture.body.enabled,false);assert.equal(f.context.capture.body.recovery,true);assert.equal(f.context.capture.body.version,4);assert.equal(f.context.capture.body.url,'');
+});
