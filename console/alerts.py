@@ -5,6 +5,7 @@ import secrets
 import shutil
 import threading
 import time
+from notifications import enqueue
 
 KEY = 'alerts_v1'
 INTERVAL = 30
@@ -115,10 +116,13 @@ def record(app, scopes, seen=(), now=None):
                 bad = key in current
                 if bad and key in active:
                     old = active[key];item=current[key]
+                    changed=False
                     if (item['severity']=='critical' and old['severity']!='critical') or old['revision']!=item['revision']:
+                        changed=True
                         old['acknowledged']=None;old['ackby']=None;old['version']+=1
                         db.execute('INSERT INTO audit(ts,username,action,detail) VALUES(?,?,?,?)',(now,'surveillance','Incident actualisé',old['id']))
                     old.update(item,last=now)
+                    if changed:enqueue(db,'updated',old,now)
                     state['pending'].pop(key,None)
                     continue
                 if not bad and key not in active:
@@ -130,9 +134,11 @@ def record(app, scopes, seen=(), now=None):
                 if scope!='backups' and now-pending['since']<INTERVAL:continue
                 if bad:
                     active[key]={**current[key],'id':secrets.token_hex(12),'version':1,'scope':scope,'first':now,'last':now,'resolved':None,'acknowledged':None,'ackby':None}
+                    enqueue(db,'opened',active[key],now)
                     action='Incident détecté';identifier=active[key]['id']
                 else:
                     incident=active.pop(key);incident.update(resolved=now,last=now)
+                    enqueue(db,'resolved',incident,now)
                     state['history'].insert(0,incident)
                     action='Incident résolu';identifier=incident['id']
                 state['pending'].pop(key,None)

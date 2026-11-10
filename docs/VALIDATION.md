@@ -1,5 +1,9 @@
 # Validation
 
+## Notifications externes — 0.8.0-alpha.5
+
+161 tests Python et 14 JavaScript. Récepteur HTTP loopback, configuration et tests depuis le navigateur, erreur 503 avant reprise après redémarrage réel, identifiant conservé et résolution livrée après l’incident. TLS local : certificat non approuvé refusé, confiance explicite de test acceptée. Aucune destination Internet, notification de téléphone ou caméra réelle sollicitée. [Guide et limites](EXTERNAL-NOTIFICATIONS.md).
+
 ## Alertes locales — 0.8.0-alpha.4
 
 146 tests Python et 11 JavaScript. Sources simulées sur banc HTTP local : trois incidents, prise en compte caméra depuis le navigateur, persistance après redémarrage du processus, clôture périodique de deux incidents après retour simulé. Tests de contrôles inconnus, confirmations, version périmée, regroupement de sauvegardes, accès administrateur et absence de secrets. [Protocole et captures](LOCAL-ALERTS.md). Aucun nouveau test de panne matérielle ou caméra réelle.

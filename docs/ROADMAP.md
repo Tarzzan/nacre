@@ -12,9 +12,13 @@ Les versions futures sont des objectifs sans date promise. Chaque étape demande
 | **1.0 — cible à qualifier** | Version exploitable avec périmètre de support précis | Revue de sécurité, endurance, mises à jour et reprise éprouvées ; aucun défaut critique connu |
 | **Après stabilisation** | Gestion de plusieurs NAS | Identités inter-hôtes, révocation, fonctionnement déconnecté et politiques de groupe spécifiés |
 
+## Notifications externes 0.8.0-alpha.5
+
+Configuration web de ntfy et webhook JSON, file persistante, filtres, reprise et suivi des livraisons. Parcours navigateur et réseau validés avec un récepteur isolé ; le push sur téléphone réel, SMTP, les destinations multiples et l’observateur externe restent ouverts. [Guide](EXTERNAL-NOTIFICATIONS.md).
+
 ## Alertes locales 0.8.0-alpha.4
 
-Collecte indépendante du navigateur, incidents persistants, prise en compte versionnée, historique et badge global. Couverture initiale des services connus, du débit caméra, des derniers résultats de sauvegarde et de l’espace du volume de Nacre. La notification externe, les diagnostics d’intégrité vidéo et les alertes de tous les pools restent ouverts. [Guide](LOCAL-ALERTS.md).
+Collecte indépendante du navigateur, incidents persistants, prise en compte versionnée, historique et badge global. Couverture initiale des services connus, du débit caméra, des derniers résultats de sauvegarde et de l’espace du volume de Nacre. Les diagnostics d’intégrité vidéo et les alertes de tous les pools restent ouverts. La notification externe est ajoutée au jalon suivant. [Guide](LOCAL-ALERTS.md).
 
 ## Préparation et persistance 0.8.0-alpha.3
 
