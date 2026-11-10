@@ -145,3 +145,24 @@ test('notification configuration never fills saved secrets and submits explicit 
  await f.context.capture.submit(new Map([['kind','ntfy'],['url',''],['token',''],['minimum','critical'],['recovery','on']]));
  assert.equal(f.context.capture.body.enabled,false);assert.equal(f.context.capture.body.recovery,true);assert.equal(f.context.capture.body.version,4);assert.equal(f.context.capture.body.url,'');
 });
+test('SMTP modal never prefills password and submits one recipient with TLS',async()=>{
+ const f=fixture(async()=>response(200,{}));
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/notifications.js'),'utf8'),f.context);
+ f.context.capture={};
+ f.run('notificationState={config:{version:5,kind:"smtp",smtp:{host:"<mail>",port:587,security:"starttls",username:"<user>",has_password:true,sender:"a@example.test",recipient:"b@example.test"}}};modal=(title,html,label,submit)=>{capture.html=html;capture.submit=submit;};api=async(route,body)=>{capture.body=body;};notificationConfigModal();');
+ assert.doesNotMatch(f.context.capture.html,/<mail>|<user>/);assert.match(f.context.capture.html,/id="notification-http" hidden disabled/);
+ assert.match(f.context.capture.html,/id="smtp-password"[^>]*type="password"[^>]*>/);assert.doesNotMatch(f.context.capture.html,/id="smtp-password"[^>]*value=/);
+ await f.context.capture.submit(new Map([['kind','smtp'],['smtp_host','mail.example.test'],['smtp_port','465'],['smtp_security','tls'],['smtp_username',''],['smtp_password',''],['smtp_sender','a@example.test'],['smtp_recipient','b@example.test'],['minimum','warning']]));
+ assert.equal(f.context.capture.body.smtp.port,465);assert.equal(f.context.capture.body.smtp.security,'tls');assert.equal(f.context.capture.body.smtp.recipient,'b@example.test');assert.equal(f.context.capture.body.enabled,false);
+});
+test('transport choice disables irrelevant inputs and preserves custom SMTP ports',async()=>{
+ const f=fixture(async()=>response(200,{}));
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/notifications.js'),'utf8'),f.context);
+ const smtp={},http={},port={value:'587'};f.elements.set('#notification-smtp',smtp);f.elements.set('#notification-http',http);f.elements.set('#smtp-port',port);
+ for(const fn of f.listeners.get('change'))await fn({target:{id:'notification-kind',value:'smtp'}});
+ assert.equal(smtp.disabled,false);assert.equal(http.disabled,true);
+ for(const fn of f.listeners.get('change'))await fn({target:{id:'smtp-security',value:'tls'}});
+ assert.equal(port.value,'465');port.value='2465';
+ for(const fn of f.listeners.get('change'))await fn({target:{id:'smtp-security',value:'starttls'}});
+ assert.equal(port.value,'2465');
+});

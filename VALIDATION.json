@@ -1311,5 +1311,26 @@
     "internet_delivery": false,
     "phone_push_qualified": false,
     "production_changed": false
+  },
+  "smtp_notifications_0_8_alpha6": {
+    "verified_utc": "2026-11-10T12:47:37.009137+00:00",
+    "python_tests": 170,
+    "javascript_tests": 16,
+    "loopback_smtp_receiver": true,
+    "browser_configuration_and_email_test": true,
+    "actual_starttls": true,
+    "direct_tls_tested": true,
+    "authentication_after_tls_tested": true,
+    "untrusted_certificate_refused": true,
+    "missing_starttls_no_auth_or_mail": true,
+    "smtp_451_then_250": true,
+    "actual_console_restart_with_queued_email": true,
+    "stable_message_id": true,
+    "recovery_after_incident": true,
+    "smtp_535_and_550_tested": true,
+    "quit_failure_after_acceptance_remains_success": true,
+    "external_mailbox_used": false,
+    "real_provider_deliverability_qualified": false,
+    "production_changed": false
   }
 }

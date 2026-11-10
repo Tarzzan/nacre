@@ -17,6 +17,10 @@ Nacre réunit l’administration des fichiers, des partages réseau, des volumes
 
 ### Repérer les incidents et suivre leur résolution
 
+**Les alertes aussi par email.** Le profil SMTP se configure depuis le navigateur avec STARTTLS ou TLS direct, test manuel et suivi des livraisons. Les reprises conservent le même identifiant de message. [Configurer les emails](docs/SMTP-NOTIFICATIONS.md).
+
+![Emails SMTP — récepteur isolé](docs/images/smtp-livraisons.jpg)
+
 **Recevoir les alertes à distance.** Une destination ntfy ou webhook JSON se configure depuis le navigateur, avec test manuel, filtre de gravité, retours à la normale et suivi des livraisons. Les tentatives reprennent après redémarrage ; les envois sont désactivés par défaut. [Configurer les notifications](docs/EXTERNAL-NOTIFICATIONS.md).
 
 ![Notifications externes — récepteur de test isolé](docs/images/notifications-livraisons.jpg)

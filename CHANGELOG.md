@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0-alpha.6 — Emails SMTP depuis le navigateur
+
+Destination Email SMTP avec STARTTLS ou TLS direct obligatoire, compte facultatif pour relais autorisé, un expéditeur et un destinataire. Mot de passe conservé sans réaffichage, changement de serveur protégé, test et historique existants réutilisés. Le Message-ID reste stable lors des reprises ; une rupture de QUIT après DATA accepté conserve le succès.
+
+170 tests Python et 16 JavaScript. Récepteur SMTP isolé chiffré, erreur 451, redémarrage réel et reprise avec même Message-ID, puis résolution. Aucun fournisseur ni boîte Internet utilisés. [Guide et captures](docs/SMTP-NOTIFICATIONS.md).
+
 ## 0.8.0-alpha.5 — Notifications externes configurables
 
 Destination ntfy ou webhook JSON réglable depuis Alertes → Notifications : test manuel, activation, gravité minimale, retours à la normale et historique des livraisons. File transactionnelle persistante, tentatives espacées, relance explicite et protection des secrets. HTTPS vérifié ; redirections refusées. Les envois restent désactivés par défaut.

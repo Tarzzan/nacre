@@ -1,5 +1,9 @@
 # Validation
 
+## Emails SMTP — 0.8.0-alpha.6
+
+170 tests Python et 16 JavaScript. Récepteur SMTP loopback avec TLS éphémère : STARTTLS, TLS direct, authentification après chiffrement, certificat non approuvé refusé, refus 535/550, erreur 451 et reprise. Parcours navigateur avec redémarrage réel de la console, Message-ID conservé et résolution livrée après l’incident. Aucune boîte ou infrastructure de messagerie extérieure utilisée. [Guide et preuves](SMTP-NOTIFICATIONS.md).
+
 ## Notifications externes — 0.8.0-alpha.5
 
 161 tests Python et 14 JavaScript. Récepteur HTTP loopback, configuration et tests depuis le navigateur, erreur 503 avant reprise après redémarrage réel, identifiant conservé et résolution livrée après l’incident. TLS local : certificat non approuvé refusé, confiance explicite de test acceptée. Aucune destination Internet, notification de téléphone ou caméra réelle sollicitée. [Guide et limites](EXTERNAL-NOTIFICATIONS.md).

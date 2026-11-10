@@ -12,9 +12,13 @@ Les versions futures sont des objectifs sans date promise. Chaque étape demande
 | **1.0 — cible à qualifier** | Version exploitable avec périmètre de support précis | Revue de sécurité, endurance, mises à jour et reprise éprouvées ; aucun défaut critique connu |
 | **Après stabilisation** | Gestion de plusieurs NAS | Identités inter-hôtes, révocation, fonctionnement déconnecté et politiques de groupe spécifiés |
 
+## Emails SMTP 0.8.0-alpha.6
+
+Configuration web SMTP, chiffrement obligatoire, compte et secret protégés, expéditeur/destinataire et livraison via la file persistante. STARTTLS, TLS direct, refus, reprise après redémarrage et Message-ID stable vérifiés sur récepteur isolé. La délivrabilité chez un fournisseur réel, OAuth2 et les destinataires multiples restent ouverts. [Guide](SMTP-NOTIFICATIONS.md).
+
 ## Notifications externes 0.8.0-alpha.5
 
-Configuration web de ntfy et webhook JSON, file persistante, filtres, reprise et suivi des livraisons. Parcours navigateur et réseau validés avec un récepteur isolé ; le push sur téléphone réel, SMTP, les destinations multiples et l’observateur externe restent ouverts. [Guide](EXTERNAL-NOTIFICATIONS.md).
+Configuration web de ntfy et webhook JSON, file persistante, filtres, reprise et suivi des livraisons. Parcours navigateur et réseau validés avec un récepteur isolé ; le push sur téléphone réel, les destinations multiples et l’observateur externe restent ouverts. [Guide](EXTERNAL-NOTIFICATIONS.md).
 
 ## Alertes locales 0.8.0-alpha.4
 

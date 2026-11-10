@@ -20,3 +20,6 @@
 @media(max-width:650px){.topbar{height:auto;min-height:62px;flex-wrap:wrap;padding-top:12px;padding-bottom:12px;gap:10px}.topright{gap:10px;flex-wrap:wrap}.incident .cardhead{flex-wrap:wrap}#alert-summary{max-width:200px}}
 
 .notification-section{margin-bottom:20px}.notification-history td small{display:block;margin-top:5px;line-height:1.5;color:var(--muted)}
+
+.notification-transport{border:0;padding:0;margin:0;min-width:0}
+dialog:has(#notification-smtp:not([hidden])){width:min(740px,calc(100% - 30px));max-height:94vh}#notification-smtp:not([hidden]){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:18px}#notification-smtp>.checks,#notification-smtp>.field:has(#smtp-password){grid-column:1/-1}dialog:has(#notification-smtp) .modalhead{position:sticky;top:0;background:white;z-index:1}@media(max-width:600px){#notification-smtp:not([hidden]){grid-template-columns:1fr}}
