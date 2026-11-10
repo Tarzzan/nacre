@@ -166,3 +166,26 @@ test('transport choice disables irrelevant inputs and preserves custom SMTP port
  for(const fn of f.listeners.get('change'))await fn({target:{id:'smtp-security',value:'starttls'}});
  assert.equal(port.value,'2465');
 });
+
+test('retention preview returning after navigation cannot paint another page',async()=>{
+ let complete;const f=fixture(()=>new Promise(resolve=>{complete=resolve;}));
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/retention.js'),'utf8'),f.context);
+ f.run('user={name:"admin",role:"admin"};page="retention";shell();');
+ const submit={disabled:false};
+ const form={getAttribute:()=> 'retention-form',querySelector:()=>submit,values:{repo:'fixture',keep_last:'2'}};
+ f.elements.set('#retention-result',{innerHTML:''});f.elements.set('#retention-error',{textContent:''});
+ const fn=f.listeners.get('submit').at(-1);
+ const pending=fn({target:form,preventDefault(){}});
+ f.run('page="files";$("#content").innerHTML="files preserved";');
+ complete(response(200,{name:'fixture',remove:[]}));await pending;
+ assert.equal(f.elements.get('#content').innerHTML,'files preserved');
+ assert.equal(f.run('retentionProposal'),null);assert.equal(submit.disabled,false);
+});
+
+test('retention summary escapes repository names and disables empty deletion',()=>{
+ const f=fixture(async()=>response(200,{}));
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/retention.js'),'utf8'),f.context);
+ const html=f.run('retentionSummary({name:"<img src=x>",keep:[],remove:[],protected:[],groups:0,keep_last:7,expires:100})');
+ assert.ok(html.includes('&lt;img src=x&gt;'));assert.ok(!html.includes('<img src=x>'));
+ assert.match(html,/data-action="retention-confirm" disabled/);
+});

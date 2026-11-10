@@ -1,0 +1,53 @@
+'use strict';
+let retentionProposal=null, retentionGeneration=0;
+
+function retentionSummary(p){
+ const points=(list,reason)=>list.length?table(['Date','Identifiant',...(reason?['Motif']:[])],list.map(x=>`<tr><td>${date(Date.parse(x.time)/1000)}</td><td><code title="${esc(x.id)}">${esc(x.id.slice(0,12))}</code></td>${reason?`<td>${esc(x.reason)}</td>`:''}</tr>`)):empty('Aucun point dans cette catégorie.','backup');
+ return `<section class="card cardpad"><div class="row"><div><p class="eyebrow">SIMULATION · ${esc(p.name)}</p><h2>Voici ce qui changerait.</h2></div><span class="spacer"></span>${button('retention-confirm','Examiner la confirmation','trash','',p.remove.length?'':'disabled')}</div><p>${p.groups} groupe(s) · conserver les ${p.keep_last} derniers points réussis par groupe. Proposition valable jusqu’à ${date(p.expires)}.</p><div class="retention-counts"><div><strong>${p.keep.length}</strong><span>Conservés par la règle</span></div><div><strong>${p.protected.length}</strong><span>Protégés hors règle</span></div><div><strong>${p.remove.length}</strong><span>À supprimer</span></div></div><p class="capacity-note">Aucun changement n’a encore été appliqué. Le nettoyage récupère les blocs non référencés de l’ensemble du dépôt ; la taille logique des points ne permet pas de prévoir l’espace libéré.</p></section><br><section class="card"><div class="cardhead"><h2>Points qui seraient supprimés</h2></div>${points(p.remove,false)}</section><br><details class="card cardpad"><summary>Voir les points conservés et protégés</summary><h3>Conservés par la règle</h3>${points(p.keep,false)}<h3>Protégés hors règle</h3>${points(p.protected,true)}</details>`;
+}
+
+async function renderRetention(){
+ if(user?.role!=='admin'){$('#content').innerHTML=empty('La rétention est réservée aux administrateurs.','lock');return;}
+ const generation=++retentionGeneration, session=sessionGeneration;
+ retentionProposal=null;
+ const [repos,jobs]=await Promise.all([api('protection/repositories'),api('jobs')]);
+ if(page!=='retention'||session!==sessionGeneration||generation!==retentionGeneration||!$('#content'))return;
+ const usable=repos.filter(r=>r.target!=='recovery-detached');
+ $('#content').innerHTML=heading('Gardez les versions qui comptent.','Simulez la conservation des points de restauration avant de supprimer les plus anciens.',button('retention-back','Retour aux snapshots','backup'))+
+ `<section class="card cardpad"><h2>Règle de conservation</h2><p>Chaque plan, hôte et combinaison de sources et d’options est traité séparément. Les captures partielles, importées ou sans preuve locale de réussite restent protégées.</p>${usable.length?`<form id="retention-form" method="post"><div class="formgrid"><div class="field"><label for="retention-repo">Dépôt chiffré</label><select id="retention-repo" name="repo">${usable.map(r=>`<option value="${esc(r.id)}" ${r.id===snapshotRepo?'selected':''}>${esc(r.name)}</option>`).join('')}</select></div><div class="field"><label for="retention-count">Derniers points réussis à conserver par groupe</label><input id="retention-count" name="keep_last" type="number" min="1" max="1000000" step="1" value="7" required></div></div><p class="capacity-note">Cette règle s’applique une seule fois après confirmation. Aucune suppression automatique n’est activée.</p><button type="submit" class="primary">Simuler sans supprimer</button><p id="retention-error" class="error" role="alert"></p></form>`:empty('Ajoutez un dépôt depuis Snapshots pour préparer une règle.','backup')}</section><br><div id="retention-result" aria-live="polite"></div><br><section class="card"><div class="cardhead"><h2>Historique des nettoyages</h2>${button('retention-refresh','Actualiser',null,'small')}</div>${jobs.some(j=>j.kind==='retention')?table(['Date','Opération','État','Résultat',''],jobRows(jobs.filter(j=>j.kind==='retention'))):empty('Aucune rétention appliquée.','activity')}</section><p class="capacity-note">La suppression est définitive dans Nacre. Le traitement continue sans navigateur et vérifie la structure du dépôt après nettoyage. Une interruption peut laisser une opération partielle ; elle n’est pas relancée automatiquement.</p>`;
+}
+
+document.addEventListener('submit',async event=>{
+ if(event.target.getAttribute('id')!=='retention-form')return;
+ event.preventDefault();
+ const form=event.target, submit=form.querySelector('button[type=submit]'), fields=new FormData(form);
+ const generation=++retentionGeneration, session=sessionGeneration;
+ retentionProposal=null;$('#retention-result').innerHTML='';$('#retention-error').textContent='';submit.disabled=true;
+ try{
+  const result=await api('protection/retention-preview',{repo:fields.get('repo'),keep_last:Number(fields.get('keep_last'))});
+  if(page!=='retention'||generation!==retentionGeneration||session!==sessionGeneration||!$('#retention-result'))return;
+  retentionProposal=result;$('#retention-result').innerHTML=retentionSummary(result);
+ }catch(error){if(page==='retention'&&generation===retentionGeneration&&$('#retention-error'))$('#retention-error').textContent=error.message;}
+ finally{submit.disabled=false;}
+});
+
+document.addEventListener('input',event=>{
+ if(event.target.id==='retention-count'||event.target.id==='retention-repo'){
+  retentionGeneration++;retentionProposal=null;
+  if($('#retention-result'))$('#retention-result').innerHTML='';
+ }
+});
+document.addEventListener('click',async event=>{
+ const el=event.target.closest('[data-action]');if(!el)return;
+ try{
+  if(el.dataset.action==='retention-open')return await go('retention');
+  if(el.dataset.action==='retention-back')return await go('snapshots');
+  if(el.dataset.action==='retention-refresh')return await renderRetention();
+  if(el.dataset.action==='retention-confirm'&&retentionProposal){
+   const p=retentionProposal;
+   modal('Confirmer la rétention',`<p>Dépôt : <strong>${esc(p.name)}</strong>.</p><p><strong>${p.remove.length} point(s) seront supprimés définitivement.</strong> ${p.keep.length+p.protected.length} point(s) resteront disponibles selon cette simulation.</p><p>Les blocs non référencés de l’ensemble du dépôt seront ensuite nettoyés, y compris ceux d’anciennes suppressions. Les sauvegardes Nacre attendront la fin de cette tâche. L’espace récupérable n’est pas estimé.</p><div class="checks"><label><input type="checkbox" name="confirm" required>Je confirme cette suppression et le nettoyage du dépôt.</label></div><p class="capacity-note">Si les points ou le dépôt ont changé, le traitement sera refusé. Une annulation après démarrage ne recrée pas les points déjà supprimés.</p>`,'Supprimer et nettoyer',async f=>{
+    const result=await api('protection/retention-apply',{token:p.token,confirm:f.has('confirm')});retentionProposal=null;return result;
+   });
+  }
+ }catch(error){if(error.name!=='AbortError')toast(error.message,true);}
+});

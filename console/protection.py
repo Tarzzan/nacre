@@ -319,6 +319,10 @@ class Protection:
                 except BlockingIOError:
                     time.sleep(.25)
             self.update(identifier, status='running')
+            if row['kind'] == 'retention':
+                from retention import run
+                run(self.app,row)
+                return
             if row['kind'] == 'component_install':
                 from deployment import install
                 install(self.app,row)
@@ -483,7 +487,10 @@ class Protection:
             except (OSError, TypeError):
                 live = False
             if not live:
-                self.update(row['id'], status='failed', result={'error': 'Processus interrompu avant la fin de la tâche. Vérifier les services et la configuration avant de réessayer.'})
+                if row['kind']=='retention':
+                    self.update(row['id'],status='partial',result={'warning':'Rétention interrompue : des points peuvent avoir été supprimés. Actualisez le dépôt et refaites une simulation. Aucun rejeu automatique.'})
+                else:
+                    self.update(row['id'], status='failed', result={'error': 'Processus interrompu avant la fin de la tâche. Vérifier les services et la configuration avant de réessayer.'})
                 if row['kind']=='camera_add':
                     token=json.loads(row['options']).get('candidate','')
                     if re.fullmatch(r'[a-f0-9]{24}',token):

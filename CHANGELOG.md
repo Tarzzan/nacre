@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0-alpha.7 — Rétention des sauvegardes depuis le navigateur
+
+Depuis Snapshots, simulation des derniers points réussis à conserver par groupe, détail des suppressions et confirmation à usage unique. Protection des captures partielles/importées ou sans preuve locale de réussite, revalidation du dépôt et des points avant exécution. Tâche persistante de suppression, nettoyage restic et contrôle de structure ; une interruption est signalée sans rejeu automatique. Aucune rétention automatique activée.
+
+180 tests Python et 18 JavaScript. Essais sur dépôts chiffrés temporaires, contrôle des données restic et restauration du fichier conservé. [Guide et limites](docs/BACKUP-RETENTION.md).
+
 ## 0.8.0-alpha.6 — Emails SMTP depuis le navigateur
 
 Destination Email SMTP avec STARTTLS ou TLS direct obligatoire, compte facultatif pour relais autorisé, un expéditeur et un destinataire. Mot de passe conservé sans réaffichage, changement de serveur protégé, test et historique existants réutilisés. Le Message-ID reste stable lors des reprises ; une rupture de QUIT après DATA accepté conserve le succès.

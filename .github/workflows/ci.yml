@@ -39,6 +39,7 @@ jobs:
           node --check console/static/native.js
           node --check console/static/alerts.js
           node --check console/static/notifications.js
+          node --check console/static/retention.js
           node --test tests/test_frontend.js
   secrets:
     name: Secrets / Gitleaks
