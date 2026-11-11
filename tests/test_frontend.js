@@ -232,3 +232,33 @@ test('late cleanup review cannot open a modal after navigation',async()=>{
  f.run('page="files";');complete(response(200,{name:'fixture',points:[],expires:1}));await pending;
  assert.equal(f.elements.get('#toast').textContent,'');
 });
+
+test('calendar form submits all tiers and invalidates its preview when a tier changes',async()=>{
+ const f=fixture(async()=>response(200,{}));
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/retention.js'),'utf8'),f.context);
+ f.context.capture={};
+ f.run('user={name:"admin",role:"admin",timezone:"UTC"};page="retention";shell();api=async(route,body)=>{capture.body=body;return {name:"fixture",keep_last:1,calendar:body.calendar,groups:1,keep:[],remove:[],protected:[],expires:100};};');
+ f.elements.set('#retention-result',{innerHTML:''});f.elements.set('#retention-error',{textContent:''});
+ const button={disabled:false},form={getAttribute:()=> 'retention-form',querySelector:()=>button,values:{repo:'fixture',keep_last:'1',daily:'7',weekly:'4',monthly:'12',timezone:'America/Cayenne'}};
+ await f.listeners.get('submit').at(-1)({target:form,preventDefault(){}});
+ assert.equal(f.context.capture.body.calendar.daily,7);assert.equal(f.context.capture.body.calendar.weekly,4);assert.equal(f.context.capture.body.calendar.monthly,12);assert.equal(f.context.capture.body.calendar.timezone,'America/Cayenne');
+ assert.ok(f.run('retentionProposal'));
+ for(const fn of f.listeners.get('input'))await fn({target:{id:'retention-weekly'}});
+ assert.equal(f.run('retentionProposal'),null);assert.equal(f.elements.get('#retention-result').innerHTML,'');
+});
+
+test('calendar reasons and timezone are escaped in the exact simulation summary',()=>{
+ const f=fixture(async()=>response(200,{}));
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/retention.js'),'utf8'),f.context);
+ const html=f.run('retentionSummary({name:"fixture",keep_last:1,calendar:{monthly:3,timezone:"<img>"},groups:1,keep:[{id:"abcd",time:"2024-01-01T00:00:00Z",reasons:["<script>"]}],remove:[],protected:[],expires:100})');
+ assert.match(html,/3 mois/);assert.match(html,/&lt;img&gt;/);assert.match(html,/&lt;script&gt;/);assert.doesNotMatch(html,/<img>|<script>/);
+});
+
+test('switching repository loads its saved calendar without copying another rule',async()=>{
+ const f=fixture(async()=>response(200,{}));
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/retention.js'),'utf8'),f.context);
+ f.run('user={role:"admin",timezone:"UTC"};retentionPolicyList=[{repo:"one",keep_last:2,calendar:{daily:7,monthly:12,timezone:"America/Cayenne"}},{repo:"two",keep_last:4}];');
+ for(const key of ['count','daily','weekly','monthly','timezone'])f.elements.set('#retention-'+key,{value:'stale'});
+ f.run('retentionLoadPolicy("one")');assert.equal(f.elements.get('#retention-monthly').value,12);
+ f.run('retentionLoadPolicy("two")');assert.equal(f.elements.get('#retention-count').value,4);assert.equal(f.elements.get('#retention-monthly').value,0);assert.equal(f.elements.get('#retention-timezone').value,'UTC');
+});

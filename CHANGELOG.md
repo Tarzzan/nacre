@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0-alpha.10 — Conservation par jour, semaine et mois
+
+Règles calendaires combinables avec les derniers points, pour une application ponctuelle ou automatique. Dernier point de chaque période contenant une capture réussie, semaines ISO et fuseau explicite attaché à la règle. Motifs de conservation affichés dans la simulation. Les règles existantes gardent leur comportement ; catégories calendaires désactivées par défaut.
+
+209 tests Python et 26 JavaScript. Essais sur dates synthétiques et dépôts chiffrés isolés : union des protections, frontières de jour et d’année, changement d’heure, conservation automatique et restauration d’une version historique. [Fonctionnement et preuves](docs/CALENDAR-RETENTION.md).
+
 ## 0.8.0-alpha.9 — Reprendre un nettoyage interrompu
 
 Simulation persistante du nettoyage seul depuis le navigateur, confirmation à usage unique valable quinze minutes et revalidation du dépôt et des points. Aucun `forget` dans ce parcours : les snapshots présents sont conservés, puis la structure est contrôlée. Interruption signalée sans rejeu ; une règle suspendue reste suspendue. Historique rafraîchi sans écraser les formulaires.

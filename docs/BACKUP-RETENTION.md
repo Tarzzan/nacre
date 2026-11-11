@@ -1,5 +1,7 @@
 # Conserver les versions utiles
 
+Depuis **alpha.10**, les derniers points peuvent être complétés par des [règles journalières, hebdomadaires et mensuelles](CALENDAR-RETENTION.md), avec fuseau explicite et motifs de conservation. Les exemples et captures précédents restent applicables avec ces catégories à zéro.
+
 Depuis **0.8.0-alpha.8**, la simulation permet aussi d’activer une règle après les prochaines captures réussies. Le parcours ci-dessous décrit l’application unique ; voir le [guide de rétention automatique](AUTOMATIC-RETENTION.md) pour l’activation, la désactivation et la suspension après incident.
 
 Depuis **Snapshots → Gérer la rétention**, choisir un dépôt et le nombre de derniers points réussis à conserver. **Simuler sans supprimer** affiche les points conservés, protégés et proposés à la suppression. Rien n’est effacé à cette étape.

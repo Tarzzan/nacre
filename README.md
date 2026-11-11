@@ -17,6 +17,10 @@ Nacre réunit l’administration des fichiers, des partages réseau, des volumes
 
 ### Maîtriser la conservation des sauvegardes
 
+**Garder des repères dans le temps.** Combinez les derniers points avec le dernier point de chaque jour, semaine ou mois demandé. La simulation précise les motifs de conservation et le fuseau utilisé avant toute application ponctuelle ou automatique. [Règles calendaires](docs/CALENDAR-RETENTION.md).
+
+![Simulation calendaire sur des captures synthétiques](docs/images/calendar-simulation.jpg)
+
 **Reprendre un nettoyage interrompu.** Lancez une simulation en tâche de fond, examinez les points conservés puis confirmez le nettoyage seul. Aucun snapshot encore présent n’est supprimé et une règle automatique suspendue reste suspendue. [Guide de reprise du nettoyage](docs/REPOSITORY-CLEANUP.md).
 
 ![Reprise du nettoyage sur données synthétiques](docs/images/cleanup-resultat.jpg)
