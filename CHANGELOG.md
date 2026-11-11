@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0-alpha.14 — Aperçu des prochaines ouvertures
+
+Aperçu en lecture seule des ouvertures de nettoyage sur les sept prochains jours depuis le formulaire, avec fuseau, exceptions, intervalles réunis et changements d’heure. Les résultats tardifs sont écartés après modification ou navigation ; aucun enregistrement, nettoyage ou activation.
+
+242 tests Python et 43 JavaScript réussis. Déploiement de la version alpha.13 sur Spark avec copie privée de retour arrière et contrôles de continuité. [Aperçu du calendrier](docs/OPENING-PREVIEW.md) et [déploiement](docs/SPARK-DEPLOYMENT.md).
+
 ## 0.8.0-alpha.13 — Plusieurs plages et exceptions datées
 
 Plages supplémentaires en mode quotidien ou hebdomadaire, ajout et retrait depuis le navigateur. Exceptions par date civile : aucun démarrage ou horaires de remplacement, prioritaires sur toute la journée et sur la continuation de la veille. Résumé des horaires et exceptions avant activation, paramètres figés dans la simulation et anciennes règles compatibles.

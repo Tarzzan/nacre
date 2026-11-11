@@ -1,4 +1,20 @@
-# Mise à jour de Spark vers 0.8.0-alpha.6
+# Déploiements de la console sur Spark
+
+## 11 novembre 2026 — alpha.13
+
+![Services sur Spark après mise à jour](images/spark-alpha13-services.jpg)
+
+L’installation alpha.6 a reçu les 46 fichiers de console et modules associés du commit [`b52d6c8`](https://github.com/Tarzzan/nacre/commit/b52d6c8f7af77de067e35076f52bc1ee63105507), après validation CI x86-64/ARM64. Empreintes du paquet et des fichiers contrôlées ; code Python compilé avant remplacement.
+
+La console a été seule relancée. Comptes, empreintes des mots de passe, clés, configurations, dépôts, plans et profils de stockage comparés avant/après ; identités et dates de démarrage de Samba et Frigate inchangées. Schéma SQLite 2 conservé et `quick_check` réussi. Neuf routes authentifiées contrôlées, dont la liste des règles de rétention. Aucune tâche active, aucun plan activé et aucune règle de rétention préexistante au moment de cette mise à jour. Notifications externes désactivées.
+
+Samba a répondu au contrôle `smbcontrol smbd ping` ; Frigate a signalé une caméra recevant des images. Le navigateur a affiché alpha.13. L’intervalle mesuré entre arrêt de console terminé et fin des contrôles du script est de 0,63 seconde, sans mesure d’interruption vidéo ni redémarrage de ses conteneurs.
+
+Les copies privées de retour arrière restent sur Spark dans `.updates/alpha13-20261111/` : ancien code, copie cohérente SQLite, fichiers ajoutés, manifeste et résultat. Le script prévoit un retour au code précédent si les contrôles échouent. Comme le schéma reste 2, la base vivante est conservée lors de ce retour pour éviter d’effacer d’éventuelles écritures après relance ; la copie privée reste disponible pour une reprise manuelle contrôlée. Cette branche d’échec n’a pas été déclenchée en production.
+
+Ce document conserve les observations de chaque déploiement ; les notes des versions publiées complètent cette chronologie. Les essais de panne restent isolés.
+
+## 10 novembre 2026 — alpha.6
 
 Le 10 novembre 2026, l’installation existante de Spark (Linux ARM64, Python 3.12.3) est passée de **0.7.0-alpha.1** à **0.8.0-alpha.6**. Le code déployé est le commit [`c453124`](https://github.com/Tarzzan/nacre/commit/c45312410406fb871588fea3ac6bf34978454ae6), qui inclut le correctif d’affichage ajouté après le tag alpha.6.
 
