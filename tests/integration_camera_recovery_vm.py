@@ -78,7 +78,7 @@ assert json.loads(restic(BUNDLE/'history',ROOT/'state/console/keys'/('a'*24+'.ke
 io=json.loads((BUNDLE/'concurrent-io.json').read_text());folder=ROOT/'data/fichiers/reprise-volumes'/('native_'+expected['pool'])
 for r in io['acknowledged']:assert digest(folder/r['name'])==r['sha256']
 run([sys.executable,str(ROOT/'console/install_restic.py')])
-run(arguments(ROOT,'pull','video'));run(arguments(ROOT,'up','-d','--no-build','fichiers','video'))
+run(arguments(ROOT,'build','video'));run(arguments(ROOT,'up','-d','--no-build','fichiers','video'))
 assert private_video_files()==expected['private_video_files']
 assert run(arguments(ROOT,'exec','-T','fichiers','net','getlocalsid')).decode().split()[-1]==expected['samba_sid']
 for attempt in range(60):

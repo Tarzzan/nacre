@@ -131,7 +131,11 @@ def main():
             from console import server
             shares = server.shares()
             shares.prepare_start(server.smb_state())
-        compose('up', '-d', '--no-build' if (ROOT/'state/samba/recovery.compose.json').exists() else '--build')
+        if (ROOT/'state/samba/recovery.compose.json').exists():
+            compose('build', 'video')
+            compose('up', '-d', '--no-build')
+        else:
+            compose('up', '-d', '--build')
         if shares:
             shares.apply(server.smb_state())
     elif args.action == 'stop':

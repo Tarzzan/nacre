@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.17 — Préserver les communications Frigate après une déconnexion
+
+Image Frigate dérivée de bases épinglées, avec correction ciblée de la course entre le contrôle WebSocket et l’envoi. Une fermeture ne tue plus le lecteur IPC dans le scénario reproduit ; les autres erreurs restent visibles. Construction intégrée au navigateur et aux reprises, refus d’un source amont inattendu. 254 tests Python, 53 JavaScript et cinq tests du moteur réel sur chaque architecture. [Cause, reproduction et limites](docs/FRIGATE-WEBSOCKET.md).
+
 ## 0.8.0-alpha.16 — Détecter les mesures vidéo figées
 
 249 tests Python et 53 JavaScript réussis. Le débit positif ne suffit plus : l’état des caméras et les alertes vérifient l’horodatage Frigate. Mesures de plus de 90 secondes signalées comme périmées, horodatage absent ou incohérent inconnu. Contrôle du direct toutes les 15 secondes, retrait de l’image en cas de perte de confirmation et reprise explicite par Actualiser. [Diagnostic et limites](docs/VIDEO-FRESHNESS.md).

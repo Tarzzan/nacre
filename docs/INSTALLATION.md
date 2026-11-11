@@ -64,7 +64,8 @@ Conserver `.env`, `state/`, `data/` et les volumes Docker nécessaires. Ils sont
 3. Valider la version candidate sur une copie de laboratoire.
 4. La version alpha.5 fait évoluer la base de 1 vers 2 avec copie préalable privée ; les comptes existants sont conservés et l’assistant n’est pas imposé. Le retour à un binaire de schéma 1 exige une reprise hors ligne de sa copie, pas une rétrogradation directe.
 5. Mettre à jour le code vers un commit/tag identifié, puis redémarrer `nacre-console.service` avec `systemctl --user restart nacre-console.service`.
-6. Vérifier l’accès, les tâches, les services et les chemins de données.
+6. Pour alpha.17, reconstruire et recréer uniquement le service vidéo afin d’appliquer le [correctif Frigate](FRIGATE-WEBSOCKET.md). La construction doit réussir avant la recréation.
+7. Vérifier l’accès, les tâches, les services et les chemins de données.
 
 Un retour à l’ancien code ne garantit pas un retour arrière d’une migration de base. Les mises à jour du helper root demandent une installation et un redémarrage explicites. Un installateur transactionnel avec retour arrière reste à développer.
 

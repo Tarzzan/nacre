@@ -1,7 +1,10 @@
 name: nas-autonome-lab
 services:
   video:
-    image: "${NACRE_FRIGATE_IMAGE:?Exécuter python3 lab.py init pour choisir le profil matériel}"
+    build:
+      context: ./frigate
+      args:
+        FRIGATE_IMAGE: "${NACRE_FRIGATE_IMAGE:?Exécuter python3 lab.py init pour choisir le profil matériel}"
     restart: unless-stopped
     shm_size: 256mb
     mem_limit: 2g

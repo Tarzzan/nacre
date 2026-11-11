@@ -10,7 +10,7 @@
 | `console/smb_storage.py` | Configuration SMB, montages contrôlés et surveillance | `state/samba/`, configuration privée |
 | `console/native_storage.py` | Daemon root à méthodes fermées | Politique root et catalogue système |
 | `console/provisioning.py` | Création de FS et miroir sur disques autorisés | Catalogue natif |
-| `compose.yaml`, `samba/` | Frigate et Samba conteneurisés | Bind mounts et volumes Docker |
+| `compose.yaml`, `samba/`, `frigate/` | Frigate et Samba conteneurisés | Bind mounts et volumes Docker |
 | `lab.py` | Initialisation et commandes locales | Configuration d’installation |
 
 ## Autorisations

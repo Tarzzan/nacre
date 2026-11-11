@@ -4,13 +4,24 @@ import stat
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from urllib.parse import unquote, urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from lab import camera_config, initialize, private_write
+import lab
 
 
 class ConfigurationTests(unittest.TestCase):
+    def test_recovered_samba_image_is_not_rebuilt_when_preparing_video(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root/'state/samba').mkdir(parents=True)
+            (root/'state/samba/recovery.compose.json').write_text('{}')
+            with patch.object(lab,'ROOT',root),patch.object(lab,'initialize'),patch.object(lab,'compose') as compose,patch.object(sys,'argv',['lab.py','start']):
+                lab.main()
+            self.assertEqual([call.args for call in compose.call_args_list],[('build','video'),('up','-d','--no-build')])
+
     def test_special_characters_in_credentials_round_trip(self):
         user, password = 'test@user', ':/@%#? $é'
         config = camera_config('192.168.1.32', user, password)
