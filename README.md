@@ -17,6 +17,10 @@ Nacre réunit l’administration des fichiers, des partages réseau, des volumes
 
 ### Maîtriser la conservation des sauvegardes
 
+**Reprendre un nettoyage interrompu.** Lancez une simulation en tâche de fond, examinez les points conservés puis confirmez le nettoyage seul. Aucun snapshot encore présent n’est supprimé et une règle automatique suspendue reste suspendue. [Guide de reprise du nettoyage](docs/REPOSITORY-CLEANUP.md).
+
+![Reprise du nettoyage sur données synthétiques](docs/images/cleanup-resultat.jpg)
+
 **Après chaque nouvelle capture réussie.** Une règle par dépôt peut être activée après simulation et confirmation. Nacre recalcule les points à supprimer, nettoie, puis suspend la règle avec une alerte en cas d’incident. Les règles restent désactivées par défaut et lors d’une reprise d’installation. [Rétention automatique](docs/AUTOMATIC-RETENTION.md).
 
 ![Rétention automatique sur le banc isolé](docs/images/retention-auto-resultat.jpg)

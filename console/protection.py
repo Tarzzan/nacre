@@ -319,6 +319,10 @@ class Protection:
                 except BlockingIOError:
                     time.sleep(.25)
             self.update(identifier, status='running')
+            if row['kind'] in ('cleanup_preview','cleanup'):
+                from cleanup import run
+                run(self.app,row)
+                return
             if row['kind'] == 'retention_auto':
                 from automatic_retention import run
                 run(self.app,row)
@@ -498,6 +502,8 @@ class Protection:
             if not live:
                 if row['kind'] in ('retention','retention_auto'):
                     self.update(row['id'],status='partial',result={'warning':'Rétention interrompue : des points peuvent avoir été supprimés. Actualisez le dépôt et refaites une simulation. Aucun rejeu automatique.'})
+                elif row['kind']=='cleanup':
+                    self.update(row['id'],status='partial',result={'warning':'Nettoyage interrompu : contrôle final à refaire. Aucun oubli de point demandé ; refaites une simulation. Aucun rejeu automatique.'})
                 else:
                     self.update(row['id'], status='failed', result={'error': 'Processus interrompu avant la fin de la tâche. Vérifier les services et la configuration avant de réessayer.'})
                 if row['kind']=='retention_auto':

@@ -1,5 +1,11 @@
 # Validation
 
+## Nettoyage seul — 0.8.0-alpha.9
+
+200 tests Python et 23 JavaScript réussis. Tests isolés : simulation échouée sans confirmation réutilisable, auteur et consentement, jeton à usage unique, expiration, dépôt remplacé, points modifiés, annulation avant exécution, interruption pendant nettoyage, contrôle final échoué et worker disparu. Les reprises de base et de NAS invalident aussi ces confirmations.
+
+Restic réel : interruption provoquée après `forget`, nouvelle simulation sans modifier les points, `prune` seul, contrôle `check --read-data` et restauration exacte. Tests JavaScript : échappement des données, consentement, réponse tardive après navigation et rafraîchissement de l’historique préservant le formulaire. [Parcours navigateur et limites](REPOSITORY-CLEANUP.md).
+
 ## Rétention automatique — 0.8.0-alpha.8
 
 193 tests Python et 20 JavaScript. Activation après simulation, historique et captures non réussies exclus, confirmations versionnées, déduplication avec passages concurrents, désactivation, contrôle de l’auteur et du dépôt, suspension après erreur/worker disparu, reprise entre publication de l’échec et suspension, alerte locale et neutralisation des règles dans les deux procédures de reprise.

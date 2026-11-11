@@ -27,7 +27,7 @@ Les snapshots natifs Btrfs/ZFS/LVM et les archives tar ne sont pas concernés. L
 
 La taille logique des snapshots ne permet pas de prévoir l’espace libéré, car plusieurs points partagent des blocs. Aucun gain d’espace n’est annoncé avant mesure. Voir la [documentation officielle restic sur forget et prune](https://restic.readthedocs.io/en/stable/060_forget.html).
 
-La suppression n’a pas de corbeille Nacre. Annuler une tâche avant son démarrage conserve tous les points. Après le début d’une suppression, une interruption peut laisser une opération partielle ; Nacre ne prétend pas l’avoir annulée sans effet et ne la rejoue pas automatiquement. Actualiser les points et examiner le résultat avant toute nouvelle action. Si les points ont disparu mais que le nettoyage n’est pas terminé, l’espace peut rester occupé ; la reprise d’un nettoyage seul n’est pas proposée dans cette version.
+La suppression n’a pas de corbeille Nacre. Annuler une tâche avant son démarrage conserve tous les points. Après le début d’une suppression, une interruption peut laisser une opération partielle ; Nacre ne prétend pas l’avoir annulée sans effet et ne la rejoue pas automatiquement. Actualiser les points et examiner le résultat avant toute nouvelle action. Si les points ont disparu mais que le nettoyage n’est pas terminé, l’espace peut rester occupé ; utilisez alors [Reprendre le nettoyage](REPOSITORY-CLEANUP.md), disponible depuis alpha.9, sans oublier d’autres points.
 
 Éviter toute maintenance externe du même dépôt pendant l’opération. Les verrous restic protègent chaque commande ; Nacre ne possède pas de transaction globale couvrant des clients externes et plusieurs commandes. Aucun déverrouillage forcé n’est effectué.
 

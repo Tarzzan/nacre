@@ -12,9 +12,13 @@ Les versions futures sont des objectifs sans date promise. Chaque étape demande
 | **1.0 — cible à qualifier** | Version exploitable avec périmètre de support précis | Revue de sécurité, endurance, mises à jour et reprise éprouvées ; aucun défaut critique connu |
 | **Après stabilisation** | Gestion de plusieurs NAS | Identités inter-hôtes, révocation, fonctionnement déconnecté et politiques de groupe spécifiés |
 
+## Reprise du nettoyage 0.8.0-alpha.9
+
+Simulation persistante, confirmation avec liste des points conservés, nettoyage seul et contrôle de structure. Résultats partiels explicites, sans rejeu et sans réactivation de règle. [Guide](REPOSITORY-CLEANUP.md). Les règles calendaires et le créneau de maintenance restent ouverts.
+
 ## Rétention automatique 0.8.0-alpha.8
 
-Activation par dépôt après simulation, déclenchement après les nouvelles captures réussies, déduplication persistante, désactivation versionnée et suspension sur incident avec alerte locale. Reprise de base/NAS neutralisant les règles. Les règles calendaires, le créneau de nettoyage et la reprise d’un nettoyage seul restent ouverts. [Guide](AUTOMATIC-RETENTION.md).
+Activation par dépôt après simulation, déclenchement après les nouvelles captures réussies, déduplication persistante, désactivation versionnée et suspension sur incident avec alerte locale. Reprise de base/NAS neutralisant les règles. Les règles calendaires et le créneau de nettoyage restent ouverts. La reprise du nettoyage est livrée dans alpha.9. [Guide](AUTOMATIC-RETENTION.md).
 
 ## Rétention explicite 0.8.0-alpha.7
 
