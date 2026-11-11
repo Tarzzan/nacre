@@ -27,3 +27,5 @@ dialog:has(#notification-smtp:not([hidden])){width:min(740px,calc(100% - 30px));
 #side-version{display:block;margin-top:10px;font-size:10px;opacity:.85}
 
 .retention-counts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:24px 0}.retention-counts>div{padding:18px;background:var(--bg,#f2f6f6);border-radius:12px}.retention-counts strong{display:block;font-size:30px}.retention-counts span{font-size:13px}.retention-counts>div:last-child{background:#fff3e5;color:#764b16}@media(max-width:600px){.retention-counts{grid-template-columns:1fr}}
+
+.cleanup-point{white-space:normal;overflow-wrap:anywhere}

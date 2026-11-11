@@ -159,14 +159,14 @@ schema.ensure(Path(sys.argv[2]))
         self.legacy().close();schema.ensure(self.db)
         with closing(sqlite3.connect(self.db)) as db:
             db.execute('INSERT INTO settings VALUES(?,?)',('retention-policy:fixture',json.dumps({'repo':'fixture','version':1,'enabled':True})))
-            db.execute("INSERT INTO settings VALUES('retention-preview:fixture','{}')");db.commit()
+            db.execute("INSERT INTO settings VALUES('cleanup-preview:fixture','{}')");db.execute("INSERT INTO settings VALUES('retention-preview:fixture','{}')");db.commit()
         schema.checkpoint(self.db,2)
         source=next(p for p in (self.root/'migration-backups').glob('*.sqlite3') if json.loads(p.with_suffix('.json').read_text())['source_version']==2)
         output=self.root/'neutralized.sqlite3';prepare(source,output)
         with closing(sqlite3.connect(output)) as db:
             policy=json.loads(db.execute("SELECT value FROM settings WHERE key='retention-policy:fixture'").fetchone()[0])
             self.assertFalse(policy['enabled']);self.assertEqual(policy['version'],2)
-            self.assertEqual(db.execute("SELECT count(*) FROM settings WHERE key LIKE 'retention-preview:%'").fetchone()[0],0)
+            self.assertEqual(db.execute("SELECT count(*) FROM settings WHERE key LIKE 'retention-preview:%' OR key LIKE 'cleanup-preview:%'").fetchone()[0],0)
 
     def test_corrupted_checkpoint_refused(self):
         self.legacy().close();schema.ensure(self.db)

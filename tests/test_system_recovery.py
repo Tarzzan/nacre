@@ -73,7 +73,7 @@ class RecoveryTests(unittest.TestCase):
     def test_neutralize_keeps_accounts_disables_activity_and_detaches_repositories(self):
         with self.db() as db:
             db.execute('INSERT INTO settings VALUES(?,?)',('retention-policy:fixture',json.dumps({'repo':'fixture','version':5,'enabled':True})))
-            db.execute("INSERT INTO settings VALUES('retention-preview:fixture','{}')")
+            db.execute("INSERT INTO settings VALUES('cleanup-preview:fixture','{}')");db.execute("INSERT INTO settings VALUES('retention-preview:fixture','{}')")
             db.execute("INSERT INTO sessions VALUES('s','admin','csrf',9999999999)")
             db.execute("INSERT INTO tickets VALUES('t',9999999999)")
             db.execute('INSERT INTO plans(id,enabled,config,next_run) VALUES(?,1,?,1)',('b'*24,json.dumps({'sources':['native_data','fichiers']})))
@@ -83,7 +83,7 @@ class RecoveryTests(unittest.TestCase):
         with self.db() as db:
             policy=json.loads(db.execute("SELECT value FROM settings WHERE key='retention-policy:fixture'").fetchone()[0])
             self.assertFalse(policy['enabled']);self.assertEqual(policy['version'],6)
-            self.assertEqual(db.execute("SELECT count(*) FROM settings WHERE key LIKE 'retention-preview:%'").fetchone()[0],0)
+            self.assertEqual(db.execute("SELECT count(*) FROM settings WHERE key LIKE 'retention-preview:%' OR key LIKE 'cleanup-preview:%'").fetchone()[0],0)
             self.assertEqual(db.execute('SELECT hash FROM users').fetchone()[0],'hash')
             self.assertEqual(db.execute('SELECT count(*) FROM sessions').fetchone()[0],0)
             self.assertEqual(db.execute('SELECT count(*) FROM tickets').fetchone()[0],0)

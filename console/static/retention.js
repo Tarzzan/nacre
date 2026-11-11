@@ -15,7 +15,7 @@ async function renderRetention(){
  const usable=repos.filter(r=>r.target!=='recovery-detached');
  const initialCount=policies.find(p=>p.repo===(usable.find(r=>r.id===snapshotRepo)||usable[0])?.id)?.keep_last??7;
  $('#content').innerHTML=heading('Gardez les versions qui comptent.','Simulez la conservation des points de restauration avant de supprimer les plus anciens.',button('retention-back','Retour aux snapshots','backup'))+
- `<section class="card cardpad"><h2>Règle de conservation</h2><p>Chaque plan, hôte et combinaison de sources et d’options est traité séparément. Les captures partielles, importées ou sans preuve locale de réussite restent protégées.</p>${usable.length?`<form id="retention-form" method="post"><div class="formgrid"><div class="field"><label for="retention-repo">Dépôt chiffré</label><select id="retention-repo" name="repo">${usable.map(r=>`<option value="${esc(r.id)}" ${r.id===snapshotRepo?'selected':''}>${esc(r.name)}</option>`).join('')}</select></div><div class="field"><label for="retention-count">Derniers points réussis à conserver par groupe</label><input id="retention-count" name="keep_last" type="number" min="1" max="1000000" step="1" value="${initialCount}" required></div></div><p class="capacity-note">La simulation permet une application unique ou l’activation après les prochaines captures réussies. Les règles automatiques sont désactivées par défaut.</p><button type="submit" class="primary">Simuler sans supprimer</button><p id="retention-error" class="error" role="alert"></p></form>`:empty('Ajoutez un dépôt depuis Snapshots pour préparer une règle.','backup')}</section><br>${retentionPolicies(policies)}<br><div id="retention-result" aria-live="polite"></div><br><section class="card"><div class="cardhead"><h2>Historique des nettoyages</h2>${button('retention-refresh','Actualiser',null,'small')}</div>${jobs.some(j=>['retention','retention_auto'].includes(j.kind))?table(['Date','Opération','État','Résultat',''],jobRows(jobs.filter(j=>['retention','retention_auto'].includes(j.kind)))):empty('Aucune rétention appliquée.','activity')}</section><p class="capacity-note">La suppression est définitive dans Nacre. Le traitement continue sans navigateur et vérifie la structure du dépôt après nettoyage. Une interruption peut laisser une opération partielle ; la règle automatique est suspendue et la tâche n’est pas rejouée.</p>`;
+ `<section class="card cardpad"><h2>Règle de conservation</h2><p>Chaque plan, hôte et combinaison de sources et d’options est traité séparément. Les captures partielles, importées ou sans preuve locale de réussite restent protégées.</p>${usable.length?`<form id="retention-form" method="post"><div class="formgrid"><div class="field"><label for="retention-repo">Dépôt chiffré</label><select id="retention-repo" name="repo">${usable.map(r=>`<option value="${esc(r.id)}" ${r.id===snapshotRepo?'selected':''}>${esc(r.name)}</option>`).join('')}</select></div><div class="field"><label for="retention-count">Derniers points réussis à conserver par groupe</label><input id="retention-count" name="keep_last" type="number" min="1" max="1000000" step="1" value="${initialCount}" required></div></div><p class="capacity-note">La simulation permet une application unique ou l’activation après les prochaines captures réussies. Les règles automatiques sont désactivées par défaut.</p><button type="submit" class="primary">Simuler sans supprimer</button><p id="retention-error" class="error" role="alert"></p></form>`:empty('Ajoutez un dépôt depuis Snapshots pour préparer une règle.','backup')}</section><br>${retentionPolicies(policies)}<br>${cleanupCard(usable)}<br><div id="retention-result" aria-live="polite"></div><br><section class="card"><div class="cardhead"><h2>Historique des nettoyages</h2>${button('retention-refresh','Actualiser',null,'small')}</div><div id="retention-history">${retentionHistory(jobs)}</div></section><p class="capacity-note">La suppression est définitive dans Nacre. Le traitement continue sans navigateur et vérifie la structure du dépôt après nettoyage. Une interruption peut laisser une opération partielle ; la règle automatique est suspendue et la tâche n’est pas rejouée.</p>`;
 }
 
 document.addEventListener('submit',async event=>{
@@ -43,7 +43,18 @@ document.addEventListener('click',async event=>{
  try{
   if(el.dataset.action==='retention-open')return await go('retention');
   if(el.dataset.action==='retention-back')return await go('snapshots');
-  if(el.dataset.action==='retention-refresh')return await renderRetention();
+  if(el.dataset.action==='retention-refresh')return await refreshRetentionHistory();
+  if(el.dataset.action==='cleanup-simulate'){
+   el.disabled=true;
+   try{await api('protection/cleanup-preview',{repo:$('#cleanup-repo').value});toast('Simulation lancée. Retrouvez son résultat dans l’historique.');await refreshRetentionHistory();}finally{el.disabled=false;}
+   return;
+  }
+  if(el.dataset.action==='cleanup-review'){
+   const job=el.dataset.job, session=sessionGeneration, origin=page;
+   const plan=await api('protection/cleanup-preview?job='+encodeURIComponent(job));
+   if(page!==origin||session!==sessionGeneration||!user)return;
+   return modal('Reprendre le nettoyage',cleanupConfirmation(plan),'Nettoyer le dépôt',f=>api('protection/cleanup-apply',{job,token:plan.token,confirm:f.has('confirm')}));
+  }
   if(el.dataset.action==='retention-disable'){
    const repo=el.dataset.repo, version=Number(el.dataset.version);
    return modal('Désactiver la rétention automatique',`<p>Les prochaines captures ne déclencheront plus de nettoyage. Une commande déjà lancée peut se terminer ; les étapes suivantes et les tâches en attente seront bloquées.</p>`,'Désactiver',()=>api('protection/retention-policy',{repo,version,enabled:false}));
@@ -65,4 +76,22 @@ document.addEventListener('click',async event=>{
 
 function retentionPolicies(policies){
  return `<section class="card"><div class="cardhead"><h2>Rétention automatique</h2><span class="muted">Après une nouvelle capture réussie</span></div>${policies.length?table(['Dépôt','Conservation par groupe','État',''],policies.map(p=>`<tr><td>${esc(p.name)}</td><td>${p.keep_last} point(s)</td><td><span class="badge ${p.reason?'warn':p.enabled?'':'dim'}">${p.reason?'Suspendue':p.enabled?'Active':'Désactivée'}</span>${p.reason?`<p class="muted">${esc(p.reason)}</p>`:''}</td><td>${p.enabled||p.reason?button('retention-disable','Désactiver',null,'small',`data-repo="${esc(p.repo)}" data-version="${p.version}"`):'Simulez une règle pour l’activer.'}</td></tr>`)):empty('Aucun dépôt configuré.','backup')}</section>`;
+}
+
+
+function cleanupCard(repos){
+ return `<section class="card cardpad"><h2>Reprendre le nettoyage</h2><p>Récupérez les blocs laissés par une suppression interrompue. Tous les points encore présents seront conservés. La simulation continue si vous fermez le navigateur.</p>${repos.length?`<div class="field"><label for="cleanup-repo">Dépôt à nettoyer</label><select id="cleanup-repo">${repos.map(r=>`<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('')}</select></div>${button('cleanup-simulate','Simuler le nettoyage',null,'')}<p class="capacity-note">Puis examinez la simulation dans l’historique pour confirmer. Une règle automatique suspendue reste suspendue après le nettoyage.</p>`:empty('Ajoutez un dépôt pour préparer le nettoyage.','backup')}</section>`;
+}
+function cleanupConfirmation(p){
+ return `<p>Dépôt : <strong>${esc(p.name)}</strong> · ${p.points.length} point(s) conservé(s). Simulation valable jusqu’à ${date(p.expires)}.</p><p>Seuls les blocs non référencés seront nettoyés, y compris ceux d’anciennes suppressions. Aucun point encore présent ne sera supprimé. Les points déjà oubliés ne seront pas recréés.</p><details><summary>Points conservés</summary>${table(['Date','Identifiant'],p.points.map(x=>`<tr><td>${date(Date.parse(x.time)/1000)}</td><td><code class="cleanup-point">${esc(x.id)}</code></td></tr>`))}</details><p>Le nettoyage peut durer et retarder les sauvegardes en attente. L’espace récupérable n’est pas estimé ; le contrôle de structure sera exécuté ensuite.</p><div class="checks"><label><input type="checkbox" name="confirm" required>Je confirme le nettoyage définitif des blocs non référencés.</label></div><p class="capacity-note">Si le dépôt ou ses points ont changé, refaites une simulation. Une règle automatique suspendue ne sera pas réactivée.</p>`;
+}
+function retentionHistory(jobs){
+ const rows=jobs.filter(j=>['retention','retention_auto','cleanup_preview','cleanup'].includes(j.kind));
+ return rows.length?table(['Date','Opération','État','Résultat',''],jobRows(rows)):empty('Aucune rétention ni simulation de nettoyage.','activity');
+}
+async function refreshRetentionHistory(){
+ const session=sessionGeneration, target=$('#retention-history');
+ if(page!=='retention'||!target)return;
+ const jobs=await api('jobs');
+ if(page==='retention'&&session===sessionGeneration&&target===$('#retention-history'))target.innerHTML=retentionHistory(jobs);
 }

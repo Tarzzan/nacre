@@ -597,6 +597,10 @@ class Handler(BaseHTTPRequestHandler):
                 if session['role'] != 'admin':raise Problem('Accès réservé aux administrateurs.',403)
                 from notifications import status
                 return self.reply(200,status(sys.modules[__name__]))
+            if url.path == '/api/protection/cleanup-preview':
+                if session['role'] != 'admin':raise Problem('Accès réservé aux administrateurs.',403)
+                from cleanup import review
+                return self.reply(200,review(sys.modules[__name__],query.get('job'),session['name']))
             if url.path == '/api/protection/retention-policies':
                 if session['role'] != 'admin':raise Problem('Accès réservé aux administrateurs.',403)
                 from automatic_retention import listing
@@ -836,6 +840,12 @@ class Handler(BaseHTTPRequestHandler):
                 return native_storage('cancel',user,body)
             elif route == '/api/protection/repository':
                 return protection().create_repository(body, user)
+            elif route == '/api/protection/cleanup-preview':
+                from cleanup import preview
+                return preview(sys.modules[__name__],body,user)
+            elif route == '/api/protection/cleanup-apply':
+                from cleanup import submit
+                return submit(sys.modules[__name__],body,user)
             elif route == '/api/protection/retention-preview':
                 from retention import preview
                 return preview(sys.modules[__name__],body,user)

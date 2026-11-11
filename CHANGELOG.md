@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0-alpha.9 — Reprendre un nettoyage interrompu
+
+Simulation persistante du nettoyage seul depuis le navigateur, confirmation à usage unique valable quinze minutes et revalidation du dépôt et des points. Aucun `forget` dans ce parcours : les snapshots présents sont conservés, puis la structure est contrôlée. Interruption signalée sans rejeu ; une règle suspendue reste suspendue. Historique rafraîchi sans écraser les formulaires.
+
+200 tests Python et 23 JavaScript. Essais sur dépôts chiffrés isolés : interruption après suppression, simulation, nettoyage, contrôle intégral des données et restauration exacte. [Guide, preuve web et limites](docs/REPOSITORY-CLEANUP.md).
+
 ## 0.8.0-alpha.8 — Rétention après les sauvegardes réussies
 
 Règle par dépôt activable depuis une simulation : après les prochaines captures réussies, sélection recalculée et nettoyage automatique par tâche persistante. Version de règle et identité du dépôt revalidées, doublons évités, désactivation des tâches en attente et suspension après incident. Alerte locale et réactivation après simulation ; règles et confirmations neutralisées lors d’une reprise de base ou de NAS. Aucun automatisme activé par défaut.

@@ -205,3 +205,30 @@ test('suspended automatic policy exposes a safe disable action and escapes its r
  assert.ok(html.includes('Suspendue'));assert.ok(html.includes('&lt;script&gt;private&lt;/script&gt;'));
  assert.match(html,/data-action="retention-disable"/);assert.match(html,/data-version="4"/);
 });
+
+test('cleanup confirmation escapes labels and requires consent without deleting snapshots',()=>{
+ const f=fixture(async()=>response(200,{}));
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/retention.js'),'utf8'),f.context);
+ const html=f.run('cleanupConfirmation({name:"<img>",expires:100,points:[{id:"<script>",time:"2020-01-01T00:00:00Z"}]})');
+ assert.doesNotMatch(html,/<img>|<script>/);assert.match(html,/name="confirm" required/);assert.match(html,/Aucun point encore présent ne sera supprimé/);
+});
+
+test('cleanup history refresh preserves form and discards a replaced view',async()=>{
+ let complete;const f=fixture(()=>new Promise(resolve=>{complete=resolve;}));
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/retention.js'),'utf8'),f.context);
+ f.run('user={name:"admin",role:"admin"};page="retention";shell();$("#content").innerHTML="form draft";');
+ const target={innerHTML:'old history'};f.elements.set('#retention-history',target);
+ const pending=f.run('refreshRetentionHistory()');complete(response(200,[]));await pending;
+ assert.equal(f.elements.get('#content').innerHTML,'form draft');assert.match(target.innerHTML,/Aucune rétention/);
+ const stale=f.run('refreshRetentionHistory()');f.elements.set('#retention-history',{innerHTML:'new view'});
+ complete(response(200,[]));await stale;assert.equal(f.elements.get('#retention-history').innerHTML,'new view');
+});
+
+test('late cleanup review cannot open a modal after navigation',async()=>{
+ let complete;const f=fixture(()=>new Promise(resolve=>{complete=resolve;}));
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/retention.js'),'utf8'),f.context);
+ f.run('user={name:"admin",role:"admin"};page="retention";shell();modal=()=>{throw new Error("stale modal");};');
+ const pending=f.listeners.get('click').at(-1)({target:{closest:()=>({dataset:{action:'cleanup-review',job:'fixture'}})}});
+ f.run('page="files";');complete(response(200,{name:'fixture',points:[],expires:1}));await pending;
+ assert.equal(f.elements.get('#toast').textContent,'');
+});

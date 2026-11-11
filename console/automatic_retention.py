@@ -139,4 +139,4 @@ def disable_after_recovery(db):
     if not db.execute("SELECT 1 FROM sqlite_master WHERE name='settings'").fetchone():return
     for key,value in db.execute('SELECT key,value FROM settings WHERE key LIKE ?',(PREFIX+'%',)).fetchall():
         p=json.loads(value);p.update(enabled=False,version=p['version']+1,reason='Installation récupérée : revalidez le dépôt et la règle avant activation.');write(db,p)
-    db.execute('DELETE FROM settings WHERE key LIKE ?',(retention.PREFIX+'%',))
+    db.execute('DELETE FROM settings WHERE key LIKE ? OR key LIKE ?',(retention.PREFIX+'%','cleanup-preview:%'))
