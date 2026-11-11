@@ -1,5 +1,11 @@
 # Validation
 
+## Conservation calendaire — 0.8.0-alpha.10
+
+209 tests Python et 26 JavaScript réussis. Sélection par union, périodes vides ignorées, groupes séparés, captures protégées exclues du comptage, frontière de minuit avec fuseau, année ISO et heure répétée au changement d’heure. Valeurs invalides refusées avant accès au dépôt ; ancienne règle sans calendrier conservée, paramètres de simulation persistés à l’activation et neutralisés à la reprise. Formulaire, motifs échappés et invalidation de simulation vérifiés en JavaScript.
+
+Dépôt restic réel : conservation de mois historiques, suppression ponctuelle, capture déclenchant la règle automatique, contrôle intégral des données et restauration exacte d’un fichier historique. [Guide et preuve navigateur](CALENDAR-RETENTION.md).
+
 ## Nettoyage seul — 0.8.0-alpha.9
 
 200 tests Python et 23 JavaScript réussis. Tests isolés : simulation échouée sans confirmation réutilisable, auteur et consentement, jeton à usage unique, expiration, dépôt remplacé, points modifiés, annulation avant exécution, interruption pendant nettoyage, contrôle final échoué et worker disparu. Les reprises de base et de NAS invalident aussi ces confirmations.

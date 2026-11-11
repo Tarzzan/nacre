@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import secrets
 import time
+import calendar_retention
 
 PREFIX = 'retention-preview:'
 TTL = 900
@@ -29,7 +30,8 @@ def identity(manager, repository):
     return {'id':config['id'],'dev':meta.st_dev,'ino':meta.st_ino,'path':str(path.resolve())}
 
 
-def selection(app, repository, snapshots, keep_last):
+def selection(app, repository, snapshots, keep_last, calendar=None):
+    rule=calendar_retention.validate(app,calendar if calendar is not None else {})
     # Seules les captures dont Nacre possède une preuve locale de succès sont
     # candidates. Les captures importées, partielles ou étrangères sont protégées.
     with app.database() as db:
@@ -48,7 +50,9 @@ def selection(app, repository, snapshots, keep_last):
         identifier=point['id']
         if not re.fullmatch(r'[a-f0-9]{64}',identifier):raise app.Problem('Identifiant de point non reconnu.',409)
         try:
-            stamp=datetime.fromisoformat(point['time'].replace('Z','+00:00')).timestamp()
+            instant=datetime.fromisoformat(point['time'].replace('Z','+00:00'))
+            if instant.tzinfo is None:raise ValueError('Timezone required')
+            stamp=instant.timestamp()
         except (ValueError,KeyError,TypeError):raise app.Problem('Date de point non reconnue.',409) from None
         public={'id':identifier,'time':point['time']}
         if identifier not in known or identifier in unsafe or 'nacre' not in (point.get('tags') or []) or stamp>time.time():
@@ -61,19 +65,21 @@ def selection(app, repository, snapshots, keep_last):
     keep=[]; remove=[]
     for values in groups.values():
         values.sort(reverse=True)
-        keep.extend(item[2] for item in values[:keep_last])
-        remove.extend(item[2] for item in values[keep_last:])
+        reasons=calendar_retention.choose(values,keep_last,rule)
+        keep.extend({**point,'reasons':reasons[identifier]} for _,identifier,point in values if identifier in reasons)
+        remove.extend(point for _,identifier,point in values if identifier not in reasons)
     return {'keep':sorted(keep,key=lambda p:(p['time'],p['id']),reverse=True),
             'remove':sorted(remove,key=lambda p:(p['time'],p['id'])),
             'protected':protected,'groups':len(groups)}
 
 
-def proposal(app, identifier, count, actor):
+def proposal(app, identifier, count, actor, calendar=None):
+    rule=calendar_retention.validate(app,calendar if calendar is not None else {})
     manager=app.protection()
     repository=manager.repository(identifier)
     before=identity(manager,repository)
     points=manager.points(repository['id'])
-    chosen=selection(app,repository,points,count)
+    chosen=selection(app,repository,points,count,rule)
     ids=[p['id'] for p in chosen['remove']]
     for offset in range(0,len(ids),128):
         manager.checked(repository,'forget','--dry-run','--json',*ids[offset:offset+128])
@@ -81,7 +87,7 @@ def proposal(app, identifier, count, actor):
     if identity(manager,repository)!=before or sorted(p['id'] for p in manager.points(repository['id']))!=snapshot_ids:
         raise app.Problem('Le dépôt a changé pendant la simulation. Recommencez.',409)
     plan={'token':secrets.token_hex(24),'actor':actor,'repo':repository['id'],'name':repository['name'],
-          'keep_last':count,'expires':time.time()+TTL,'identity':before,'snapshot_ids':snapshot_ids,**chosen}
+          'keep_last':count,'calendar':rule,'expires':time.time()+TTL,'identity':before,'snapshot_ids':snapshot_ids,**chosen}
     return plan
 
 
@@ -89,9 +95,9 @@ def preview(app, body, actor):
     count=body.get('keep_last')
     if type(count) is not int or not 1<=count<=1000000:
         raise app.Problem('Conserver au moins un point par groupe (entier de 1 à 1 000 000).')
-    manager=app.protection()
+    rule=calendar_retention.validate(app,body.get('calendar',{}))
     with idle(app):
-        plan=proposal(app,body.get('repo'),count,actor)
+        plan=proposal(app,body.get('repo'),count,actor,rule)
         with app.database() as db:
             db.execute('BEGIN IMMEDIATE')
             from automatic_retention import read
@@ -143,7 +149,7 @@ def run(app, row, guard=lambda:None):
             raise app.Problem('Les points du dépôt ont changé. Refaire la simulation.',409)
     unchanged()
     # Revalider également la provenance locale, qui peut avoir changé depuis le plan.
-    fresh=selection(app,repository,manager.points(plan['repo']),plan['keep_last'])
+    fresh=selection(app,repository,manager.points(plan['repo']),plan['keep_last'],plan.get('calendar'))
     if {p['id'] for p in fresh['remove']}!={p['id'] for p in plan['remove']}:
         raise app.Problem('La sélection a changé. Refaire la simulation.',409)
     ids=[p['id'] for p in plan['remove']]

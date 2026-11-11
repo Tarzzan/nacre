@@ -2,6 +2,7 @@
 import json
 import time
 import retention
+import calendar_retention
 
 PREFIX='retention-policy:'
 KIND='retention_auto'
@@ -22,7 +23,7 @@ def listing(app):
         result=[]
         for repo,name in db.execute('SELECT id,name FROM repositories ORDER BY name').fetchall():
             p=read(db,repo)
-            result.append({**{k:p[k] for k in ('repo','version','enabled','keep_last','reason')},'name':name})
+            result.append({**{k:p[k] for k in ('repo','version','enabled','keep_last','reason')},'name':name,'calendar':p.get('calendar',calendar_retention.defaults())})
         return result
 
 
@@ -57,7 +58,7 @@ def configure(app, body, actor):
                 raise app.Problem('Simulation ou règle déjà modifiée.',409)
             # Exclut également les captures déjà demandées avant activation.
             barrier=db.execute('SELECT COALESCE(MAX(rowid),0) FROM jobs').fetchone()[0]
-            p.update(version=p['version']+1,enabled=True,keep_last=plan['keep_last'],identity=plan['identity'],
+            p.update(version=p['version']+1,enabled=True,keep_last=plan['keep_last'],identity=plan['identity'],calendar=calendar_retention.validate(app,plan.get('calendar',{})),
                      actor=actor,after_rowid=barrier,reason='')
             write(db,p);db.execute('DELETE FROM settings WHERE key=?',(retention.PREFIX+body['token'],))
             db.execute('INSERT INTO audit(ts,username,action,detail) VALUES(?,?,?,?)',
@@ -126,7 +127,7 @@ def run(app, row):
             raise app.Problem('La règle a été désactivée ou remplacée pendant le traitement.')
     repo=manager.repository(p['repo'])
     if retention.identity(manager,repo)!=p['identity']:raise app.Problem('Le dépôt a changé depuis l’activation de la règle.')
-    plan=retention.proposal(app,p['repo'],p['keep_last'],p['actor'])
+    plan=retention.proposal(app,p['repo'],p['keep_last'],p['actor'],p.get('calendar'))
     guard()
     if plan['identity']!=p['identity'] or options['snapshot'] not in plan['snapshot_ids']:
         raise app.Problem('Le dépôt ou la capture déclenchante ne correspond plus à la règle.')
