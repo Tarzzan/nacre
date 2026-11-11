@@ -12,17 +12,21 @@ Les versions futures sont des objectifs sans date promise. Chaque étape demande
 | **1.0 — cible à qualifier** | Version exploitable avec périmètre de support précis | Revue de sécurité, endurance, mises à jour et reprise éprouvées ; aucun défaut critique connu |
 | **Après stabilisation** | Gestion de plusieurs NAS | Identités inter-hôtes, révocation, fonctionnement déconnecté et politiques de groupe spécifiés |
 
+## Créneau de nettoyage 0.8.0-alpha.11
+
+Plage quotidienne enregistrée avec la règle, démarrage contrôlé sous verrou, report persistant et regroupement des captures en attente. Une tâche commencée va jusqu’au contrôle final. [Guide](MAINTENANCE-WINDOW.md). Les calendriers par jour de semaine et quotas de stockage restent ouverts.
+
 ## Règles calendaires 0.8.0-alpha.10
 
-Union des derniers points et des derniers jours, semaines ISO et mois contenant des captures réussies. Fuseau enregistré, motifs visibles dans la simulation et même sélection en mode automatique. Règles existantes préservées. [Guide](CALENDAR-RETENTION.md). Le créneau de maintenance reste ouvert.
+Union des derniers points et des derniers jours, semaines ISO et mois contenant des captures réussies. Fuseau enregistré, motifs visibles dans la simulation et même sélection en mode automatique. Règles existantes préservées. [Guide](CALENDAR-RETENTION.md). Le créneau quotidien est livré dans alpha.11.
 
 ## Reprise du nettoyage 0.8.0-alpha.9
 
-Simulation persistante, confirmation avec liste des points conservés, nettoyage seul et contrôle de structure. Résultats partiels explicites, sans rejeu et sans réactivation de règle. [Guide](REPOSITORY-CLEANUP.md). Les règles calendaires sont livrées dans alpha.10 ; le créneau de maintenance reste ouvert.
+Simulation persistante, confirmation avec liste des points conservés, nettoyage seul et contrôle de structure. Résultats partiels explicites, sans rejeu et sans réactivation de règle. [Guide](REPOSITORY-CLEANUP.md). Les règles calendaires sont livrées dans alpha.10 ; le créneau quotidien est livré dans alpha.11.
 
 ## Rétention automatique 0.8.0-alpha.8
 
-Activation par dépôt après simulation, déclenchement après les nouvelles captures réussies, déduplication persistante, désactivation versionnée et suspension sur incident avec alerte locale. Reprise de base/NAS neutralisant les règles. Les règles calendaires sont livrées dans alpha.10 ; le créneau de nettoyage reste ouvert. La reprise du nettoyage est livrée dans alpha.9. [Guide](AUTOMATIC-RETENTION.md).
+Activation par dépôt après simulation, déclenchement après les nouvelles captures réussies, déduplication persistante, désactivation versionnée et suspension sur incident avec alerte locale. Reprise de base/NAS neutralisant les règles. Les règles calendaires sont livrées dans alpha.10 ; le créneau quotidien est livré dans alpha.11. La reprise du nettoyage est livrée dans alpha.9. [Guide](AUTOMATIC-RETENTION.md).
 
 ## Rétention explicite 0.8.0-alpha.7
 

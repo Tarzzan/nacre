@@ -8,6 +8,7 @@ import re
 import secrets
 import time
 import calendar_retention
+import maintenance_window
 
 PREFIX = 'retention-preview:'
 TTL = 900
@@ -96,8 +97,10 @@ def preview(app, body, actor):
     if type(count) is not int or not 1<=count<=1000000:
         raise app.Problem('Conserver au moins un point par groupe (entier de 1 à 1 000 000).')
     rule=calendar_retention.validate(app,body.get('calendar',{}))
+    window=maintenance_window.validate(app,body.get('window',{}))
     with idle(app):
         plan=proposal(app,body.get('repo'),count,actor,rule)
+        plan['window']=window
         with app.database() as db:
             db.execute('BEGIN IMMEDIATE')
             from automatic_retention import read
@@ -136,7 +139,7 @@ def repository_detail(plan):
     return plan['name']+' · '+str(len(plan['remove']))+' point(s)'
 
 
-def run(app, row, guard=lambda:None):
+def run(app, row, guard=lambda:None, before_start=lambda:None):
     manager=app.protection(); plan=json.loads(row['options']); job=row['id']
     if plan['expires']<time.time():raise app.Problem('Simulation expirée avant exécution. Aucune suppression lancée.')
     repository=manager.repository(plan['repo'])
@@ -159,6 +162,7 @@ def run(app, row, guard=lambda:None):
             if manager.cancelled(job):raise InterruptedError()
             unchanged()
             manager.update(job,progress={'message':'Suppression des points confirmés…'})
+            if not started:before_start()
             started=True
             batch=ids[offset:offset+128]
             _,code=manager.stream(repository,job,'forget','--json',*batch)

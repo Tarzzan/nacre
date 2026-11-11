@@ -10,7 +10,7 @@ Les règles sont **désactivées par défaut**. L’activation ne supprime aucun
 
 ## Ce qui s’exécute
 
-Le planificateur de la console repère les nouvelles captures réussies, y compris celles terminées juste avant un redémarrage. Il enregistre une tâche de rétention distincte avec une identité déterministe par capture et version de règle. Une seule tâche automatique par dépôt peut être en attente ou en cours. Deux passages concurrents ne créent pas deux tâches pour la même capture.
+Le planificateur de la console repère les nouvelles captures réussies, y compris celles terminées juste avant un redémarrage. Il enregistre une tâche de rétention distincte avec une identité déterministe par capture et version de règle. Une seule tâche automatique par dépôt peut être en attente ou en cours. Depuis alpha.11, les captures réussies accumulées avant le démarrage sont regroupées dans cette tâche, qui mémorise leurs identifiants. Deux passages concurrents ne créent pas deux tâches pour la même capture.
 
 Sous le verrou des tâches Nacre, le worker vérifie la règle, son auteur administrateur actif, l’identité du dépôt et la présence de la capture déclenchante. Il recalcule la sélection, effectue une simulation restic, puis utilise le parcours de [rétention explicite](BACKUP-RETENTION.md) : suppression des identifiants prévus, nettoyage des blocs non référencés et contrôle de structure. S’il n’y a rien à supprimer, il le signale sans lancer de nettoyage.
 
@@ -38,6 +38,6 @@ Le banc web distinct comporte trois versions synthétiques. La simulation et la 
 
 ## Limites
 
-La politique actuelle conserve les derniers N points réussis par groupe. Les règles journalières, hebdomadaires et mensuelles sont disponibles depuis alpha.10. Le créneau horaire dédié au nettoyage et les règles basées sur un quota d’espace restent ouverts. Le [nettoyage seul](REPOSITORY-CLEANUP.md) est disponible depuis alpha.9 ; il ne réactive pas une règle suspendue. Le nettoyage concerne les blocs non référencés de l’ensemble du dépôt ; aucun gain d’espace n’est promis à partir de la taille logique des snapshots.
+La politique actuelle conserve les derniers N points réussis par groupe. Les règles journalières, hebdomadaires et mensuelles sont disponibles depuis alpha.10. Le [créneau quotidien de nettoyage](MAINTENANCE-WINDOW.md) est disponible depuis alpha.11 ; les règles basées sur un quota d’espace restent ouvertes. Le [nettoyage seul](REPOSITORY-CLEANUP.md) est disponible depuis alpha.9 ; il ne réactive pas une règle suspendue. Le nettoyage concerne les blocs non référencés de l’ensemble du dépôt ; aucun gain d’espace n’est promis à partir de la taille logique des snapshots.
 
 Les verrous restic protègent les commandes individuelles. Éviter toute maintenance externe simultanée du dépôt : il n’y a pas de transaction globale couvrant plusieurs clients et plusieurs commandes. Le contrôle structurel ordinaire ne remplace pas une lecture complète des données ou un exercice de restauration.

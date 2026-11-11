@@ -262,3 +262,35 @@ test('switching repository loads its saved calendar without copying another rule
  f.run('retentionLoadPolicy("one")');assert.equal(f.elements.get('#retention-monthly').value,12);
  f.run('retentionLoadPolicy("two")');assert.equal(f.elements.get('#retention-count').value,4);assert.equal(f.elements.get('#retention-monthly').value,0);assert.equal(f.elements.get('#retention-timezone').value,'UTC');
 });
+
+test('maintenance window is explicit in preview and submitted with exact times',async()=>{
+ const f=fixture(async()=>response(200,{}));
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/retention.js'),'utf8'),f.context);
+ f.context.capture={};
+ f.run('user={name:"admin",role:"admin"};page="retention";shell();api=async(route,body)=>{capture.body=body;return {name:"fixture",keep_last:1,calendar:body.calendar,window:body.window,groups:1,keep:[],remove:[],protected:[],expires:100};};');
+ f.elements.set('#retention-result',{innerHTML:''});f.elements.set('#retention-error',{textContent:''});
+ const form={getAttribute:()=> 'retention-form',querySelector:()=>({disabled:false}),values:{repo:'fixture',keep_last:'1',timezone:'America/Cayenne',window_enabled:'on',window_start:'22:00',window_end:'05:00'}};
+ await f.listeners.get('submit').at(-1)({target:form,preventDefault(){}});
+ assert.equal(f.context.capture.body.window.enabled,true);assert.equal(f.context.capture.body.window.start,'22:00');assert.equal(f.context.capture.body.window.end,'05:00');
+ assert.match(f.elements.get('#retention-result').innerHTML,/22:00 à 05:00/);
+ for(const fn of f.listeners.get('input'))await fn({target:{id:'retention-window-end'}});
+ assert.equal(f.run('retentionProposal'),null);
+});
+
+test('maintenance waiting state escapes values and does not look like a failure',()=>{
+ const f=fixture(async()=>response(200,{}));
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/retention.js'),'utf8'),f.context);
+ f.run('user={role:"admin"};');
+ const html=f.run('retentionPolicies([{repo:"fixture",name:"Fixture",keep_last:2,version:1,enabled:true,reason:"",pending:3,window_open:false,window:{enabled:true,start:"<img>",end:"05:00"},calendar:{timezone:"<script>"}}])');
+ assert.match(html,/Hors créneau/);assert.match(html,/3 capture\(s\) en attente/);assert.doesNotMatch(html,/<img>|<script>/);
+ const row=f.run('jobRows([{kind:"retention_auto",status:"deferred",id:"fixture",ts:1,result:"{}",progress:"{}"}])[0]');
+ assert.match(row,/En attente du créneau/);assert.doesNotMatch(row,/Échec|job-cancel/);
+});
+
+test('manual confirmation states that it bypasses the automatic window',async()=>{
+ const f=fixture(async()=>response(200,{}));
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/retention.js'),'utf8'),f.context);
+ f.context.capture={};f.run('retentionProposal={name:"Fixture",keep_last:1,keep:[],protected:[],remove:[{}],window:{enabled:true,start:"02:00",end:"05:00"}};modal=(title,html)=>{capture.html=html;};');
+ await f.listeners.get('click').at(-1)({target:{closest:()=>({dataset:{action:'retention-confirm'}})}});
+ assert.match(f.context.capture.html,/même hors du créneau automatique/);
+});

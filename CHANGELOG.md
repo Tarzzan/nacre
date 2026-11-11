@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0-alpha.11 — Créneau du nettoyage automatique
+
+Créneau quotidien par dépôt, dans le fuseau de la règle, y compris à cheval sur minuit. Captures en attente regroupées, démarrage revalidé après attente et juste avant la première suppression. Report persistant sans effet sur les points, reprise sans doublon et suivi dans le navigateur. Une opération commencée termine son contrôle même après la fermeture du créneau. Applications ponctuelles immédiates explicitement distinguées.
+
+219 tests Python et 29 JavaScript réussis. Tests isolés sur limites horaires, changements d’heure, report, reprise, regroupement et restauration exacte après nettoyage réel. [Guide et preuve navigateur](docs/MAINTENANCE-WINDOW.md).
+
 ## 0.8.0-alpha.10 — Conservation par jour, semaine et mois
 
 Règles calendaires combinables avec les derniers points, pour une application ponctuelle ou automatique. Dernier point de chaque période contenant une capture réussie, semaines ISO et fuseau explicite attaché à la règle. Motifs de conservation affichés dans la simulation. Les règles existantes gardent leur comportement ; catégories calendaires désactivées par défaut.

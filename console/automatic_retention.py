@@ -1,11 +1,17 @@
 """Rétention après capture réussie, autorisation versionnée par dépôt."""
 import json
+import hashlib
 import time
 import retention
 import calendar_retention
+import maintenance_window
 
 PREFIX='retention-policy:'
 KIND='retention_auto'
+
+
+class OutsideWindow(Exception):
+    pass
 
 
 def read(db, repo):
@@ -23,7 +29,9 @@ def listing(app):
         result=[]
         for repo,name in db.execute('SELECT id,name FROM repositories ORDER BY name').fetchall():
             p=read(db,repo)
-            result.append({**{k:p[k] for k in ('repo','version','enabled','keep_last','reason')},'name':name,'calendar':p.get('calendar',calendar_retention.defaults())})
+            result.append({**{k:p[k] for k in ('repo','version','enabled','keep_last','reason')},'name':name,'calendar':p.get('calendar',calendar_retention.defaults()),
+                           'window':p.get('window',maintenance_window.defaults()),
+                           'window_open':allowed(app,p),'pending':len(candidates(db,p)) if p['enabled'] else 0})
         return result
 
 
@@ -36,6 +44,7 @@ def configure(app, body, actor):
             if p['version']!=body['version']:raise app.Problem('La règle a changé. Actualisez.',409)
             if not db.execute('SELECT 1 FROM repositories WHERE id=?',(body.get('repo'),)).fetchone():raise app.Problem('Dépôt inconnu.',404)
             p.update(enabled=False,version=p['version']+1,reason='');write(db,p)
+            cancel_deferred(db,p['repo'])
             db.execute('INSERT INTO audit(ts,username,action,detail) VALUES(?,?,?,?)',(time.time(),actor,'Rétention automatique désactivée',p['repo']))
         return {'ok':True}
     if body.get('confirm') is not True or not isinstance(body.get('token'),str):
@@ -58,7 +67,8 @@ def configure(app, body, actor):
                 raise app.Problem('Simulation ou règle déjà modifiée.',409)
             # Exclut également les captures déjà demandées avant activation.
             barrier=db.execute('SELECT COALESCE(MAX(rowid),0) FROM jobs').fetchone()[0]
-            p.update(version=p['version']+1,enabled=True,keep_last=plan['keep_last'],identity=plan['identity'],calendar=calendar_retention.validate(app,plan.get('calendar',{})),
+            cancel_deferred(db,p['repo'])
+            p.update(version=p['version']+1,enabled=True,window=maintenance_window.validate(app,plan.get('window',{})),keep_last=plan['keep_last'],identity=plan['identity'],calendar=calendar_retention.validate(app,plan.get('calendar',{})),
                      actor=actor,after_rowid=barrier,reason='')
             write(db,p);db.execute('DELETE FROM settings WHERE key=?',(retention.PREFIX+body['token'],))
             db.execute('INSERT INTO audit(ts,username,action,detail) VALUES(?,?,?,?)',
@@ -79,18 +89,61 @@ def dispatch(app):
             if p['enabled'] and any(o['repo']==p['repo'] and o['policy_version']==p['version'] for o in interrupted):
                 suspend(db,p,'planificateur');continue
             if not p['enabled'] or p['repo'] in active:continue
-            rows=db.execute("SELECT id,options,result FROM jobs WHERE rowid>? AND kind='snapshot' AND status='done' ORDER BY rowid",(p['after_rowid'],)).fetchall()
-            for row in rows:
-                options=json.loads(row['options']);result=json.loads(row['result'])
-                if options.get('repo')!=p['repo'] or not result.get('snapshot'):continue
-                identifier=app.digest('automatic-retention:'+p['repo']+':'+str(p['version'])+':'+row['id'])[:24]
-                if db.execute('SELECT 1 FROM jobs WHERE id=?',(identifier,)).fetchone():continue
-                config={'repo':p['repo'],'policy_version':p['version'],'trigger':row['id'],'snapshot':result['snapshot']}
-                db.execute('INSERT INTO jobs(id,kind,status,result,ts,options,username) VALUES(?,?,?,?,?,?,?)',
-                           (identifier,KIND,'queued','{}',time.time(),json.dumps(config),p['actor']))
-                jobs.append(identifier);break
+            try:
+                if not allowed(app,p):continue
+            except app.Problem:
+                suspend(db,p,'planificateur');continue
+            pending=candidates(db,p)
+            if pending:
+                identifier,row,result,existing=next((item for item in pending if item[3]),pending[-1])
+                config={'repo':p['repo'],'policy_version':p['version'],'trigger':row['id'],'snapshot':result['snapshot'],
+                        'triggers':[item[1]['id'] for item in pending]}
+                if existing:
+                    db.execute("UPDATE jobs SET status='queued',pid=0,cancel=0,ts=?,options=?,result='{}',progress='{}' WHERE id=? AND status='deferred'",(time.time(),json.dumps(config),identifier))
+                else:
+                    db.execute('INSERT INTO jobs(id,kind,status,result,ts,options,username) VALUES(?,?,?,?,?,?,?)',
+                               (identifier,KIND,'queued','{}',time.time(),json.dumps(config),p['actor']))
+                jobs.append(identifier)
     for identifier in jobs:app.protection().spawn(identifier)
     return jobs
+
+
+def candidates(db,p):
+    covered=set()
+    for saved in db.execute("SELECT options FROM jobs WHERE kind=? AND status='done'",(KIND,)):
+        options=json.loads(saved[0])
+        if options.get('repo')==p['repo'] and options.get('policy_version')==p['version']:
+            covered.update(options.get('triggers',[]))
+    rows=db.execute("SELECT id,options,result FROM jobs WHERE rowid>? AND kind='snapshot' AND status='done' ORDER BY rowid",(p.get('after_rowid',0),)).fetchall()
+    pending=[]
+    for row in rows:
+        if row['id'] in covered:continue
+        options=json.loads(row['options']);result=json.loads(row['result'])
+        if options.get('repo')!=p['repo'] or not result.get('snapshot'):continue
+        identifier=hashlib.sha256(('automatic-retention:'+p['repo']+':'+str(p['version'])+':'+row['id']).encode()).hexdigest()[:24]
+        existing=db.execute('SELECT status FROM jobs WHERE id=?',(identifier,)).fetchone()
+        if existing and existing['status']!='deferred':continue
+        pending.append((identifier,row,result,existing))
+    return pending
+
+
+def allowed(app,p):
+    calendar=calendar_retention.validate(app,p.get('calendar',{}))
+    window=maintenance_window.validate(app,p.get('window',{}))
+    return maintenance_window.allows(window,calendar['timezone'])
+
+
+def cancel_deferred(db,repo=None):
+    if not db.execute("SELECT 1 FROM sqlite_master WHERE name='jobs'").fetchone():return
+    for identifier,options in db.execute("SELECT id,options FROM jobs WHERE kind=? AND status='deferred'",(KIND,)).fetchall():
+        if repo is None or json.loads(options).get('repo')==repo:
+            db.execute("UPDATE jobs SET status='cancelled',result=? WHERE id=?",(json.dumps({'message':'Attente supprimée : règle désactivée, remplacée ou installation récupérée.'}),identifier))
+
+
+def defer(app,row,p):
+    if allowed(app,p):return False
+    app.protection().update(row['id'],status='deferred',progress={},result={'message':'Hors créneau : nouvelle tentative au prochain créneau autorisé. Aucune suppression lancée.'})
+    return True
 
 
 def suspend(db,p,actor):
@@ -125,6 +178,7 @@ def run(app, row):
         with app.database() as db:current=read(db,p['repo'])
         if not current['enabled'] or current['version']!=p['version']:
             raise app.Problem('La règle a été désactivée ou remplacée pendant le traitement.')
+    if defer(app,row,p):return
     repo=manager.repository(p['repo'])
     if retention.identity(manager,repo)!=p['identity']:raise app.Problem('Le dépôt a changé depuis l’activation de la règle.')
     plan=retention.proposal(app,p['repo'],p['keep_last'],p['actor'],p.get('calendar'))
@@ -133,11 +187,15 @@ def run(app, row):
         raise app.Problem('Le dépôt ou la capture déclenchante ne correspond plus à la règle.')
     if not plan['remove']:
         manager.update(row['id'],status='done',result={'message':'Règle vérifiée : aucun point à supprimer.','removed':0});return
-    retention.run(app,{**row,'options':json.dumps(plan)},guard=guard)
+    def before_start():
+        if defer(app,row,p):raise OutsideWindow()
+    try:retention.run(app,{**row,'options':json.dumps(plan)},guard=guard,before_start=before_start)
+    except OutsideWindow:return
 
 
 def disable_after_recovery(db):
     if not db.execute("SELECT 1 FROM sqlite_master WHERE name='settings'").fetchone():return
     for key,value in db.execute('SELECT key,value FROM settings WHERE key LIKE ?',(PREFIX+'%',)).fetchall():
         p=json.loads(value);p.update(enabled=False,version=p['version']+1,reason='Installation récupérée : revalidez le dépôt et la règle avant activation.');write(db,p)
+    cancel_deferred(db)
     db.execute('DELETE FROM settings WHERE key LIKE ? OR key LIKE ?',(retention.PREFIX+'%','cleanup-preview:%'))

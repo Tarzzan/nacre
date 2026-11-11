@@ -3,7 +3,7 @@ let retentionProposal=null, retentionGeneration=0, retentionPolicyList=[];
 
 function retentionSummary(p){
  const points=(list,reason)=>list.length?table(['Date','Identifiant',...(reason?['Motif']:[])],list.map(x=>`<tr><td>${date(Date.parse(x.time)/1000)}</td><td><code title="${esc(x.id)}">${esc(x.id.slice(0,12))}</code></td>${reason?`<td>${esc(x.reason||(x.reasons||[]).join(' · '))}</td>`:''}</tr>`)):empty('Aucun point dans cette catégorie.','backup');
- return `<section class="card cardpad"><div class="row"><div><p class="eyebrow">SIMULATION · ${esc(p.name)}</p><h2>Voici ce qui changerait.</h2></div><span class="spacer"></span>${button('retention-confirm','Examiner la confirmation','trash','',p.remove.length?'':'disabled')}${button('retention-enable','Activer après les prochaines sauvegardes',null,'primary')}</div><p>${p.groups} groupe(s) · ${retentionRuleText(p)}. Proposition valable jusqu’à ${date(p.expires)}.</p><div class="retention-counts"><div><strong>${p.keep.length}</strong><span>Conservés par la règle</span></div><div><strong>${p.protected.length}</strong><span>Protégés hors règle</span></div><div><strong>${p.remove.length}</strong><span>À supprimer</span></div></div><p class="capacity-note">Aucun changement n’a encore été appliqué. Le nettoyage récupère les blocs non référencés de l’ensemble du dépôt ; la taille logique des points ne permet pas de prévoir l’espace libéré.</p></section><br><section class="card"><div class="cardhead"><h2>Points qui seraient supprimés</h2></div>${points(p.remove,false)}</section><br><details class="card cardpad"><summary>Voir les points conservés et protégés</summary><h3>Conservés par la règle</h3>${points(p.keep,true)}<h3>Protégés hors règle</h3>${points(p.protected,true)}</details>`;
+ return `<section class="card cardpad"><div class="row"><div><p class="eyebrow">SIMULATION · ${esc(p.name)}</p><h2>Voici ce qui changerait.</h2></div><span class="spacer"></span>${button('retention-confirm','Examiner la confirmation','trash','',p.remove.length?'':'disabled')}${button('retention-enable','Activer après les prochaines sauvegardes',null,'primary')}</div><p>${p.groups} groupe(s) · ${retentionRuleText(p)}. Proposition valable jusqu’à ${date(p.expires)}.</p><p>${retentionWindowText(p)}</p><div class="retention-counts"><div><strong>${p.keep.length}</strong><span>Conservés par la règle</span></div><div><strong>${p.protected.length}</strong><span>Protégés hors règle</span></div><div><strong>${p.remove.length}</strong><span>À supprimer</span></div></div><p class="capacity-note">Aucun changement n’a encore été appliqué. Le nettoyage récupère les blocs non référencés de l’ensemble du dépôt ; la taille logique des points ne permet pas de prévoir l’espace libéré.</p></section><br><section class="card"><div class="cardhead"><h2>Points qui seraient supprimés</h2></div>${points(p.remove,false)}</section><br><details class="card cardpad"><summary>Voir les points conservés et protégés</summary><h3>Conservés par la règle</h3>${points(p.keep,true)}<h3>Protégés hors règle</h3>${points(p.protected,true)}</details>`;
 }
 
 async function renderRetention(){
@@ -17,7 +17,7 @@ async function renderRetention(){
  const initialPolicy=policies.find(p=>p.repo===(usable.find(r=>r.id===snapshotRepo)||usable[0])?.id)||{};
  const initialCount=initialPolicy.keep_last??7;
  $('#content').innerHTML=heading('Gardez les versions qui comptent.','Simulez la conservation des points de restauration avant de supprimer les plus anciens.',button('retention-back','Retour aux snapshots','backup'))+
- `<section class="card cardpad"><h2>Règle de conservation</h2><p>Chaque plan, hôte et combinaison de sources et d’options est traité séparément. Les captures partielles, importées ou sans preuve locale de réussite restent protégées.</p>${usable.length?`<form id="retention-form" method="post"><div class="formgrid"><div class="field"><label for="retention-repo">Dépôt chiffré</label><select id="retention-repo" name="repo">${usable.map(r=>`<option value="${esc(r.id)}" ${r.id===snapshotRepo?'selected':''}>${esc(r.name)}</option>`).join('')}</select></div><div class="field"><label for="retention-count">Derniers points réussis à conserver par groupe</label><input id="retention-count" name="keep_last" type="number" min="1" max="1000000" step="1" value="${initialCount}" required></div></div>${retentionCalendarFields(initialPolicy)}<p class="capacity-note">La simulation permet une application unique ou l’activation après les prochaines captures réussies. Les règles automatiques sont désactivées par défaut.</p><button type="submit" class="primary">Simuler sans supprimer</button><p id="retention-error" class="error" role="alert"></p></form>`:empty('Ajoutez un dépôt depuis Snapshots pour préparer une règle.','backup')}</section><br><div id="retention-result" aria-live="polite"></div><br>${retentionPolicies(policies)}<br>${cleanupCard(usable)}<br><section class="card"><div class="cardhead"><h2>Historique des nettoyages</h2>${button('retention-refresh','Actualiser',null,'small')}</div><div id="retention-history">${retentionHistory(jobs)}</div></section><p class="capacity-note">La suppression est définitive dans Nacre. Le traitement continue sans navigateur et vérifie la structure du dépôt après nettoyage. Une interruption peut laisser une opération partielle ; la règle automatique est suspendue et la tâche n’est pas rejouée.</p>`;
+ `<section class="card cardpad"><h2>Règle de conservation</h2><p>Chaque plan, hôte et combinaison de sources et d’options est traité séparément. Les captures partielles, importées ou sans preuve locale de réussite restent protégées.</p>${usable.length?`<form id="retention-form" method="post"><div class="formgrid"><div class="field"><label for="retention-repo">Dépôt chiffré</label><select id="retention-repo" name="repo">${usable.map(r=>`<option value="${esc(r.id)}" ${r.id===snapshotRepo?'selected':''}>${esc(r.name)}</option>`).join('')}</select></div><div class="field"><label for="retention-count">Derniers points réussis à conserver par groupe</label><input id="retention-count" name="keep_last" type="number" min="1" max="1000000" step="1" value="${initialCount}" required></div></div>${retentionCalendarFields(initialPolicy)}${retentionWindowFields(initialPolicy)}<p class="capacity-note">La simulation permet une application unique ou l’activation après les prochaines captures réussies. Les règles automatiques sont désactivées par défaut.</p><button type="submit" class="primary">Simuler sans supprimer</button><p id="retention-error" class="error" role="alert"></p></form>`:empty('Ajoutez un dépôt depuis Snapshots pour préparer une règle.','backup')}</section><br><div id="retention-result" aria-live="polite"></div><br><div id="retention-policies">${retentionPolicies(policies)}</div><br>${cleanupCard(usable)}<br><section class="card"><div class="cardhead"><h2>Historique des nettoyages</h2>${button('retention-refresh','Actualiser',null,'small')}</div><div id="retention-history">${retentionHistory(jobs)}</div></section><p class="capacity-note">La suppression est définitive dans Nacre. Le traitement continue sans navigateur et vérifie la structure du dépôt après nettoyage. Une interruption peut laisser une opération partielle ; la règle automatique est suspendue et la tâche n’est pas rejouée.</p>`;
 }
 
 document.addEventListener('submit',async event=>{
@@ -27,7 +27,7 @@ document.addEventListener('submit',async event=>{
  const generation=++retentionGeneration, session=sessionGeneration;
  retentionProposal=null;$('#retention-result').innerHTML='';$('#retention-error').textContent='';submit.disabled=true;
  try{
-  const result=await api('protection/retention-preview',{repo:fields.get('repo'),keep_last:Number(fields.get('keep_last')),calendar:{daily:Number(fields.get('daily')||0),weekly:Number(fields.get('weekly')||0),monthly:Number(fields.get('monthly')||0),timezone:fields.get('timezone')||'UTC'}});
+  const result=await api('protection/retention-preview',{repo:fields.get('repo'),keep_last:Number(fields.get('keep_last')),calendar:{daily:Number(fields.get('daily')||0),weekly:Number(fields.get('weekly')||0),monthly:Number(fields.get('monthly')||0),timezone:fields.get('timezone')||'UTC'},window:{enabled:fields.has('window_enabled'),start:fields.get('window_start')||'02:00',end:fields.get('window_end')||'05:00'}});
   if(page!=='retention'||generation!==retentionGeneration||session!==sessionGeneration||!$('#retention-result'))return;
   retentionProposal=result;$('#retention-result').innerHTML=retentionSummary(result);
  }catch(error){if(page==='retention'&&generation===retentionGeneration&&$('#retention-error'))$('#retention-error').textContent=error.message;}
@@ -35,7 +35,7 @@ document.addEventListener('submit',async event=>{
 });
 
 document.addEventListener('input',event=>{
- if(['retention-count','retention-repo','retention-daily','retention-weekly','retention-monthly','retention-timezone'].includes(event.target.id)){
+ if(['retention-count','retention-repo','retention-daily','retention-weekly','retention-monthly','retention-timezone','retention-window-enabled','retention-window-start','retention-window-end'].includes(event.target.id)){
   if(event.target.id==='retention-repo')retentionLoadPolicy(event.target.value);
   retentionGeneration++;retentionProposal=null;
   if($('#retention-result'))$('#retention-result').innerHTML='';
@@ -64,13 +64,13 @@ document.addEventListener('click',async event=>{
   }
   if(el.dataset.action==='retention-enable'&&retentionProposal){
    const p=retentionProposal;
-   return modal('Activer après les prochaines sauvegardes',`<p>Dépôt : <strong>${esc(p.name)}</strong>. <strong>${retentionRuleText(p)}</strong>.</p><p>Après chaque nouvelle capture réussie demandée après cette activation, Nacre recalculera les points à supprimer, puis nettoiera le dépôt sans nouvelle confirmation. La simulation montre l’effet actuel ; la sélection évoluera avec les prochaines captures.</p><p>Aucune suppression n’est lancée par ce bouton. Les captures déjà demandées et les sauvegardes partielles ou échouées ne déclenchent rien. Le nettoyage concerne tous les groupes de ce dépôt et les blocs non référencés de l’ensemble du dépôt.</p><div class="checks"><label><input type="checkbox" name="confirm" required>J’autorise ces prochaines suppressions automatiques et le nettoyage du dépôt.</label></div><p class="capacity-note">En cas d’échec ou d’interruption, la règle est suspendue et une alerte locale est créée. Vous pouvez la désactiver à tout moment.</p>`,'Activer la règle',async f=>{
+   return modal('Activer après les prochaines sauvegardes',`<p>Dépôt : <strong>${esc(p.name)}</strong>. <strong>${retentionRuleText(p)}</strong>.</p><p>${retentionWindowText(p)}</p><p>Après chaque nouvelle capture réussie demandée après cette activation, Nacre recalculera les points à supprimer, puis nettoiera le dépôt sans nouvelle confirmation. La simulation montre l’effet actuel ; la sélection évoluera avec les prochaines captures.</p><p>Aucune suppression n’est lancée par ce bouton. Les captures déjà demandées et les sauvegardes partielles ou échouées ne déclenchent rien. Le nettoyage concerne tous les groupes de ce dépôt et les blocs non référencés de l’ensemble du dépôt.</p><div class="checks"><label><input type="checkbox" name="confirm" required>J’autorise ces prochaines suppressions automatiques et le nettoyage du dépôt.</label></div><p class="capacity-note">En cas d’échec ou d’interruption, la règle est suspendue et une alerte locale est créée. Vous pouvez la désactiver à tout moment.</p>`,'Activer la règle',async f=>{
     const result=await api('protection/retention-policy',{repo:p.repo,version:p.policy_version,token:p.token,enabled:true,confirm:f.has('confirm')});retentionProposal=null;return result;
    });
   }
   if(el.dataset.action==='retention-confirm'&&retentionProposal){
    const p=retentionProposal;
-   modal('Confirmer la rétention',`<p>Dépôt : <strong>${esc(p.name)}</strong>.</p><p>${retentionRuleText(p)}.</p><p><strong>${p.remove.length} point(s) seront supprimés définitivement.</strong> ${p.keep.length+p.protected.length} point(s) resteront disponibles selon cette simulation.</p><p>Les blocs non référencés de l’ensemble du dépôt seront ensuite nettoyés, y compris ceux d’anciennes suppressions. Les sauvegardes Nacre attendront la fin de cette tâche. L’espace récupérable n’est pas estimé.</p><div class="checks"><label><input type="checkbox" name="confirm" required>Je confirme cette suppression et le nettoyage du dépôt.</label></div><p class="capacity-note">Si les points ou le dépôt ont changé, le traitement sera refusé. Une annulation après démarrage ne recrée pas les points déjà supprimés.</p>`,'Supprimer et nettoyer',async f=>{
+   modal('Confirmer la rétention',`<p>Dépôt : <strong>${esc(p.name)}</strong>.</p><p>${retentionRuleText(p)}.</p><p>Application ponctuelle : démarrage dès disponibilité, même hors du créneau automatique.</p><p><strong>${p.remove.length} point(s) seront supprimés définitivement.</strong> ${p.keep.length+p.protected.length} point(s) resteront disponibles selon cette simulation.</p><p>Les blocs non référencés de l’ensemble du dépôt seront ensuite nettoyés, y compris ceux d’anciennes suppressions. Les sauvegardes Nacre attendront la fin de cette tâche. L’espace récupérable n’est pas estimé.</p><div class="checks"><label><input type="checkbox" name="confirm" required>Je confirme cette suppression et le nettoyage du dépôt.</label></div><p class="capacity-note">Si les points ou le dépôt ont changé, le traitement sera refusé. Une annulation après démarrage ne recrée pas les points déjà supprimés.</p>`,'Supprimer et nettoyer',async f=>{
     const result=await api('protection/retention-apply',{token:p.token,confirm:f.has('confirm')});retentionProposal=null;return result;
    });
   }
@@ -78,7 +78,7 @@ document.addEventListener('click',async event=>{
 });
 
 function retentionPolicies(policies){
- return `<section class="card"><div class="cardhead"><h2>Rétention automatique</h2><span class="muted">Après une nouvelle capture réussie</span></div>${policies.length?table(['Dépôt','Conservation par groupe','État',''],policies.map(p=>`<tr><td>${esc(p.name)}</td><td>${retentionRuleText(p)}</td><td><span class="badge ${p.reason?'warn':p.enabled?'':'dim'}">${p.reason?'Suspendue':p.enabled?'Active':'Désactivée'}</span>${p.reason?`<p class="muted">${esc(p.reason)}</p>`:''}</td><td>${p.enabled||p.reason?button('retention-disable','Désactiver',null,'small',`data-repo="${esc(p.repo)}" data-version="${p.version}"`):'Simulez une règle pour l’activer.'}</td></tr>`)):empty('Aucun dépôt configuré.','backup')}</section>`;
+ return `<section class="card"><div class="cardhead"><h2>Rétention automatique</h2><span class="muted">Après une nouvelle capture réussie</span></div>${policies.length?table(['Dépôt','Conservation par groupe','État',''],policies.map(p=>`<tr><td>${esc(p.name)}</td><td>${retentionRuleText(p)}<p class="muted">${retentionWindowText(p)}</p></td><td><span class="badge ${p.reason?'warn':p.enabled?'':'dim'}">${p.reason?'Suspendue':p.enabled?'Active':'Désactivée'}</span>${p.reason?`<p class="muted">${esc(p.reason)}</p>`:''}${p.enabled?`<p class="muted">${p.window_open===false?'Hors créneau · ':''}${Number(p.pending||0)} capture(s) en attente de traitement.</p>`:''}</td><td>${p.enabled||p.reason?button('retention-disable','Désactiver',null,'small',`data-repo="${esc(p.repo)}" data-version="${p.version}"`):'Simulez une règle pour l’activer.'}</td></tr>`)):empty('Aucun dépôt configuré.','backup')}</section>`;
 }
 
 
@@ -95,8 +95,11 @@ function retentionHistory(jobs){
 async function refreshRetentionHistory(){
  const session=sessionGeneration, target=$('#retention-history');
  if(page!=='retention'||!target)return;
- const jobs=await api('jobs');
- if(page==='retention'&&session===sessionGeneration&&target===$('#retention-history'))target.innerHTML=retentionHistory(jobs);
+ const policyTarget=$('#retention-policies');
+ const [jobs,policies]=await Promise.all([api('jobs'),policyTarget?api('protection/retention-policies'):Promise.resolve([])]);
+ if(page!=='retention'||session!==sessionGeneration||target!==$('#retention-history'))return;
+ target.innerHTML=retentionHistory(jobs);
+ if(policyTarget&&policyTarget===$('#retention-policies'))policyTarget.innerHTML=retentionPolicies(policies);
 }
 
 
@@ -114,5 +117,20 @@ function retentionLoadPolicy(repo){
  $('#retention-count').value=p.keep_last??7;
  for(const key of ['daily','weekly','monthly'])$('#retention-'+key).value=c[key]||0;
  $('#retention-timezone').value=c.timezone||user.timezone||'UTC';
+ const w=p.window||{};
+ if($('#retention-window-enabled')){
+  $('#retention-window-enabled').checked=Boolean(w.enabled);$('#retention-window-start').value=w.start||'02:00';$('#retention-window-end').value=w.end||'05:00';
+  $('#retention-window').open=Boolean(w.enabled);
+ }
  const section=$('#retention-calendar');if(section)section.open=Boolean(c.daily||c.weekly||c.monthly);
+}
+
+
+function retentionWindowText(p){
+ const w=p.window||{};
+ return w.enabled?`Démarrage automatique autorisé chaque jour de ${esc(w.start)} à ${esc(w.end)} · ${esc(p.calendar?.timezone||'UTC')}. Une opération commencée pourra se terminer après la fin du créneau.`:'Démarrage automatique sans restriction horaire.';
+}
+function retentionWindowFields(p){
+ const w=p.window||{};
+ return `<details id="retention-window" ${w.enabled?'open':''}><summary>Créneau du nettoyage automatique</summary><div class="checks"><label><input type="checkbox" id="retention-window-enabled" name="window_enabled" ${w.enabled?'checked':''}>Limiter les démarrages automatiques à ce créneau</label></div><div class="formgrid"><div class="field"><label for="retention-window-start">Début du créneau</label><input type="time" id="retention-window-start" name="window_start" value="${esc(w.start||'02:00')}" required></div><div class="field"><label for="retention-window-end">Fin du créneau</label><input type="time" id="retention-window-end" name="window_end" value="${esc(w.end||'05:00')}" required></div></div><p class="capacity-note">Chaque jour, dans le fuseau choisi dans « Conservation par jour, semaine et mois ». Le créneau peut passer minuit. Une tâche déjà commencée se termine ; les demandes suivantes attendent. L’application ponctuelle et le nettoyage seul restent immédiats.</p></details>`;
 }
