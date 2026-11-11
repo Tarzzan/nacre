@@ -348,3 +348,51 @@ test('snapshot refresh finishing after navigation cannot overwrite retention for
  f.run('page="retention";$("#content").innerHTML="weekly form in progress";');complete([]);await pending;
  assert.equal(f.elements.get('#content').innerHTML,'weekly form in progress');
 });
+
+test('multiple slots and dated exceptions serialize without reviving closed-day hours',()=>{
+ const f=fixture(async()=>response(200,{}));vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/retention.js'),'utf8'),f.context);
+ const value=f.run(`retentionWindowValue(new Map(Object.entries({window_enabled:'on',window_mode:'weekly',window_day_0:'on',window_start_0:'08:00',window_end_0:'09:00',window_slot_day_0_3_start:'22:00',window_slot_day_0_3_end:'02:00',window_exception_1_date:'2026-12-25',window_exception_1_kind:'closed',window_slot_exception_1_5_start:'02:00',window_slot_exception_1_5_end:'05:00',window_exception_2_date:'2026-12-31',window_exception_2_kind:'custom',window_slot_exception_2_6_start:'12:00',window_slot_exception_2_6_end:'13:00',window_slot_exception_2_8_start:'22:00',window_slot_exception_2_8_end:'02:00'})))`);
+ assert.deepEqual(JSON.parse(JSON.stringify(value.week)),[{day:0,start:'08:00',end:'09:00'},{day:0,start:'22:00',end:'02:00'}]);
+ assert.deepEqual(JSON.parse(JSON.stringify(value.exceptions)),[{date:'2026-12-25',slots:[]},{date:'2026-12-31',slots:[{start:'12:00',end:'13:00'},{start:'22:00',end:'02:00'}]}]);
+ const daily=f.run(`retentionWindowValue(new Map(Object.entries({window_mode:'daily',window_start:'08:00',window_end:'09:00',window_slot_daily_7_start:'15:00',window_slot_daily_7_end:'16:00'})))`);
+ assert.equal(daily.extra[0].start,'15:00');assert.equal(daily.week.length,0);
+});
+
+test('empty custom exception is refused instead of silently closing the date',()=>{
+ const f=fixture(async()=>response(200,{}));vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/retention.js'),'utf8'),f.context);
+ assert.throws(()=>f.run(`retentionWindowValue(new Map(Object.entries({window_exception_1_date:'2026-12-25',window_exception_1_kind:'custom'})))`),/Ajoutez au moins une plage/);
+});
+
+test('adding and removing schedule rows invalidates the pending simulation',async()=>{
+ const f=fixture(async()=>response(200,{}));vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/retention.js'),'utf8'),f.context);
+ let added='',removed=false;f.elements.set('#retention-window-slots-daily',{insertAdjacentHTML:(_where,html)=>{added=html;}});
+ f.elements.set('#retention-window-exceptions',{insertAdjacentHTML:(_where,html)=>{added=html;}});f.elements.set('#retention-window-slot-daily-1',{remove:()=>{removed=true;}});
+ f.elements.set('#retention-result',{innerHTML:'old preview'});f.run('retentionProposal={token:"old"};');
+ await f.listeners.get('click').at(-1)({target:{closest:()=>({dataset:{action:'retention-slot-add',scope:'daily',label:'chaque jour'}})}});
+ assert.match(added,/window_slot_daily_1_start/);assert.equal(f.run('retentionProposal'),null);assert.equal(f.elements.get('#retention-result').innerHTML,'');
+ await f.listeners.get('click').at(-1)({target:{closest:()=>({dataset:{action:'retention-slot-remove',target:'retention-window-slot-daily-1'}})}});assert.equal(removed,true);
+ await f.listeners.get('click').at(-1)({target:{closest:()=>({dataset:{action:'retention-exception-add'}})}});assert.match(added,/Aucun démarrage/);assert.match(added,/type="date"/);
+});
+
+test('switching repositories clears additional ranges and exceptions from the previous rule',()=>{
+ const f=fixture(async()=>response(200,{}));vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/retention.js'),'utf8'),f.context);
+ for(const key of ['#retention-window-slots-daily','#retention-window-slots-day_0','#retention-window-exceptions'])f.elements.set(key,{innerHTML:''});
+ f.run('retentionLoadExtras({extra:[{start:"12:00",end:"13:00"}],week:[{day:0,start:"08:00",end:"09:00"},{day:0,start:"22:00",end:"02:00"}],exceptions:[{date:"2026-12-25",slots:[]}]})');
+ assert.match(f.elements.get('#retention-window-slots-day_0').innerHTML,/22:00/);assert.match(f.elements.get('#retention-window-exceptions').innerHTML,/2026-12-25/);
+ f.run('retentionLoadExtras({})');for(const key of ['#retention-window-slots-daily','#retention-window-slots-day_0','#retention-window-exceptions'])assert.equal(f.elements.get(key).innerHTML,'');
+});
+
+test('exception summaries explain full-date priority and escape displayed data',()=>{
+ const f=fixture(async()=>response(200,{}));vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/retention.js'),'utf8'),f.context);
+ const html=f.run('retentionWindowText({window:{enabled:true,start:"08:00",end:"09:00",extra:[{start:"22:00",end:"02:00"}],exceptions:[{date:"<img>",slots:[]},{date:"2026-12-31",slots:[{start:"<script>",end:"02:00"}]}]}})');
+ assert.match(html,/22:00 à 02:00 le lendemain/);assert.match(html,/aucun démarrage/);assert.match(html,/remplacent toute la date, y compris la continuation de la veille/);assert.doesNotMatch(html,/<img>|<script>/);
+});
+
+test('date and exception-mode edits invalidate a simulated schedule',async()=>{
+ const f=fixture(async()=>response(200,{}));vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/retention.js'),'utf8'),f.context);f.elements.set('#retention-result',{innerHTML:''});
+ for(const id of ['retention-window-exception-1-date','retention-window-exception-1-kind','retention-window-slot-exception_1-4-start']){
+  f.run('retentionProposal={token:"old"};');f.elements.get('#retention-result').innerHTML='old preview';
+  for(const fn of f.listeners.get('input'))await fn({target:{id}});
+  assert.equal(f.run('retentionProposal'),null);assert.equal(f.elements.get('#retention-result').innerHTML,'');
+ }
+});

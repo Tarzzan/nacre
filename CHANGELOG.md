@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0-alpha.13 — Plusieurs plages et exceptions datées
+
+Plages supplémentaires en mode quotidien ou hebdomadaire, ajout et retrait depuis le navigateur. Exceptions par date civile : aucun démarrage ou horaires de remplacement, prioritaires sur toute la journée et sur la continuation de la veille. Résumé des horaires et exceptions avant activation, paramètres figés dans la simulation et anciennes règles compatibles.
+
+236 tests Python et 40 JavaScript réussis. Tests isolés des intervalles, dates, priorité, changements d’heure et reports ; nettoyage réel puis restauration exacte. [Guide et capture](docs/DATE-EXCEPTIONS.md).
+
 ## 0.8.0-alpha.12 — Créneaux par jour de la semaine
 
 Choix entre une plage quotidienne et des horaires indépendants pour chaque jour sélectionné. Les plages nocturnes appartiennent au jour de départ, y compris du dimanche au lundi ; leurs recouvrements sont réunis. Anciennes règles quotidiennes conservées, jours et horaires figés par la simulation, résumé explicite avant activation et rechargement lors du changement de dépôt.

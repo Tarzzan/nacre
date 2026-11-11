@@ -1,18 +1,33 @@
 """Créneaux de démarrage, évalués dans le fuseau et le jour de départ."""
-from datetime import datetime
+from datetime import date, datetime, timedelta
 import re
 import time
 from zoneinfo import ZoneInfo
 
 
 def defaults():
-    return {'enabled':False,'start':'02:00','end':'05:00','mode':'daily','week':[]}
+    return {'enabled':False,'start':'02:00','end':'05:00','mode':'daily','week':[],'extra':[],'exceptions':[]}
 
 
 def valid_hours(app, value):
     for key in ('start','end'):
         if not isinstance(value.get(key),str) or not re.fullmatch(r'(?:[01][0-9]|2[0-3]):[0-5][0-9]',value[key]):
             raise app.Problem('Heures du créneau attendues au format HH:MM.')
+
+
+def slots(app, value):
+    if not isinstance(value,list) or len(value)>24:
+        raise app.Problem('Au plus 24 plages par jour sont acceptées.')
+    seen=set()
+    for entry in value:
+        if not isinstance(entry,dict) or set(entry)!={'start','end'}:
+            raise app.Problem('Plage horaire non reconnue.')
+        valid_hours(app,entry)
+        pair=(entry['start'],entry['end'])
+        if pair[0]==pair[1]:raise app.Problem('Le début et la fin du créneau doivent être différents.')
+        if pair in seen:raise app.Problem('Une même plage est répétée.')
+        seen.add(pair)
+    return [dict(start=start,end=end) for start,end in sorted(seen)]
 
 
 def validate(app, value):
@@ -24,20 +39,36 @@ def validate(app, value):
     valid_hours(app,rule)
     if rule['enabled'] and rule['mode']=='daily' and rule['start']==rule['end']:
         raise app.Problem('Le début et la fin du créneau doivent être différents.')
-    if not isinstance(rule['week'],list) or len(rule['week'])>7:
-        raise app.Problem('Choisissez au plus un créneau par jour de la semaine.')
-    days=set()
+    if not isinstance(rule['week'],list) or len(rule['week'])>7*24:
+        raise app.Problem('Au plus 24 plages par jour sont acceptées.')
+    days={}
     for entry in rule['week']:
         if not isinstance(entry,dict) or set(entry)!={'day','start','end'}:
             raise app.Problem('Créneau hebdomadaire non reconnu.')
         day=entry['day']
-        if type(day) is not int or not 0<=day<=6 or day in days:
-            raise app.Problem('Jour invalide ou répété : lundi vaut 0, dimanche vaut 6.')
-        days.add(day);valid_hours(app,entry)
-        if entry['start']==entry['end']:raise app.Problem('Le début et la fin du créneau doivent être différents.')
-    if rule['enabled'] and rule['mode']=='weekly' and not days:
+        if type(day) is not int or not 0<=day<=6:
+            raise app.Problem('Jour invalide : lundi vaut 0, dimanche vaut 6.')
+        days.setdefault(day,[]).append({key:entry[key] for key in ('start','end')})
+    rule['week']=[dict(day=day,**entry) for day in sorted(days) for entry in slots(app,days[day])]
+    rule['extra']=slots(app,rule['extra'])
+    if rule['mode']=='daily' and rule['extra']:
+        slots(app,[{key:rule[key] for key in ('start','end')},*rule['extra']])
+    if not isinstance(rule['exceptions'],list) or len(rule['exceptions'])>366:
+        raise app.Problem('Au plus 366 exceptions datées sont acceptées.')
+    exceptions={}
+    for entry in rule['exceptions']:
+        if not isinstance(entry,dict) or set(entry)!={'date','slots'}:
+            raise app.Problem('Exception datée non reconnue.')
+        value=entry['date']
+        if not isinstance(value,str) or not re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}',value):
+            raise app.Problem('Date attendue au format AAAA-MM-JJ.')
+        try:date.fromisoformat(value)
+        except ValueError:raise app.Problem('Date inexistante.')
+        if value in exceptions:raise app.Problem('Une date ne peut avoir qu’une exception.')
+        exceptions[value]=slots(app,entry['slots'])
+    rule['exceptions']=[dict(date=value,slots=exceptions[value]) for value in sorted(exceptions)]
+    if rule['enabled'] and rule['mode']=='weekly' and not days and not any(exceptions.values()):
         raise app.Problem('Choisissez au moins un jour pour le créneau hebdomadaire.')
-    rule['week']=sorted((dict(entry) for entry in rule['week']),key=lambda entry:entry['day'])
     return rule
 
 
@@ -45,14 +76,18 @@ def allows(rule, timezone, now=None):
     if not rule['enabled']:return True
     local=datetime.fromtimestamp(time.time() if now is None else now,ZoneInfo(timezone))
     clock=local.strftime('%H:%M')
-    if rule.get('mode','daily')=='weekly':
-        today=local.weekday();previous=(today-1)%7
-        for entry in rule['week']:
-            start,end=entry['start'],entry['end']
-            if start<end:
-                if entry['day']==today and start<=clock<end:return True
-            elif (entry['day']==today and clock>=start) or (entry['day']==previous and clock<end):return True
-        return False
-    start,end=rule['start'],rule['end']
-    # Début inclus, fin exclue. Une fenêtre nocturne traverse minuit.
-    return start<=clock<end if start<end else clock>=start or clock<end
+    exceptions={entry['date']:entry['slots'] for entry in rule.get('exceptions',[])}
+    def starting(day):
+        if day.isoformat() in exceptions:return exceptions[day.isoformat()]
+        if rule.get('mode','daily')=='weekly':return [e for e in rule['week'] if e['day']==day.weekday()]
+        return [rule,*rule.get('extra',[])]
+    today=local.date()
+    for entry in starting(today):
+        start,end=entry['start'],entry['end']
+        if (start<=clock<end if start<end else clock>=start):return True
+    # Toute exception remplace la date civile entière, y compris un report de la veille.
+    if today.isoformat() in exceptions:return False
+    if today>date.min:
+        for entry in starting(today-timedelta(days=1)):
+            if entry['start']>entry['end'] and clock<entry['end']:return True
+    return False
