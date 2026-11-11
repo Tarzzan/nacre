@@ -12,6 +12,10 @@ Les versions futures sont des objectifs sans date promise. Chaque étape demande
 | **1.0 — cible à qualifier** | Version exploitable avec périmètre de support précis | Revue de sécurité, endurance, mises à jour et reprise éprouvées ; aucun défaut critique connu |
 | **Après stabilisation** | Gestion de plusieurs NAS | Identités inter-hôtes, révocation, fonctionnement déconnecté et politiques de groupe spécifiés |
 
+## Vue d’ensemble des caméras 0.8.0-alpha.15
+
+Inventaire sans vidéo, états de réception explicites et ouverture d’un direct à la fois. Réponses tardives écartées ; consultation lecteur et réglages administrateur séparés. [Guide et captures](CAMERA-OVERVIEW.md). La charge multi-caméra réelle, l’intégrité des enregistrements et l’endurance restent à qualifier.
+
 ## Aperçu des ouvertures 0.8.0-alpha.14
 
 Projection en lecture seule du calendrier sur les sept prochains jours, exceptions et changements d’heure inclus. Affichage des offsets UTC, intervalles en cours et borne de consultation. [Guide](OPENING-PREVIEW.md). La prédiction des heures d’exécution et des durées reste hors périmètre.
