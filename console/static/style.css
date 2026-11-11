@@ -31,3 +31,5 @@ dialog:has(#notification-smtp:not([hidden])){width:min(740px,calc(100% - 30px));
 .cleanup-point{white-space:normal;overflow-wrap:anywhere}
 
 .retention-weekday{display:grid;grid-template-columns:minmax(110px,1fr) repeat(2,minmax(110px,1fr));gap:16px;align-items:center;border-bottom:1px solid #e4ebeb;padding:10px 0}.retention-weekday .field{margin-bottom:0}.retention-weekday input:disabled{opacity:.5}@media(max-width:600px){.retention-weekday{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.retention-weekday>.checks{grid-column:1/-1}}
+
+.retention-extra{grid-column:1/-1}.retention-slot{display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end;margin:12px 0}.retention-exceptions{border-top:1px solid #dfe8e8;margin-top:24px;padding-top:12px}.retention-exception{background:#f4f8f8;border:1px solid #dfe8e8;border-radius:10px;margin:14px 0;padding:16px}.retention-exception .formgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:600px){.retention-slot,.retention-exception .formgrid{grid-template-columns:1fr}.retention-slot>button{justify-self:start}}

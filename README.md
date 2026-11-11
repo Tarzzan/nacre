@@ -19,6 +19,10 @@ Nacre réunit l’administration des fichiers, des partages réseau, des volumes
 
 **Choisir quand le nettoyage démarre.** Réservez la rétention automatique à un créneau quotidien. Les captures en attente sont regroupées et le navigateur distingue l’attente d’un échec ; une opération commencée termine son contrôle. [Créneau de maintenance](docs/MAINTENANCE-WINDOW.md).
 
+Les [plages multiples et exceptions datées](docs/DATE-EXCEPTIONS.md) permettent plusieurs ouvertures par jour et la fermeture ou le remplacement des horaires d’une date précise.
+
+![Plages et exceptions sur le banc isolé](docs/images/date-exceptions.jpg)
+
 Les [créneaux par jour de la semaine](docs/WEEKLY-WINDOWS.md) permettent des horaires distincts, avec continuation nocturne explicite et conservation des règles quotidiennes existantes.
 
 ![Horaires hebdomadaires sur le banc isolé](docs/images/weekly-windows.jpg)

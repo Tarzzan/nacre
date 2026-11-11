@@ -1,5 +1,9 @@
 # Validation
 
+## Plages multiples et exceptions — 0.8.0-alpha.13
+
+236 tests Python et 40 JavaScript réussis. Validation des intervalles fermés, recouvrements, priorité sur la continuation de la veille, dates locales, passage d’année et changements d’heure. Refus des dates et plages invalides avant accès au dépôt. Restic isolé : exception prioritaire, fermeture avant suppression, reprise au second créneau, contrôle intégral et restauration exacte. Formulaire testé pour transmission, ajout/retrait, réinitialisation par dépôt, échappement et invalidation. Banc web après redémarrage : l’exception bloque les horaires habituels puis ouvre une tâche unique pour deux captures ; quatre points avant, deux après et dernier contenu restauré à l’identique. [Guide et preuve navigateur](DATE-EXCEPTIONS.md).
+
 ## Créneaux hebdomadaires — 0.8.0-alpha.12
 
 227 tests Python et 34 JavaScript réussis. Régression navigateur : une actualisation de Snapshots terminant après la navigation ne peut plus remplacer le formulaire de rétention. Tests isolés des jours locaux, plages nocturnes du dimanche au lundi, chevauchements et changements d’heure. Compatibilité quotidienne, refus avant accès au dépôt, paramètres figés dans la simulation et reprise du même identifiant seulement au prochain jour autorisé. Dépôt restic réel : attente hors jour, continuation nocturne, nettoyage, contrôle intégral et restauration exacte. Banc web sur horloge réelle après redémarrage : deux captures regroupées en une tâche à l’ouverture du jour choisi, quatre points avant puis deux après, restauration exacte. [Guide et preuve navigateur](WEEKLY-WINDOWS.md).

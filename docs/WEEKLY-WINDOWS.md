@@ -2,6 +2,8 @@
 
 Depuis **0.8.0-alpha.12**, le créneau automatique peut être quotidien ou hebdomadaire. Le mode hebdomadaire propose une plage indépendante pour chaque jour coché. Les règles existantes restent quotidiennes ; aucun jour n’est ajouté à une règle ni aucune rétention activée automatiquement.
 
+Depuis **0.8.0-alpha.13**, les [plages multiples et exceptions datées](DATE-EXCEPTIONS.md) complètent ce fonctionnement.
+
 ## Régler depuis le navigateur
 
 Dans **Snapshots → Gérer la rétention**, ouvrir **Créneaux du nettoyage automatique**, cocher la limitation puis choisir **Par jour de la semaine**. Cocher les jours souhaités et renseigner leurs débuts et fins. Le fuseau reste celui de la règle, modifiable dans **Conservation par jour, semaine et mois**, même lorsque ses compteurs sont à zéro.
@@ -22,7 +24,7 @@ Le jour choisi est **le jour de départ**, dans le fuseau de la règle. Début i
 
 Un jour non coché n’ouvre aucune nouvelle plage ; il peut recevoir la continuation de la veille. Les plages qui se recouvrent sont réunies. Par exemple lundi 22:00–03:00 et mardi 02:00–04:00 autorisent un démarrage sans interruption de lundi 22 h à mardi 4 h. Cela ne crée pas deux nettoyages pour une même capture.
 
-Au moins un jour est nécessaire lorsque la limitation hebdomadaire est activée. Les débuts et fins identiques, jours répétés et heures invalides sont refusés avant l’accès au dépôt. Une seule plage par jour est proposée. Le mode quotidien conserve les mêmes horaires tous les jours.
+Sans exception ouvrant une plage, au moins un jour est nécessaire lorsque la limitation hebdomadaire est activée. Les débuts et fins identiques, plages identiques répétées et heures invalides sont refusés avant l’accès au dépôt. Plusieurs plages par jour sont disponibles depuis alpha.13. Le mode quotidien conserve les mêmes horaires tous les jours.
 
 ## Reprise et limites
 
@@ -30,7 +32,7 @@ Les garanties du [créneau de maintenance](MAINTENANCE-WINDOW.md) restent applic
 
 Une opération déjà commencée peut finir après la plage. Les applications ponctuelles et le nettoyage seul restent immédiats. Les horaires des sauvegardes et de la vidéosurveillance sont indépendants.
 
-Le calcul utilise le jour et l’heure locaux, sans ajouter une durée fixe de 24 heures. Une heure manquante au changement d’heure n’ouvre pas une plage inexistante ; une heure répétée peut être admissible deux fois, mais les captures déjà traitées ne sont pas rejouées. Aucun calendrier de jours fériés, exception datée ou plusieurs plages dans la même journée n’est proposé à ce stade.
+Le calcul utilise le jour et l’heure locaux, sans ajouter une durée fixe de 24 heures. Une heure manquante au changement d’heure n’ouvre pas une plage inexistante ; une heure répétée peut être admissible deux fois, mais les captures déjà traitées ne sont pas rejouées. Les exceptions datées et plages multiples sont proposées depuis alpha.13 ; aucun calendrier automatique de jours fériés n’est proposé.
 
 ## Validation isolée
 

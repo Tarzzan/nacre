@@ -12,9 +12,13 @@ Les versions futures sont des objectifs sans date promise. Chaque étape demande
 | **1.0 — cible à qualifier** | Version exploitable avec périmètre de support précis | Revue de sécurité, endurance, mises à jour et reprise éprouvées ; aucun défaut critique connu |
 | **Après stabilisation** | Gestion de plusieurs NAS | Identités inter-hôtes, révocation, fonctionnement déconnecté et politiques de groupe spécifiés |
 
+## Plages multiples et exceptions 0.8.0-alpha.13
+
+Plusieurs plages quotidiennes ou hebdomadaires ; fermeture ou remplacement d’une date civile, priorité sur la continuation de la veille, simulation et confirmation du calendrier exact. [Guide](DATE-EXCEPTIONS.md). Les calendriers de jours fériés, exceptions annuelles et quotas restent ouverts.
+
 ## Créneaux hebdomadaires 0.8.0-alpha.12
 
-Plage indépendante par jour sélectionné, continuation rattachée au jour de départ, union des recouvrements et compatibilité du mode quotidien. Simulation et confirmation présentent le calendrier exact. [Guide](WEEKLY-WINDOWS.md). Les exceptions datées, plusieurs plages par jour et quotas restent ouverts.
+Plage indépendante par jour sélectionné, continuation rattachée au jour de départ, union des recouvrements et compatibilité du mode quotidien. Simulation et confirmation présentent le calendrier exact. [Guide](WEEKLY-WINDOWS.md). Les exceptions datées et plages multiples sont livrées dans alpha.13 ; les quotas restent ouverts.
 
 ## Créneau de nettoyage 0.8.0-alpha.11
 
