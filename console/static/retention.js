@@ -27,7 +27,7 @@ document.addEventListener('submit',async event=>{
  const generation=++retentionGeneration, session=sessionGeneration;
  retentionProposal=null;$('#retention-result').innerHTML='';$('#retention-error').textContent='';submit.disabled=true;
  try{
-  const result=await api('protection/retention-preview',{repo:fields.get('repo'),keep_last:Number(fields.get('keep_last')),calendar:{daily:Number(fields.get('daily')||0),weekly:Number(fields.get('weekly')||0),monthly:Number(fields.get('monthly')||0),timezone:fields.get('timezone')||'UTC'},window:{enabled:fields.has('window_enabled'),start:fields.get('window_start')||'02:00',end:fields.get('window_end')||'05:00'}});
+  const result=await api('protection/retention-preview',{repo:fields.get('repo'),keep_last:Number(fields.get('keep_last')),calendar:{daily:Number(fields.get('daily')||0),weekly:Number(fields.get('weekly')||0),monthly:Number(fields.get('monthly')||0),timezone:fields.get('timezone')||'UTC'},window:retentionWindowValue(fields)});
   if(page!=='retention'||generation!==retentionGeneration||session!==sessionGeneration||!$('#retention-result'))return;
   retentionProposal=result;$('#retention-result').innerHTML=retentionSummary(result);
  }catch(error){if(page==='retention'&&generation===retentionGeneration&&$('#retention-error'))$('#retention-error').textContent=error.message;}
@@ -35,8 +35,9 @@ document.addEventListener('submit',async event=>{
 });
 
 document.addEventListener('input',event=>{
- if(['retention-count','retention-repo','retention-daily','retention-weekly','retention-monthly','retention-timezone','retention-window-enabled','retention-window-start','retention-window-end'].includes(event.target.id)){
+ if(['retention-count','retention-repo','retention-daily','retention-weekly','retention-monthly','retention-timezone','retention-window-enabled'].includes(event.target.id)||event.target.id?.startsWith('retention-window-')){
   if(event.target.id==='retention-repo')retentionLoadPolicy(event.target.value);
+  if(event.target.id==='retention-window-mode'||/^retention-window-day-[0-6]$/.test(event.target.id))retentionWindowVisibility();
   retentionGeneration++;retentionProposal=null;
   if($('#retention-result'))$('#retention-result').innerHTML='';
  }
@@ -121,16 +122,47 @@ function retentionLoadPolicy(repo){
  if($('#retention-window-enabled')){
   $('#retention-window-enabled').checked=Boolean(w.enabled);$('#retention-window-start').value=w.start||'02:00';$('#retention-window-end').value=w.end||'05:00';
   $('#retention-window').open=Boolean(w.enabled);
+  if($('#retention-window-mode')){
+   $('#retention-window-mode').value=w.mode||'daily';
+   for(let day=0;day<7;day++){
+    const entry=(w.week||[]).find(e=>e.day===day);
+    $('#retention-window-day-'+day).checked=Boolean(entry);
+    $('#retention-window-start-'+day).value=entry?.start||'02:00';
+    $('#retention-window-end-'+day).value=entry?.end||'05:00';
+   }
+   retentionWindowVisibility();
+  }
  }
  const section=$('#retention-calendar');if(section)section.open=Boolean(c.daily||c.weekly||c.monthly);
 }
 
 
+const retentionWeekdays=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+function retentionWindowValue(fields){
+ const mode=fields.get('window_mode')||'daily';
+ return {enabled:fields.has('window_enabled'),mode,start:fields.get('window_start')||'02:00',end:fields.get('window_end')||'05:00',
+  week:mode==='weekly'?retentionWeekdays.flatMap((_,day)=>fields.has('window_day_'+day)?[{day,start:fields.get('window_start_'+day)||'',end:fields.get('window_end_'+day)||''}]:[]):[]};
+}
 function retentionWindowText(p){
  const w=p.window||{};
- return w.enabled?`Démarrage automatique autorisé chaque jour de ${esc(w.start)} à ${esc(w.end)} · ${esc(p.calendar?.timezone||'UTC')}. Une opération commencée pourra se terminer après la fin du créneau.`:'Démarrage automatique sans restriction horaire.';
+ if(!w.enabled)return 'Démarrage automatique sans restriction horaire.';
+ const timing=w.mode==='weekly'?(w.week||[]).map(e=>`${esc(retentionWeekdays[e.day]||'Jour inconnu')} de ${esc(e.start)} à ${esc(e.end)}${e.start>e.end?' le lendemain':''}`).join(' ; '):`chaque jour de ${esc(w.start)} à ${esc(w.end)}`;
+ return `Démarrage automatique autorisé ${timing} · ${esc(p.calendar?.timezone||'UTC')}. Une opération commencée pourra se terminer après la fin du créneau.`;
 }
 function retentionWindowFields(p){
- const w=p.window||{};
- return `<details id="retention-window" ${w.enabled?'open':''}><summary>Créneau du nettoyage automatique</summary><div class="checks"><label><input type="checkbox" id="retention-window-enabled" name="window_enabled" ${w.enabled?'checked':''}>Limiter les démarrages automatiques à ce créneau</label></div><div class="formgrid"><div class="field"><label for="retention-window-start">Début du créneau</label><input type="time" id="retention-window-start" name="window_start" value="${esc(w.start||'02:00')}" required></div><div class="field"><label for="retention-window-end">Fin du créneau</label><input type="time" id="retention-window-end" name="window_end" value="${esc(w.end||'05:00')}" required></div></div><p class="capacity-note">Chaque jour, dans le fuseau choisi dans « Conservation par jour, semaine et mois ». Le créneau peut passer minuit. Une tâche déjà commencée se termine ; les demandes suivantes attendent. L’application ponctuelle et le nettoyage seul restent immédiats.</p></details>`;
+ const w=p.window||{}, weekly=w.mode==='weekly';
+ return `<details id="retention-window" ${w.enabled?'open':''}><summary>Créneaux du nettoyage automatique</summary><div class="checks"><label><input type="checkbox" id="retention-window-enabled" name="window_enabled" ${w.enabled?'checked':''}>Limiter les démarrages automatiques aux créneaux choisis</label></div><div class="field"><label for="retention-window-mode">Rythme du nettoyage</label><select id="retention-window-mode" name="window_mode"><option value="daily" ${weekly?'':'selected'}>Tous les jours, mêmes horaires</option><option value="weekly" ${weekly?'selected':''}>Par jour de la semaine</option></select></div><div id="retention-window-daily" ${weekly?'hidden':''}><div class="formgrid"><div class="field"><label for="retention-window-start">Début du créneau</label><input type="time" id="retention-window-start" name="window_start" value="${esc(w.start||'02:00')}" ${weekly?'disabled':''} required></div><div class="field"><label for="retention-window-end">Fin du créneau</label><input type="time" id="retention-window-end" name="window_end" value="${esc(w.end||'05:00')}" ${weekly?'disabled':''} required></div></div></div><div id="retention-window-weekly" ${weekly?'':'hidden'}><p>Cocher les jours de départ et choisir une plage pour chacun.</p>${retentionWeekdays.map((name,day)=>{
+  const entry=(w.week||[]).find(e=>e.day===day), disabled=!weekly||!entry;
+  return `<div class="retention-weekday"><div class="checks"><label><input type="checkbox" id="retention-window-day-${day}" name="window_day_${day}" ${entry?'checked':''} ${weekly?'':'disabled'}>${name}</label></div>${[['start','Début'],['end','Fin']].map(([key,label])=>`<div class="field"><label for="retention-window-${key}-${day}">${label} · ${name.toLowerCase()}</label><input type="time" id="retention-window-${key}-${day}" name="window_${key}_${day}" value="${esc(entry?.[key]||(key==='start'?'02:00':'05:00'))}" ${disabled?'disabled':''} required></div>`).join('')}</div>`;
+ }).join('')}<p class="capacity-note">Si la fin précède le début, la plage se termine le lendemain. Par exemple, lundi 22 h–2 h inclut mardi jusqu’à 2 h, même si mardi n’est pas coché. Les plages qui se recouvrent sont réunies.</p></div><p class="capacity-note">Dans le fuseau choisi dans « Conservation par jour, semaine et mois ». Une tâche déjà commencée se termine ; les demandes suivantes attendent. L’application ponctuelle et le nettoyage seul restent immédiats.</p></details>`;
+}
+function retentionWindowVisibility(){
+ const mode=$('#retention-window-mode');if(!mode)return;
+ const weekly=mode.value==='weekly';
+ $('#retention-window-daily').hidden=weekly;$('#retention-window-weekly').hidden=!weekly;
+ for(const key of ['start','end'])$('#retention-window-'+key).disabled=weekly;
+ for(let day=0;day<7;day++){
+  const checkbox=$('#retention-window-day-'+day);checkbox.disabled=!weekly;
+  for(const key of ['start','end'])$('#retention-window-'+key+'-'+day).disabled=!weekly||!checkbox.checked;
+ }
 }

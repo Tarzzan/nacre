@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0-alpha.12 — Créneaux par jour de la semaine
+
+Choix entre une plage quotidienne et des horaires indépendants pour chaque jour sélectionné. Les plages nocturnes appartiennent au jour de départ, y compris du dimanche au lundi ; leurs recouvrements sont réunis. Anciennes règles quotidiennes conservées, jours et horaires figés par la simulation, résumé explicite avant activation et rechargement lors du changement de dépôt.
+
+227 tests Python et 34 JavaScript réussis. Correction complémentaire : une réponse tardive de Snapshots ne remplace plus le formulaire de rétention après navigation. Tests isolés des jours locaux, frontières, changements d’heure, report persistant et restauration exacte après nettoyage réel. [Guide et capture](docs/WEEKLY-WINDOWS.md).
+
 ## 0.8.0-alpha.11 — Créneau du nettoyage automatique
 
 Créneau quotidien par dépôt, dans le fuseau de la règle, y compris à cheval sur minuit. Captures en attente regroupées, démarrage revalidé après attente et juste avant la première suppression. Report persistant sans effet sur les points, reprise sans doublon et suivi dans le navigateur. Une opération commencée termine son contrôle même après la fermeture du créneau. Applications ponctuelles immédiates explicitement distinguées.

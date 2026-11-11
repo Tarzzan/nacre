@@ -2,6 +2,8 @@
 
 Depuis **0.8.0-alpha.11**, chaque dépôt peut limiter le démarrage de sa rétention automatique à une plage quotidienne. Cette option est désactivée par défaut ; une règle existante reste sans restriction horaire tant qu’un administrateur n’a pas simulé puis confirmé son changement.
 
+Depuis **0.8.0-alpha.12**, le [mode par jour de la semaine](WEEKLY-WINDOWS.md) permet aussi des horaires distincts selon les jours. Les règles quotidiennes décrites ici restent compatibles.
+
 ## Depuis le navigateur
 
 Dans **Snapshots → Gérer la rétention**, ouvrir **Créneau du nettoyage automatique**, cocher la limitation et choisir le début et la fin. Le fuseau est celui de la règle, réglable dans **Conservation par jour, semaine et mois**, même si les catégories calendaires sont à zéro. Lancer la simulation puis **Activer après les prochaines sauvegardes**. La confirmation reprend le créneau exact ; les paramètres envoyés directement au bouton d’activation ne peuvent pas le remplacer.

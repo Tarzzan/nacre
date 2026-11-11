@@ -29,3 +29,5 @@ dialog:has(#notification-smtp:not([hidden])){width:min(740px,calc(100% - 30px));
 .retention-counts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:24px 0}.retention-counts>div{padding:18px;background:var(--bg,#f2f6f6);border-radius:12px}.retention-counts strong{display:block;font-size:30px}.retention-counts span{font-size:13px}.retention-counts>div:last-child{background:#fff3e5;color:#764b16}@media(max-width:600px){.retention-counts{grid-template-columns:1fr}}
 
 .cleanup-point{white-space:normal;overflow-wrap:anywhere}
+
+.retention-weekday{display:grid;grid-template-columns:minmax(110px,1fr) repeat(2,minmax(110px,1fr));gap:16px;align-items:center;border-bottom:1px solid #e4ebeb;padding:10px 0}.retention-weekday .field{margin-bottom:0}.retention-weekday input:disabled{opacity:.5}@media(max-width:600px){.retention-weekday{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.retention-weekday>.checks{grid-column:1/-1}}
