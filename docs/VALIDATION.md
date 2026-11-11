@@ -1,5 +1,11 @@
 # Validation
 
+## Créneau automatique — 0.8.0-alpha.11
+
+219 tests Python et 29 JavaScript réussis. Bornes incluses/exclues, passage à minuit, fuseau, heure manquante/répétée, paramètres de simulation figés, report après attente, reprise du même identifiant, désactivation et reprise hors ligne. Regroupement des captures, réussite tardive non perdue et distribution concurrente sans doublon. Parcours réel : fermeture avant la première suppression sans effet, fermeture après lancement sans interruption du nettoyage, contrôle intégral et restauration exacte.
+
+Banc web sur horloge réelle : quatre points intacts hors créneau, deux captures en attente conservées après redémarrage de console, une seule tâche à l’ouverture, deux points conservés et restauration exacte de la dernière version. Les tests restent isolés. [Fonctionnement et parcours navigateur](MAINTENANCE-WINDOW.md).
+
 ## Conservation calendaire — 0.8.0-alpha.10
 
 209 tests Python et 26 JavaScript réussis. Sélection par union, périodes vides ignorées, groupes séparés, captures protégées exclues du comptage, frontière de minuit avec fuseau, année ISO et heure répétée au changement d’heure. Valeurs invalides refusées avant accès au dépôt ; ancienne règle sans calendrier conservée, paramètres de simulation persistés à l’activation et neutralisés à la reprise. Formulaire, motifs échappés et invalidation de simulation vérifiés en JavaScript.

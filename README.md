@@ -17,6 +17,10 @@ Nacre réunit l’administration des fichiers, des partages réseau, des volumes
 
 ### Maîtriser la conservation des sauvegardes
 
+**Choisir quand le nettoyage démarre.** Réservez la rétention automatique à un créneau quotidien. Les captures en attente sont regroupées et le navigateur distingue l’attente d’un échec ; une opération commencée termine son contrôle. [Créneau de maintenance](docs/MAINTENANCE-WINDOW.md).
+
+![Rétention en attente du créneau sur le banc isolé](docs/images/maintenance-window.jpg)
+
 **Garder des repères dans le temps.** Combinez les derniers points avec le dernier point de chaque jour, semaine ou mois demandé. La simulation précise les motifs de conservation et le fuseau utilisé avant toute application ponctuelle ou automatique. [Règles calendaires](docs/CALENDAR-RETENTION.md).
 
 ![Simulation calendaire sur des captures synthétiques](docs/images/calendar-simulation.jpg)
