@@ -1,5 +1,9 @@
 # Validation
 
+## Aperçu des ouvertures — 0.8.0-alpha.14
+
+242 tests Python et 43 JavaScript réussis. Intervalles en cours, union des recouvrements, borne de sept jours, exceptions et transitions d’heure. API administrateur avec CSRF, sans accès au dépôt ni modification de la base métier. Interface vérifiée contre les réponses tardives après édition ou navigation, avec fuseau explicite et distinction entre absence d’ouverture et limitation désactivée. [Guide](OPENING-PREVIEW.md).
+
 ## Plages multiples et exceptions — 0.8.0-alpha.13
 
 236 tests Python et 40 JavaScript réussis. Validation des intervalles fermés, recouvrements, priorité sur la continuation de la veille, dates locales, passage d’année et changements d’heure. Refus des dates et plages invalides avant accès au dépôt. Restic isolé : exception prioritaire, fermeture avant suppression, reprise au second créneau, contrôle intégral et restauration exacte. Formulaire testé pour transmission, ajout/retrait, réinitialisation par dépôt, échappement et invalidation. Banc web après redémarrage : l’exception bloque les horaires habituels puis ouvre une tâche unique pour deux captures ; quatre points avant, deux après et dernier contenu restauré à l’identique. [Guide et preuve navigateur](DATE-EXCEPTIONS.md).

@@ -91,3 +91,29 @@ def allows(rule, timezone, now=None):
         for entry in starting(today-timedelta(days=1)):
             if entry['start']>entry['end'] and clock<entry['end']:return True
     return False
+
+
+def preview(app, body, now=None):
+    """Projection en lecture seule sur 168 h, balayée en UTC pour respecter les DST."""
+    import calendar_retention
+    if not isinstance(body,dict) or set(body)-{'window','timezone'}:
+        raise app.Problem('Paramètres de calendrier non reconnus.')
+    rule=validate(app,body.get('window',{}))
+    timezone=calendar_retention.validate(app,{'timezone':body.get('timezone','UTC')})['timezone']
+    start=time.time() if now is None else now
+    until=start+7*86400
+    result={'generated_at':start,'until':until,'timezone':timezone,'enabled':rule['enabled'],'windows':[]}
+    if not rule['enabled']:return result
+    opened=allows(rule,timezone,start);opening=start if opened else None
+    # Toutes les heures configurées sont à la minute. Le balayage UTC inclut
+    # chacune des occurrences d'une heure répétée et saute les heures absentes.
+    cursor=(int(start)//60+1)*60
+    while cursor<until:
+        current=allows(rule,timezone,cursor)
+        if current and not opened:opening=cursor
+        if opened and not current:
+            result['windows'].append({'start':opening,'end':cursor,'ongoing':opening==start,'continues':False})
+        opened=current;cursor+=60
+    if opened:
+        result['windows'].append({'start':opening,'end':until,'ongoing':opening==start,'continues':allows(rule,timezone,until)})
+    return result

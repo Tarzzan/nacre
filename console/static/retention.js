@@ -1,5 +1,5 @@
 'use strict';
-let retentionProposal=null, retentionGeneration=0, retentionPolicyList=[];
+let retentionProposal=null, retentionGeneration=0, retentionPolicyList=[], retentionOpeningGeneration=0;
 
 function retentionSummary(p){
  const points=(list,reason)=>list.length?table(['Date','Identifiant',...(reason?['Motif']:[])],list.map(x=>`<tr><td>${date(Date.parse(x.time)/1000)}</td><td><code title="${esc(x.id)}">${esc(x.id.slice(0,12))}</code></td>${reason?`<td>${esc(x.reason||(x.reasons||[]).join(' · '))}</td>`:''}</tr>`)):empty('Aucun point dans cette catégorie.','backup');
@@ -45,6 +45,7 @@ document.addEventListener('click',async event=>{
  const el=event.target.closest('[data-action]');if(!el)return;
  try{
   if(retentionEditSchedule(el))return;
+  if(el.dataset.action==='retention-openings')return await retentionShowOpenings(el);
   if(el.dataset.action==='retention-open')return await go('retention');
   if(el.dataset.action==='retention-back')return await go('snapshots');
   if(el.dataset.action==='retention-refresh')return await refreshRetentionHistory();
@@ -168,7 +169,7 @@ function retentionWindowFields(p){
  return `<details id="retention-window" ${w.enabled?'open':''}><summary>Créneaux du nettoyage automatique</summary><div class="checks"><label><input type="checkbox" id="retention-window-enabled" name="window_enabled" ${w.enabled?'checked':''}>Limiter les démarrages automatiques aux créneaux choisis</label></div><div class="field"><label for="retention-window-mode">Rythme du nettoyage</label><select id="retention-window-mode" name="window_mode"><option value="daily" ${weekly?'':'selected'}>Tous les jours, mêmes horaires</option><option value="weekly" ${weekly?'selected':''}>Par jour de la semaine</option></select></div><div id="retention-window-daily" ${weekly?'hidden':''}><div class="formgrid"><div class="field"><label for="retention-window-start">Début du créneau</label><input type="time" id="retention-window-start" name="window_start" value="${esc(w.start||'02:00')}" ${weekly?'disabled':''} required></div><div class="field"><label for="retention-window-end">Fin du créneau</label><input type="time" id="retention-window-end" name="window_end" value="${esc(w.end||'05:00')}" ${weekly?'disabled':''} required></div></div>${retentionExtraFields('daily',w.extra||[],'chaque jour',weekly)}</div><div id="retention-window-weekly" ${weekly?'':'hidden'}><p>Cocher les jours de départ et choisir leurs plages.</p>${retentionWeekdays.map((name,day)=>{
   const entry=(w.week||[]).find(e=>e.day===day), disabled=!weekly||!entry;
   return `<div class="retention-weekday"><div class="checks"><label><input type="checkbox" id="retention-window-day-${day}" name="window_day_${day}" ${entry?'checked':''} ${weekly?'':'disabled'}>${name}</label></div>${[['start','Début'],['end','Fin']].map(([key,label])=>`<div class="field"><label for="retention-window-${key}-${day}">${label} · ${name.toLowerCase()}</label><input type="time" id="retention-window-${key}-${day}" name="window_${key}_${day}" value="${esc(entry?.[key]||(key==='start'?'02:00':'05:00'))}" ${disabled?'disabled':''} required></div>`).join('')}${retentionExtraFields('day_'+day,(w.week||[]).filter(e=>e.day===day).slice(1),name.toLowerCase(),disabled)}</div>`;
- }).join('')}<p class="capacity-note">Si la fin précède le début, la plage se termine le lendemain. Par exemple, lundi 22 h–2 h inclut mardi jusqu’à 2 h, même si mardi n’est pas coché. Les plages qui se recouvrent sont réunies.</p></div><section class="retention-exceptions"><h3>Exceptions pour certaines dates</h3><p>Une exception remplace toute la date dans le fuseau de la règle, y compris la continuation d’une plage de la veille. « Aucun démarrage » ferme la journée. Une tâche déjà commencée peut se terminer.</p><div id="retention-window-exceptions">${(w.exceptions||[]).map(retentionExceptionFields).join('')}</div>${button('retention-exception-add','Ajouter une exception',null,'small')}</section><p class="capacity-note">Dans le fuseau choisi dans « Conservation par jour, semaine et mois ». Une tâche déjà commencée se termine ; les demandes suivantes attendent. L’application ponctuelle et le nettoyage seul restent immédiats.</p></details>`;
+ }).join('')}<p class="capacity-note">Si la fin précède le début, la plage se termine le lendemain. Par exemple, lundi 22 h–2 h inclut mardi jusqu’à 2 h, même si mardi n’est pas coché. Les plages qui se recouvrent sont réunies.</p></div><section class="retention-exceptions"><h3>Exceptions pour certaines dates</h3><p>Une exception remplace toute la date dans le fuseau de la règle, y compris la continuation d’une plage de la veille. « Aucun démarrage » ferme la journée. Une tâche déjà commencée peut se terminer.</p><div id="retention-window-exceptions">${(w.exceptions||[]).map(retentionExceptionFields).join('')}</div>${button('retention-exception-add','Ajouter une exception',null,'small')}</section><p class="capacity-note">Dans le fuseau choisi dans « Conservation par jour, semaine et mois ». Une tâche déjà commencée se termine ; les demandes suivantes attendent. L’application ponctuelle et le nettoyage seul restent immédiats.</p>${button('retention-openings','Voir les ouvertures sur 7 jours',null,'small')}<div id="retention-window-openings" aria-live="polite"></div></details>`;
 }
 function retentionWindowVisibility(){
  const mode=$('#retention-window-mode');if(!mode)return;
@@ -192,6 +193,7 @@ let retentionSlotSequence=0, retentionExceptionSequence=0;
 function retentionInvalidate(){
  retentionGeneration++;retentionProposal=null;
  if($('#retention-result'))$('#retention-result').innerHTML='';
+ if($('#retention-window-openings'))$('#retention-window-openings').innerHTML='';
 }
 function retentionSlotFields(scope,slot,label,disabled=false){
  const id=++retentionSlotSequence, prefix='retention-window-slot-'+scope+'-'+id;
@@ -224,4 +226,26 @@ function retentionEditSchedule(el){
   $('#'+el.dataset.target)?.remove();
  }else return false;
  retentionInvalidate();retentionWindowVisibility();return true;
+}
+
+
+async function retentionShowOpenings(button){
+ const target=$('#retention-window-openings'), form=$('#retention-form');if(!target||!form)return;
+ const generation=retentionGeneration, request=++retentionOpeningGeneration, session=sessionGeneration;
+ const current=()=>page==='retention'&&session===sessionGeneration&&generation===retentionGeneration&&request===retentionOpeningGeneration&&target===$('#retention-window-openings');
+ button.disabled=true;target.textContent='Calcul des ouvertures…';
+ try{
+  const fields=new FormData(form);
+  const result=await api('protection/retention-openings',{window:retentionWindowValue(fields),timezone:fields.get('timezone')||'UTC'});
+  if(current())target.innerHTML=retentionOpenings(result);
+ }catch(error){if(current())target.textContent=error.message;}
+ finally{button.disabled=false;}
+}
+function retentionOpenings(result){
+ const format=new Intl.DateTimeFormat('fr-FR',{timeZone:result.timezone,year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit',timeZoneName:'shortOffset'});
+ const at=value=>esc(format.format(new Date(value*1000)));
+ const intro=`<h3>Ouvertures autorisées sur 7 jours</h3><p>Du ${at(result.generated_at)} au ${at(result.until)} · ${esc(result.timezone)}.</p><p class="capacity-note">Aperçu du formulaire, sans enregistrement ni activation. Ces plages autorisent un démarrage ; elles ne réservent pas une heure d’exécution. Une tâche commencée peut finir après fermeture.</p>`;
+ if(!result.enabled)return intro+'<p>Limitation désactivée : les démarrages automatiques ne sont pas restreints par ce calendrier.</p>';
+ if(!result.windows.length)return intro+'<p>Aucune ouverture dans les sept prochains jours. Des dates plus lointaines peuvent encore être configurées.</p>';
+ return intro+table(['Début autorisé','Fin de l’ouverture'],result.windows.map(w=>`<tr><td>${w.ongoing?'Déjà ouvert · ':''}${at(w.start)}</td><td>${at(w.end)}${w.continues?' · ouverture prolongée au-delà de cet aperçu':''}</td></tr>`));
 }

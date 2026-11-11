@@ -849,6 +849,9 @@ class Handler(BaseHTTPRequestHandler):
             elif route == '/api/protection/retention-preview':
                 from retention import preview
                 return preview(sys.modules[__name__],body,user)
+            elif route == '/api/protection/retention-openings':
+                from maintenance_window import preview
+                return preview(sys.modules[__name__],body)
             elif route == '/api/protection/retention-policy':
                 from automatic_retention import configure
                 return configure(sys.modules[__name__],body,user)

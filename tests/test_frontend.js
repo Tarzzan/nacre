@@ -396,3 +396,32 @@ test('date and exception-mode edits invalidate a simulated schedule',async()=>{
   assert.equal(f.run('retentionProposal'),null);assert.equal(f.elements.get('#retention-result').innerHTML,'');
  }
 });
+
+test('opening preview submits current form without activating or invalidating retention',async()=>{
+ const f=fixture(async()=>response(200,{}));vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/retention.js'),'utf8'),f.context);
+ f.context.capture={};f.run('page="retention";retentionProposal={token:"unchanged"};api=async(route,body)=>{capture.route=route;capture.body=body;return {generated_at:1704067200,until:1704672000,timezone:body.timezone,enabled:true,windows:[{start:1704074400,end:1704085200}]};};');
+ f.elements.set('#retention-window-openings',{innerHTML:''});f.elements.set('#retention-form',{values:{timezone:'America/Cayenne',window_enabled:'on',window_start:'22:00',window_end:'02:00'}});
+ await f.run('retentionShowOpenings({disabled:false})');
+ assert.equal(f.context.capture.route,'protection/retention-openings');assert.equal(f.context.capture.body.window.start,'22:00');assert.equal(f.context.capture.body.timezone,'America/Cayenne');assert.equal(f.run('retentionProposal.token'),'unchanged');
+ assert.match(f.elements.get('#retention-window-openings').innerHTML,/sans enregistrement ni activation/);
+});
+
+test('late opening result is discarded after form edit or navigation',async()=>{
+ for(const action of ['retentionInvalidate()','page="home"']){
+  let complete;const f=fixture(async()=>response(200,{}));vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/retention.js'),'utf8'),f.context);
+  f.context.waiting=new Promise(resolve=>{complete=resolve;});f.run('page="retention";api=async()=>await waiting;');
+  f.elements.set('#retention-window-openings',{innerHTML:''});f.elements.set('#retention-form',{values:{}});
+  const pending=f.run('retentionShowOpenings({disabled:false})');f.run(action);
+  complete({generated_at:1704067200,until:1704672000,timezone:'UTC',enabled:true,windows:[]});await pending;
+  assert.equal(f.elements.get('#retention-window-openings').innerHTML,'');
+ }
+});
+
+test('opening view distinguishes unrestricted empty ongoing and repeated local hours',()=>{
+ const f=fixture(async()=>response(200,{}));vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/retention.js'),'utf8'),f.context);
+ f.run('const openingBase={generated_at:1729987200,until:1730592000,timezone:"Europe/Paris",windows:[]};');
+ assert.match(f.run('retentionOpenings({...openingBase,enabled:false})'),/Limitation désactivée/);
+ assert.match(f.run('retentionOpenings({...openingBase,enabled:true})'),/Aucune ouverture/);
+ const html=f.run('retentionOpenings({...openingBase,enabled:true,windows:[{start:1729988100,end:1729989900,ongoing:true},{start:1729991700,end:1729993500,continues:true}]})');
+ assert.match(html,/Déjà ouvert/);assert.match(html,/au-delà de cet aperçu/);assert.match(html,/UTC\+2/);assert.match(html,/UTC\+1/);
+});
