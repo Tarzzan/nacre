@@ -13,6 +13,8 @@ Nacre réunit l’administration des fichiers, des partages réseau, des volumes
 
 > **Notre ambition :** rendre une infrastructure de stockage et de surveillance compréhensible, administrable et récupérable par son propriétaire, sans dépendance obligatoire à un service cloud. Voir le [cadrage du produit](docs/VISION.md).
 
+**Fiabilité vidéo — alpha.17 :** une déconnexion WebSocket ne doit plus interrompre la communication interne de Frigate dans le scénario reproduit. Image corrigée reconstruite à l’installation, banc isolé sur les deux architectures et [diagnostic documenté](docs/FRIGATE-WEBSOCKET.md).
+
 ## Dans le navigateur
 
 ### Maîtriser la conservation des sauvegardes

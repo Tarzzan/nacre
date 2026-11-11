@@ -38,7 +38,7 @@ def catalog(app):
         {'id':'fichiers','name':'Partages · Samba','available':False,'installable':docker,
          'description':'Construire le service de fichiers et publier les partages configurés sur le port local 1445.'},
         {'id':'video','name':'Surveillance · Frigate','available':False,'installable':docker,
-         'description':'Télécharger l’image prévue pour cette architecture et démarrer la vidéo sur le port local 8971.'}],
+         'description':'Construire Frigate depuis l’image vérifiée pour cette architecture, appliquer le correctif de déconnexion et démarrer la vidéo sur le port local 8971.'}],
         'jobs':[public_job(row) for row in rows]}
 
 
@@ -82,8 +82,8 @@ def install(app, row):
         if not probe(['docker','info','--format','{{.ServerVersion}}']) or not probe(['docker','compose','version']):
             raise app.Problem('Docker Engine et Compose doivent être installés et accessibles au compte Nacre.')
         if component == 'video':
-            progress('Téléchargement de Frigate…')
-            app.compose('pull','video',timeout=1800)
+            progress('Préparation de Frigate et du correctif de déconnexion…')
+            app.compose('build','video',timeout=1800)
         else:
             progress('Préparation du service Samba…')
             manager = app.shares()

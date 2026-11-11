@@ -1,5 +1,9 @@
 # Validation
 
+## Déconnexion Frigate — 0.8.0-alpha.17
+
+254 tests Python et 53 JavaScript. Banc du moteur réel : cinq tests sur image dérivée x86-64 et ARM64, dont le témoin amont défaillant et 100 échanges IPC après déconnexions. Réseau coupé, aucun montage de données NAS, aucune panne injectée dans la caméra réelle. Les quatre matrices Python habituelles et le scanner de secrets restent requis. [Procédure et limites](FRIGATE-WEBSOCKET.md).
+
 ## Fraîcheur vidéo — 0.8.0-alpha.16
 
 249 tests Python et 53 JavaScript réussis. Échantillons anciens ou mal datés refusés, débit positif ancien non assimilé à un flux reçu, alerte préservée. Moniteur de direct testé sur réponses tardives, panne HTTP et requêtes concurrentes. Banc navigateur avec mire et statistiques figées ; récupération réelle du service vidéo contrôlée séparément sur Spark. [Diagnostic et limites](VIDEO-FRESHNESS.md).

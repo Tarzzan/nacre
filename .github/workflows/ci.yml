@@ -41,6 +41,28 @@ jobs:
           node --check console/static/notifications.js
           node --check console/static/retention.js
           node --test tests/test_frontend.js
+  frigate:
+    name: Frigate WebSocket / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Construire depuis la base épinglée et vérifier la course WebSocket
+        shell: bash
+        run: |
+          set -euo pipefail
+          frigate_base=$(python3 -c 'from platform_config import profile; print(profile()["NACRE_FRIGATE_IMAGE"])')
+          docker build --build-arg "FRIGATE_IMAGE=$frigate_base" -t nacre-frigate-check ./frigate
+          docker run --rm --network none --read-only --memory 1g --cpus 2 \
+            --tmpfs /tmp:rw,nosuid,size=64m \
+            --mount "type=bind,src=$PWD/frigate,dst=/checks,readonly" \
+            --entrypoint python3 nacre-frigate-check -B /checks/check_websocket.py
   secrets:
     name: Secrets / Gitleaks
     runs-on: ubuntu-24.04

@@ -141,8 +141,15 @@ class ComponentsCameraTests(unittest.TestCase):
         with patch('onboarding.probe',return_value=True),patch.object(server,'compose',return_value='{"State":"running","Health":"healthy"}') as compose:
             server.protection().run_job(job)
         self.assertEqual(self.row(job)['status'],'done')
-        self.assertEqual(compose.call_args_list[0].args,('pull','video'))
+        self.assertEqual(compose.call_args_list[0].args,('build','video'))
         self.assertEqual(compose.call_args_list[1].args,('up','-d','--no-deps','--no-build','video'))
+
+    def test_video_build_failure_does_not_replace_running_service(self):
+        _,raw=self.post('/api/components/install',{'component':'video','confirm':True});job=json.loads(raw)['job']
+        with patch('onboarding.probe',return_value=True),patch.object(server,'compose',side_effect=server.Problem('Unsupported image')) as compose:
+            server.protection().run_job(job)
+        self.assertEqual(self.row(job)['status'],'failed')
+        self.assertEqual([call.args for call in compose.call_args_list],[('build','video')])
 
     def test_interrupted_camera_task_is_not_replayed_and_pending_secret_removed(self):
         job=self.add()

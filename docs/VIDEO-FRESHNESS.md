@@ -6,7 +6,7 @@ Le 11 novembre 2026, la page Surveillance montrait encore une image nocturne alo
 
 Le relais RTSP fournissait pourtant de nouvelles images décodables sur les flux principal et secondaire. La relance du seul service Frigate a rétabli une image de jour horodatée, des images successives différentes et un débit proche de 5 images/s. Des segments récents étaient de nouveau consultables. Les identifiants et la configuration caméra n’ont pas changé ; Samba et le système hôte n’ont pas été redémarrés.
 
-Le blocage était dans le traitement Frigate, mais sa cause interne exacte n’est pas établie. La relance constitue une récupération, pas la preuve que ce blocage ne pourra plus se reproduire. Aucune image réelle de surveillance n’est publiée dans le dépôt.
+La relance a d’abord rétabli le traitement Frigate. L’analyse complémentaire a ensuite identifié une exception WebSocket capable d’arrêter son lecteur IPC ; elle est corrigée en [alpha.17](FRIGATE-WEBSOCKET.md). Cette correction ciblée ne garantit pas l’absence de tout autre blocage. Aucune image réelle de surveillance n’est publiée dans le dépôt.
 
 ## Correction dans 0.8.0-alpha.16
 

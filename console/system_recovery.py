@@ -396,7 +396,7 @@ def prepare(repository,key,snapshot,destination):
         (root/'state/console/system-recovery-status.json').unlink(missing_ok=True)
         write(root/'state/console/system-recovery-status.json',{'restored_from':snapshot,'prepared_at':datetime.now(timezone.utc).isoformat(),'samba_ready':False,'plans_enabled':False})
         # Copier du code approuvé depuis cette version, jamais exécuter le code sauvegardé.
-        for name in ('console','samba'):
+        for name in ('console','samba','frigate'):
             shutil.rmtree(root/name,ignore_errors=True)
             shutil.copytree(SOURCE/name,root/name,ignore=shutil.ignore_patterns('__pycache__'))
         for name in ('compose.yaml','compose_support.py','platform_config.py','lab.py','verifier.py'):
