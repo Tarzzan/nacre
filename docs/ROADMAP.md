@@ -12,9 +12,13 @@ Les versions futures sont des objectifs sans date promise. Chaque étape demande
 | **1.0 — cible à qualifier** | Version exploitable avec périmètre de support précis | Revue de sécurité, endurance, mises à jour et reprise éprouvées ; aucun défaut critique connu |
 | **Après stabilisation** | Gestion de plusieurs NAS | Identités inter-hôtes, révocation, fonctionnement déconnecté et politiques de groupe spécifiés |
 
+## Créneaux hebdomadaires 0.8.0-alpha.12
+
+Plage indépendante par jour sélectionné, continuation rattachée au jour de départ, union des recouvrements et compatibilité du mode quotidien. Simulation et confirmation présentent le calendrier exact. [Guide](WEEKLY-WINDOWS.md). Les exceptions datées, plusieurs plages par jour et quotas restent ouverts.
+
 ## Créneau de nettoyage 0.8.0-alpha.11
 
-Plage quotidienne enregistrée avec la règle, démarrage contrôlé sous verrou, report persistant et regroupement des captures en attente. Une tâche commencée va jusqu’au contrôle final. [Guide](MAINTENANCE-WINDOW.md). Les calendriers par jour de semaine et quotas de stockage restent ouverts.
+Plage quotidienne enregistrée avec la règle, démarrage contrôlé sous verrou, report persistant et regroupement des captures en attente. Une tâche commencée va jusqu’au contrôle final. [Guide](MAINTENANCE-WINDOW.md). Les créneaux par jour de semaine sont livrés dans alpha.12 ; les quotas de stockage restent ouverts.
 
 ## Règles calendaires 0.8.0-alpha.10
 

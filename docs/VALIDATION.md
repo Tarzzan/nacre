@@ -1,5 +1,9 @@
 # Validation
 
+## Créneaux hebdomadaires — 0.8.0-alpha.12
+
+227 tests Python et 34 JavaScript réussis. Régression navigateur : une actualisation de Snapshots terminant après la navigation ne peut plus remplacer le formulaire de rétention. Tests isolés des jours locaux, plages nocturnes du dimanche au lundi, chevauchements et changements d’heure. Compatibilité quotidienne, refus avant accès au dépôt, paramètres figés dans la simulation et reprise du même identifiant seulement au prochain jour autorisé. Dépôt restic réel : attente hors jour, continuation nocturne, nettoyage, contrôle intégral et restauration exacte. Banc web sur horloge réelle après redémarrage : deux captures regroupées en une tâche à l’ouverture du jour choisi, quatre points avant puis deux après, restauration exacte. [Guide et preuve navigateur](WEEKLY-WINDOWS.md).
+
 ## Créneau automatique — 0.8.0-alpha.11
 
 219 tests Python et 29 JavaScript réussis. Bornes incluses/exclues, passage à minuit, fuseau, heure manquante/répétée, paramètres de simulation figés, report après attente, reprise du même identifiant, désactivation et reprise hors ligne. Regroupement des captures, réussite tardive non perdue et distribution concurrente sans doublon. Parcours réel : fermeture avant la première suppression sans effet, fermeture après lancement sans interruption du nettoyage, contrôle intégral et restauration exacte.
