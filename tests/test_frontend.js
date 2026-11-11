@@ -490,3 +490,27 @@ test('hiding the overview or a viewer session does not send a PTZ command',async
  assert.equal(calls.length,1);assert.equal(calls[0][0],'/api/camera/ptz');
  assert.deepEqual(JSON.parse(calls[0][1].body),{action:'stop',camera:'entry'});
 });
+
+test('stale camera samples are labeled without opening a live stream',async()=>{
+ const stale={...cameraSamples[0],status:'stale',online:false,fps:null};
+ const f=cameraFixture(async url=>response(200,url==='/api/cameras'?[stale]:url.includes('/info')?{}:url.includes('/settings')?{days:1}:[]));
+ await f.run('renderSurveillance()');assert.match(f.elements.get('#content').innerHTML,/Mesure périmée/);
+ f.run('cameraDetail=true;selectedCamera="entry";');await f.run('renderSurveillance()');
+ assert.doesNotMatch(f.elements.get('#content').innerHTML,/src="\/api\/camera\/live/);
+});
+test('live monitor removes image on stale health and ignores late replies after navigation',async()=>{
+ const complete=[],f=cameraFixture(()=>new Promise(resolve=>complete.push(resolve)));
+ const panel={innerHTML:'live'},badge={innerHTML:''};f.elements.set('#camera-live-panel',panel);f.elements.set('#camera-live-state',badge);
+ f.run('cameraDetail=true;selectedCamera="entry";');
+ const check=f.run('watchCamera("entry",()=>page==="camera")');
+ const pending=check();complete[0](response(200,[{...cameraSamples[0],status:'stale',online:false}]));await pending;
+ assert.match(panel.innerHTML,/direct n’est plus confirmé/);assert.match(badge.innerHTML,/Mesure périmée/);
+ panel.innerHTML='new page';const late=check();f.run('page="files";');complete[1](response(200,[]));await late;
+ assert.equal(panel.innerHTML,'new page');
+});
+test('live monitor does not overlap requests and rejects failed health checks',async()=>{
+ let complete,calls=0;const f=cameraFixture(()=>{calls++;return new Promise(resolve=>{complete=resolve;});});
+ const panel={innerHTML:'live'};f.elements.set('#camera-live-panel',panel);f.run('cameraDetail=true;selectedCamera="entry";');
+ const check=f.run('watchCamera("entry",()=>true)');const pending=check();await check();assert.equal(calls,1);
+ complete(response(503,{error:'offline'}));await pending;assert.match(panel.innerHTML,/direct n’est plus confirmé/);
+});

@@ -31,15 +31,34 @@ def identifier(app, value='tapo', require=True):
     return value
 
 
+# Frigate 0.18 échantillonne normalement toutes les 15 s. Six périodes de marge.
+STATS_MAX_AGE=90
+
+def measurement_time(payload, now=None):
+    now=time.time() if now is None else now
+    service=payload.get('service',{}) if isinstance(payload,dict) else {}
+    value=service.get('last_updated') if isinstance(service,dict) else None
+    try:
+        if type(value) in (int,float) and math.isfinite(value) and 0<value<=now+30:return value
+    except OverflowError:pass
+    return None
+
+def fresh_stats(payload, now=None):
+    now=time.time() if now is None else now
+    stamp=measurement_time(payload,now)
+    return stamp is not None and now-stamp<=STATS_MAX_AGE
+
+
 def listing(app):
     values = config(app).get('cameras',{})
     # Une réponse absente/incomplète n'est pas une preuve de perte de flux.
+    payload={}
     try:
         payload=app.video_json('/api/stats') if values else {}
         stats=payload.get('cameras',{}) if isinstance(payload,dict) else {}
         if not isinstance(stats,dict):stats={}
     except (app.Problem,OSError,ValueError):stats={}
-    observed=time.time()
+    now=time.time();observed=measurement_time(payload,now);fresh=fresh_stats(payload,now)
     result=[]
     for name,c in values.items():
         if not IDENTIFIER.fullmatch(name):continue
@@ -47,11 +66,11 @@ def listing(app):
         sample=stats.get(name,{})
         fps=sample.get('camera_fps') if isinstance(sample,dict) else None
         if type(fps) not in (int,float) or not math.isfinite(fps) or fps<0:fps=None
-        status='disabled' if not enabled else 'unknown' if fps is None else 'receiving' if fps>0 else 'no_frames'
+        status='disabled' if not enabled else 'stale' if observed is not None and not fresh else 'unknown' if not fresh or fps is None else 'receiving' if fps>0 else 'no_frames'
         # Liste blanche : aucune URL, adresse, identité ou clé ONVIF.
         result.append({'id':name,'name':c.get('friendly_name') or name,'enabled':enabled,
             'days':c.get('record',{}).get('continuous',{}).get('days',1),
-            'online':status=='receiving','status':status,'fps':fps if enabled else None,
+            'online':status=='receiving','status':status,'fps':fps if enabled and fresh else None,
             'observed_at':observed if enabled and fps is not None else None,
             'onvif':bool(c.get('onvif',{}).get('host'))})
     return result

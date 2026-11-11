@@ -73,6 +73,8 @@ Un centre **Alertes** rassemble les incidents locaux, leur prise en compte et le
 
 ### Voir toutes les caméras
 
+**Un direct qui ne masque plus des mesures anciennes.** Nacre vérifie l’horodatage Frigate et masque le direct si sa vérification périodique échoue. [Diagnostic du gel vidéo et limites](docs/VIDEO-FRESHNESS.md).
+
 **Un état clair avant d’ouvrir le direct.** La vue Surveillance distingue flux reçu, débit nul, pause et mesure inconnue. Ouvrez ensuite une caméra pour son direct, ses clips et son PTZ. [Fonctionnement et limites](docs/CAMERA-OVERVIEW.md).
 
 ![Vue multi-caméra sur le banc simulé](docs/images/camera-overview.jpg)
