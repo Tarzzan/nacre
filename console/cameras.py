@@ -1,6 +1,7 @@
 """Caméras RTSP nommées, secrets privés et validation par le runtime Frigate."""
 import ipaddress
 import json
+import math
 import re
 import secrets
 import time
@@ -32,13 +33,28 @@ def identifier(app, value='tapo', require=True):
 
 def listing(app):
     values = config(app).get('cameras',{})
-    # Liste blanche : aucune URL de flux, adresse, identité ou clé ONVIF renvoyée.
-    try: stats = app.video_json('/api/stats').get('cameras',{}) if values else {}
-    except (app.Problem,OSError): stats = {}
-    return [{'id':name,'name':c.get('friendly_name') or name,'enabled':c.get('enabled',True),
-             'days':c.get('record',{}).get('continuous',{}).get('days',1),
-             'online':bool(stats.get(name,{}).get('camera_fps',0)>0),'onvif':bool(c.get('onvif',{}).get('host'))}
-            for name,c in values.items() if IDENTIFIER.fullmatch(name)]
+    # Une réponse absente/incomplète n'est pas une preuve de perte de flux.
+    try:
+        payload=app.video_json('/api/stats') if values else {}
+        stats=payload.get('cameras',{}) if isinstance(payload,dict) else {}
+        if not isinstance(stats,dict):stats={}
+    except (app.Problem,OSError,ValueError):stats={}
+    observed=time.time()
+    result=[]
+    for name,c in values.items():
+        if not IDENTIFIER.fullmatch(name):continue
+        enabled=c.get('enabled',True)
+        sample=stats.get(name,{})
+        fps=sample.get('camera_fps') if isinstance(sample,dict) else None
+        if type(fps) not in (int,float) or not math.isfinite(fps) or fps<0:fps=None
+        status='disabled' if not enabled else 'unknown' if fps is None else 'receiving' if fps>0 else 'no_frames'
+        # Liste blanche : aucune URL, adresse, identité ou clé ONVIF.
+        result.append({'id':name,'name':c.get('friendly_name') or name,'enabled':enabled,
+            'days':c.get('record',{}).get('continuous',{}).get('days',1),
+            'online':status=='receiving','status':status,'fps':fps if enabled else None,
+            'observed_at':observed if enabled and fps is not None else None,
+            'onvif':bool(c.get('onvif',{}).get('host'))})
+    return result
 
 
 def build(app, body):

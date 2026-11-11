@@ -1,5 +1,9 @@
 # Validation
 
+## Vue d’ensemble des caméras — 0.8.0-alpha.15
+
+246 tests Python et 50 JavaScript réussis. États distincts pour débit positif, débit nul, pause et mesure inconnue ; erreurs et mesures invalides sans faux diagnostic de panne. Consultation HTTP authentifiée en lecture seule, secrets exclus. Réponses tardives, direct unique, retour à la liste et droits lecteur testés. Parcours navigateur sur quatre caméras fictives avec mire locale et rétablissement simulé du flux. Aucune caméra réelle ni service Docker sollicités par ce banc. [Guide et captures](CAMERA-OVERVIEW.md).
+
 ## Aperçu des ouvertures — 0.8.0-alpha.14
 
 242 tests Python et 43 JavaScript réussis. Intervalles en cours, union des recouvrements, borne de sept jours, exceptions et transitions d’heure. API administrateur avec CSRF, sans accès au dépôt ni modification de la base métier. Interface vérifiée contre les réponses tardives après édition ou navigation, avec fuseau explicite et distinction entre absence d’ouverture et limitation désactivée. [Guide](OPENING-PREVIEW.md).

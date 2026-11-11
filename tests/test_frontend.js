@@ -425,3 +425,68 @@ test('opening view distinguishes unrestricted empty ongoing and repeated local h
  const html=f.run('retentionOpenings({...openingBase,enabled:true,windows:[{start:1729988100,end:1729989900,ongoing:true},{start:1729991700,end:1729993500,continues:true}]})');
  assert.match(html,/Déjà ouvert/);assert.match(html,/au-delà de cet aperçu/);assert.match(html,/UTC\+2/);assert.match(html,/UTC\+1/);
 });
+
+function cameraFixture(fetch){
+ const f=fixture(fetch);vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/components.js'),'utf8'),f.context);
+ f.run('user={name:"admin",role:"admin"};shell();page="camera";');return f;
+}
+const cameraSamples=[{id:'entry',name:'Entrée',enabled:true,status:'receiving',online:true,fps:5,observed_at:1700000000,days:3},
+ {id:'garage',name:'Garage',enabled:true,status:'no_frames',online:false,fps:0,observed_at:1700000000,days:1},
+ {id:'pause',name:'Pause',enabled:false,status:'disabled',online:false,fps:null,observed_at:null,days:1},
+ {id:'unknown',name:'Inconnue',enabled:true,status:'unknown',online:false,fps:null,observed_at:null,days:1}];
+test('camera overview shows four states without live streams or detail requests',async()=>{
+ const calls=[],f=cameraFixture(async url=>{calls.push(url);return response(200,cameraSamples);});
+ await f.run('renderSurveillance()');const html=f.elements.get('#content').innerHTML;
+ assert.deepEqual(calls,['/api/cameras']);assert.doesNotMatch(html,/<img|camera\/live|camera\/snapshot/);
+ for(const text of ['Flux reçu','Aucune image reçue','En pause','État inconnu','5 images/s','Ouvrir Entrée'])assert.ok(html.includes(text),text);
+ f.context.camera={...cameraSamples[0],name:'<script>bad</script>',id:'evil" data-x="yes'};
+ assert.doesNotMatch(f.run('cameraOverview([camera],"")'),/<script>|data-x="yes/);
+});
+test('camera overview is available to viewers without configuration actions',async()=>{
+ const f=cameraFixture(async()=>response(200,cameraSamples));f.run('user.role="viewer";');
+ await f.run('renderSurveillance()');const html=f.elements.get('#content').innerHTML;
+ assert.match(html,/camera-open/);assert.doesNotMatch(html,/camera-add|camera-edit|camera-settings/);
+});
+test('only the selected camera opens a live stream and returning removes it immediately',async()=>{
+ const calls=[],f=cameraFixture(async url=>{calls.push(url);return response(200,url==='/api/cameras'?cameraSamples:url.includes('/info')?{features:['pt']}:url.includes('/settings')?{days:3,enabled:true}:[]);});
+ f.run('selectedCamera="entry";cameraDetail=true;');await f.run('renderSurveillance()');
+ assert.match(f.elements.get('#content').innerHTML,/src="\/api\/camera\/live\?camera=entry"/);
+ assert.equal(calls.filter(u=>u.startsWith('/api/camera/')).length,3);
+ assert.ok(calls.slice(1).every(u=>u.endsWith('?camera=entry')));
+ f.run('cameraDetail=false;');const pending=f.run('renderSurveillance()');
+ assert.doesNotMatch(f.elements.get('#content').innerHTML,/<img/);await pending;
+ assert.doesNotMatch(f.elements.get('#content').innerHTML,/<img/);
+});
+test('late camera catalogs cannot override a newer refresh or navigation',async()=>{
+ const complete=[],f=cameraFixture(()=>new Promise(resolve=>complete.push(resolve)));
+ const old=f.run('renderSurveillance()'),fresh=f.run('renderSurveillance()');
+ complete[1](response(200,[cameraSamples[0]]));await fresh;
+ const html=f.elements.get('#content').innerHTML;complete[0](response(200,[cameraSamples[1]]));await old;
+ assert.equal(f.elements.get('#content').innerHTML,html);assert.equal(f.run('cameraCatalog[0].id'),'entry');
+ const abandoned=f.run('renderSurveillance()');f.run('page="files";$("#content").innerHTML="files";');
+ complete[2](response(503,{error:'unavailable'}));await abandoned;assert.equal(f.elements.get('#content').innerHTML,'files');
+});
+test('late camera details cannot reopen a live stream after returning to overview',async()=>{
+ const complete=[],f=cameraFixture(url=>url==='/api/cameras'?Promise.resolve(response(200,cameraSamples)):new Promise(resolve=>complete.push(resolve)));
+ f.run('selectedCamera="entry";cameraDetail=true;');const detail=f.run('renderSurveillance()');
+ for(let n=0;n<8&&!complete.length;n++)await Promise.resolve();assert.equal(complete.length,3);
+ f.run('cameraDetail=false;');await f.run('renderSurveillance()');
+ complete[0](response(200,{features:['pt']}));complete[1](response(200,[]));complete[2](response(200,{days:3}));await detail;
+ assert.match(f.elements.get('#content').innerHTML,/camera-catalog/);assert.doesNotMatch(f.elements.get('#content').innerHTML,/camera\/live/);
+});
+test('paused cameras have no live or enabled PTZ even with old metrics and capabilities',async()=>{
+ const f=cameraFixture(async url=>response(200,url==='/api/cameras'?[cameraSamples[2]]:url.includes('/info')?{features:['pt']}:url.includes('/settings')?{days:1,enabled:false}:[]));
+ f.run('selectedCamera="pause";cameraDetail=true;');await f.run('renderSurveillance()');
+ const html=f.elements.get('#content').innerHTML;assert.match(html,/En pause/);assert.match(html,/PTZ indisponible/);assert.doesNotMatch(html,/camera\/live/);
+});
+test('hiding the overview or a viewer session does not send a PTZ command',async()=>{
+ const calls=[],f=cameraFixture(async (url,options)=>{calls.push([url,options]);return response(200,{});});
+ f.run('selectedCamera="entry";document.hidden=true;');
+ for(const fn of f.listeners.get('visibilitychange'))fn();assert.equal(calls.length,0);
+ f.run('cameraDetail=true;user.role="viewer";');
+ for(const fn of f.listeners.get('visibilitychange'))fn();assert.equal(calls.length,0);
+ f.run('user.role="admin";');
+ for(const fn of f.listeners.get('visibilitychange'))fn();
+ assert.equal(calls.length,1);assert.equal(calls[0][0],'/api/camera/ptz');
+ assert.deepEqual(JSON.parse(calls[0][1].body),{action:'stop',camera:'entry'});
+});
