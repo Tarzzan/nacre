@@ -13,7 +13,7 @@ Depuis **0.8.0-alpha.15**, **Surveillance** s’ouvre sur un inventaire des cam�
 | **En pause** | La caméra est désactivée dans la configuration, même si une ancienne mesure annonce encore des images. |
 | **État inconnu** | Le service n’a pas répondu, la caméra est absente des mesures ou son débit n’est pas exploitable. Nacre n’en déduit pas une panne de caméra. |
 
-La page affiche le débit reçu, la date de consultation de la mesure et la durée de conservation configurée. Cette date n’est **pas** la date de dernière image ni un historique de disponibilité. **Actualiser** relit les mesures ; il n’y a pas de scrutation automatique de cette vue.
+Depuis alpha.16, la page affiche le débit confirmé par un échantillon récent, la date de cet échantillon Frigate et la durée de conservation configurée. Une mesure de plus de 90 secondes devient **Mesure périmée** ; un horodatage absent ou incohérent reste inconnu. Cette date n’est **pas** la date de dernière image ni un historique de disponibilité. [Correction de fraîcheur](VIDEO-FRESHNESS.md). **Actualiser** relit les mesures ; la vue d’ensemble reste manuelle. Le direct sélectionné vérifie son état toutes les 15 secondes et retire l’image si le flux n’est plus confirmé.
 
 Un débit positif ne prouve ni la qualité des images ni le bon fonctionnement de l’enregistrement. La conservation affichée est un réglage, pas un inventaire des vidéos effectivement présentes.
 

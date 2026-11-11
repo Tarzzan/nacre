@@ -1,6 +1,7 @@
 """Inventaire multi-caméra isolé, sans Frigate ni caméra réseau."""
 import json
 import math
+import time
 import unittest
 from unittest.mock import patch
 import test_components_cameras as base
@@ -23,7 +24,7 @@ class OverviewTests(unittest.TestCase):
 
     def test_distinct_states_single_sample_no_secrets_no_mutation(self):
         self.configure();before=self.config.read_bytes()
-        with patch.object(app,'video_json',return_value={'cameras':{'entry':{'camera_fps':5.5},'garage':{'camera_fps':0},'paused':{'camera_fps':10}}}) as video:
+        with patch.object(app,'video_json',return_value={'service':{'last_updated':time.time()},'cameras':{'entry':{'camera_fps':5.5},'garage':{'camera_fps':0},'paused':{'camera_fps':10}}}) as video:
             values=self.listing()
         video.assert_called_once_with('/api/stats')
         self.assertEqual([c['status'] for c in values],['receiving','no_frames','disabled','unknown'])
@@ -58,3 +59,21 @@ class OverviewTests(unittest.TestCase):
     def test_empty_catalog_never_queries_video(self):
         app.private_write(self.config,json.dumps({'cameras':{}}))
         with patch.object(app,'video_json') as video:self.assertEqual(self.listing(),[]);video.assert_not_called()
+
+    def test_old_positive_measurement_is_never_online_and_timestamp_is_not_refreshed(self):
+        self.configure();stamp=time.time()-3600
+        payload={'service':{'last_updated':stamp},'cameras':{'entry':{'camera_fps':5},'paused':{'camera_fps':5}}}
+        with patch.object(app,'video_json',return_value=payload):values=self.listing()
+        self.assertEqual(values[0]['status'],'stale');self.assertFalse(values[0]['online'])
+        self.assertIsNone(values[0]['fps']);self.assertEqual(values[0]['observed_at'],stamp)
+        self.assertEqual(values[2]['status'],'disabled')
+
+    def test_missing_invalid_future_and_boundary_timestamps(self):
+        import cameras
+        self.configure();now=time.time()
+        for stamp in (None,True,'123',math.inf,now+60,0):
+            payload={'service':{'last_updated':stamp},'cameras':{'entry':{'camera_fps':5}}}
+            with patch.object(app,'video_json',return_value=payload):
+                values=self.listing();self.assertEqual(values[0]['status'],'unknown');self.assertFalse(values[0]['online'])
+        self.assertTrue(cameras.fresh_stats({'service':{'last_updated':now-90}},now))
+        self.assertFalse(cameras.fresh_stats({'service':{'last_updated':now-90.01}},now))

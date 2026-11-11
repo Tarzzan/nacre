@@ -1,5 +1,9 @@
 # Validation
 
+## Fraîcheur vidéo — 0.8.0-alpha.16
+
+249 tests Python et 53 JavaScript réussis. Échantillons anciens ou mal datés refusés, débit positif ancien non assimilé à un flux reçu, alerte préservée. Moniteur de direct testé sur réponses tardives, panne HTTP et requêtes concurrentes. Banc navigateur avec mire et statistiques figées ; récupération réelle du service vidéo contrôlée séparément sur Spark. [Diagnostic et limites](VIDEO-FRESHNESS.md).
+
 ## Vue d’ensemble des caméras — 0.8.0-alpha.15
 
 246 tests Python et 50 JavaScript réussis. États distincts pour débit positif, débit nul, pause et mesure inconnue ; erreurs et mesures invalides sans faux diagnostic de panne. Consultation HTTP authentifiée en lecture seule, secrets exclus. Réponses tardives, direct unique, retour à la liste et droits lecteur testés. Parcours navigateur sur quatre caméras fictives avec mire locale et rétablissement simulé du flux. Aucune caméra réelle ni service Docker sollicités par ce banc. [Guide et captures](CAMERA-OVERVIEW.md).

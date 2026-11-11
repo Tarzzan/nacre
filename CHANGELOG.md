@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.16 — Détecter les mesures vidéo figées
+
+249 tests Python et 53 JavaScript réussis. Le débit positif ne suffit plus : l’état des caméras et les alertes vérifient l’horodatage Frigate. Mesures de plus de 90 secondes signalées comme périmées, horodatage absent ou incohérent inconnu. Contrôle du direct toutes les 15 secondes, retrait de l’image en cas de perte de confirmation et reprise explicite par Actualiser. [Diagnostic et limites](docs/VIDEO-FRESHNESS.md).
+
 ## 0.8.0-alpha.15 — Vue d’ensemble des caméras
 
 246 tests Python et 50 JavaScript réussis. Inventaire multi-caméra avec réception mesurée, débit nul, pause et état inconnu distincts. Vue sans flux vidéo, ouverture explicite d’un seul direct, retour à la liste et protection contre les réponses tardives. Aucun changement de connexion, d’enregistrement ou de conservation. [Guide](docs/CAMERA-OVERVIEW.md).

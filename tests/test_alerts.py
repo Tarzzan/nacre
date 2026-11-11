@@ -1,5 +1,6 @@
 """Incidents et collecte simulée, aucune caméra ni service réel."""
 import json
+import time
 from pathlib import Path
 import tempfile
 import threading
@@ -38,7 +39,7 @@ class AlertTests(unittest.TestCase):
             db.execute('INSERT INTO jobs(id,kind,status,result,ts,options) VALUES(?,?,?,?,?,?)',(identifier,'snapshot',status,json.dumps({'error':'private-secret-error'}),ts,json.dumps({'repo':repo,'plan':plan,'password':'private-secret-password'})))
 
     def collect(self,services='',config=None,stats=None):
-        with patch.object(server,'compose',return_value=services),patch('cameras.config',return_value=config or {'cameras':{}}),patch.object(server,'video_json',return_value=stats or {'cameras':{}}),patch('alerts.shutil.disk_usage',return_value=SimpleNamespace(total=100,used=10)):
+        with patch.object(server,'compose',return_value=services),patch('cameras.config',return_value=config or {'cameras':{}}),patch.object(server,'video_json',return_value={'service':{'last_updated':time.time()},**(stats or {'cameras':{}})}),patch('alerts.shutil.disk_usage',return_value=SimpleNamespace(total=100,used=10)):
             return alerts.collect(server)
 
     def test_debounce_deduplication_and_normal_recovery(self):
@@ -100,6 +101,17 @@ class AlertTests(unittest.TestCase):
         with patch.object(server,'compose',return_value=services),patch('cameras.config',return_value=config),patch.object(server,'video_json',side_effect=server.Problem('private-url')):
             scopes,_=alerts.collect(server)
         self.assertIsNone(scopes['cameras']);self.assertNotIn('private-url',json.dumps(scopes))
+
+    def test_stale_positive_stats_do_not_resolve_camera_incident(self):
+        services='{"Service":"video","State":"running","Health":"healthy"}'
+        config={'cameras':{'atelier':{'enabled':True}}}
+        incident=self.open('cameras',alerts.condition('camera:atelier','Flux absent','Vérifier.','camera'))
+        scopes,seen=self.collect(services,config,{'service':{'last_updated':time.time()-3600},'cameras':{'atelier':{'camera_fps':5}}})
+        self.assertIsNone(scopes['cameras']);self.assertEqual(scopes['video_api'][0]['key'],'monitor:camera')
+        alerts.record(server,scopes,seen,160);alerts.record(server,scopes,seen,190)
+        active=alerts.listing(server)['active']
+        self.assertTrue(any(a['id']==incident['id'] for a in active))
+        self.assertEqual(len(active),2)
 
     def test_deployment_suspends_service_and_camera_checks(self):
         with server.database() as db:db.execute("INSERT INTO jobs(id,kind,status,result,ts) VALUES('deploy','component_install','running','{}',1)")

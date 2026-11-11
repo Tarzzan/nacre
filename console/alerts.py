@@ -88,9 +88,11 @@ def collect(app):
         scopes['cameras']=scopes['video_api']=None if 'video' in seen else []
     else:
         try:
-            from cameras import config, IDENTIFIER
+            from cameras import config, IDENTIFIER, fresh_stats
             values = config(app).get('cameras',{})
-            stats = app.video_json('/api/stats')['cameras']
+            payload=app.video_json('/api/stats')
+            if not fresh_stats(payload):raise ValueError('stale stats')
+            stats = payload['cameras']
             if not isinstance(stats,dict):raise ValueError('stats')
             for name,camera in values.items():
                 if IDENTIFIER.fullmatch(name) and camera.get('enabled',True) and not (stats.get(name,{}).get('camera_fps',0)>0):
@@ -99,7 +101,7 @@ def collect(app):
         except Exception:
             scopes['cameras']=None
             scopes['video_api'].append(condition('monitor:camera','La surveillance ne peut pas être vérifiée',
-                'La configuration ou les statistiques vidéo sont indisponibles. Aucun retour à la normale des caméras n’est déduit.', 'camera'))
+                'La configuration ou les statistiques vidéo sont indisponibles ou périmées. Aucun retour à la normale des caméras n’est déduit.', 'camera'))
     return scopes, seen
 
 
