@@ -12,9 +12,13 @@ Les versions futures sont des objectifs sans date promise. Chaque étape demande
 | **1.0 — cible à qualifier** | Version exploitable avec périmètre de support précis | Revue de sécurité, endurance, mises à jour et reprise éprouvées ; aucun défaut critique connu |
 | **Après stabilisation** | Gestion de plusieurs NAS | Identités inter-hôtes, révocation, fonctionnement déconnecté et politiques de groupe spécifiés |
 
+## Administration quotidienne 0.8.0-alpha.18
+
+Panneau de configuration, préférences versionnées, accès regroupés et révocation des sessions de console. [Guide et périmètre](CONTROL-PANEL.md). Cette étape prépare le parcours d’administration du jalon 0.9. La mise à jour transactionnelle, la réduction des privilèges Docker et la matrice matérielle restent ouvertes.
+
 ## Fraîcheur vidéo 0.8.0-alpha.16
 
-Mesures Frigate datées, état périmé, surveillance du direct et absence de faux retour à la normale des alertes. [Incident, récupération et limites](VIDEO-FRESHNESS.md). La détection par image et la cause interne du blocage Frigate restent ouvertes.
+Mesures Frigate datées, état périmé, surveillance du direct et absence de faux retour à la normale des alertes. [Incident, récupération et limites](VIDEO-FRESHNESS.md). La détection par image reste ouverte. Une exception WebSocket retrouvée dans les traces est corrigée et reproduite sur banc en [alpha.17](FRIGATE-WEBSOCKET.md).
 
 ## Vue d’ensemble des caméras 0.8.0-alpha.15
 

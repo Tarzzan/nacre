@@ -1,5 +1,9 @@
 # Validation
 
+## Panneau de configuration — 0.8.0-alpha.18
+
+262 tests Python et 60 JavaScript. Comptes et sessions synthétiques dans des bases temporaires ; conflits de préférences, contrôle des droits, révocation ciblée et session courante préservée. Parcours navigateur sur banc séparé, sans mutation des préférences ni comptes du NAS réel. [Guide et limites](CONTROL-PANEL.md).
+
 ## Déconnexion Frigate — 0.8.0-alpha.17
 
 254 tests Python et 53 JavaScript. Banc du moteur réel : cinq tests sur image dérivée x86-64 et ARM64, dont le témoin amont défaillant et 100 échanges IPC après déconnexions. Réseau coupé, aucun montage de données NAS, aucune panne injectée dans la caméra réelle. Les quatre matrices Python habituelles et le scanner de secrets restent requis. [Procédure et limites](FRIGATE-WEBSOCKET.md).

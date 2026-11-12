@@ -557,7 +557,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise Problem('Ce lien de connexion a expiré ou a déjà été utilisé.', 401)
                 session_token, _ = make_session('admin')
                 return self.reply(303, b'', extra={'Location': '/', 'Set-Cookie': f'nas_session={session_token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800'})
-            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/components.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
+            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/components.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
                 path = STATIC / ('index.html' if url.path == '/' else url.path[1:])
                 return self.reply(200, path.read_bytes(), mimetypes.guess_type(path)[0] or 'text/plain')
             if post and url.path == '/api/login':
@@ -588,6 +588,10 @@ class Handler(BaseHTTPRequestHandler):
                 from onboarding import read
                 setup = read(sys.modules[__name__])
                 return self.reply(200, {**{key: session[key] for key in ('name', 'csrf', 'role')}, 'setup_required': session['role'] == 'admin' and setup['phase'] != 'complete', 'timezone': setup['timezone'], 'nas_name': setup['name'], 'app_version': release_version()})
+            if url.path == '/api/control-panel':
+                if session['role'] != 'admin':raise Problem('Accès réservé aux administrateurs.',403)
+                from control_panel import read
+                return self.reply(200,read(sys.modules[__name__],session))
             if url.path == '/api/setup':
                 if session['role'] != 'admin':
                     raise Problem('Accès réservé aux administrateurs.', 403)
@@ -746,6 +750,9 @@ class Handler(BaseHTTPRequestHandler):
             if route == '/api/cameras/add':
                 from cameras import submit
                 return submit(sys.modules[__name__],body,user)
+            if route in ('/api/control-panel/configure','/api/control-panel/revoke'):
+                from control_panel import configure, revoke
+                return (configure if route.endswith('/configure') else revoke)(sys.modules[__name__],body,session)
             if route == '/api/setup/account':
                 from onboarding import account
                 return account(sys.modules[__name__], body, session)

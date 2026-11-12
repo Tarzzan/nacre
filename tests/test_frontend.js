@@ -514,3 +514,52 @@ test('live monitor does not overlap requests and rejects failed health checks',a
  const check=f.run('watchCamera("entry",()=>true)');const pending=check();await check();assert.equal(calls,1);
  complete(response(503,{error:'offline'}));await pending;assert.match(panel.innerHTML,/direct n’est plus confirmé/);
 });
+
+const panelSample={name:'Atelier',timezone:'UTC',revision:0,setup_complete:true,version:'test',system:'Linux',architecture:'aarch64',accounts:[{name:'admin',role:'admin',active:1,current:true,valid_sessions:2},{name:'reader',role:'viewer',active:1,current:false,valid_sessions:1}]};
+function panelFixture(fetch){
+ const f=fixture(fetch);vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/control-panel.js'),'utf8'),f.context);
+ f.run('user={name:"admin",role:"admin",timezone:"UTC"};page="settings";shell();');f.context.sample=JSON.parse(JSON.stringify(panelSample));return f;
+}
+function panelForm(f){
+ const fieldset={disabled:false},values={name:'Mon NAS',timezone:'America/Cayenne'};
+ const form={getAttribute:()=> 'control-preferences',querySelector:()=>fieldset,elements:{namedItem:name=>({value:values[name]})}};
+ f.elements.set('#control-preferences',form);f.elements.set('#control-error',{textContent:''});f.elements.set('#side-host',{textContent:''});f.elements.set('#topclock',{textContent:''});
+ f.context.form=form;f.run('controlState=sample;');return {form,fieldset,values};
+}
+test('control panel groups real administration routes and escapes values',async()=>{
+ const f=panelFixture(async()=>response(200,{...panelSample,name:'<img src=x>',accounts:[{...panelSample.accounts[0],name:'<script>bad</script>'}]}));
+ await f.run('renderControlPanel()');const html=f.elements.get('#content').innerHTML;
+ for(const route of ['storage','shares','backups','services','notifications','users'])assert.match(html,new RegExp('data-page="'+route+'"'));
+ assert.doesNotMatch(html,/<script>|<img src=x>/);assert.match(html,/&lt;img/);
+ f.run('user.role="viewer";');await f.run('renderControlPanel()');assert.match(f.elements.get('#content').innerHTML,/réservé aux administrateurs/);
+});
+test('late control panel responses cannot replace another page',async()=>{
+ let complete;const f=panelFixture(()=>new Promise(resolve=>complete=resolve));
+ const pending=f.run('renderControlPanel()');f.run('page="files";$("#content").innerHTML="files";');
+ complete(response(200,panelSample));await pending;assert.equal(f.elements.get('#content').innerHTML,'files');
+});
+test('control preferences save revision and update displayed identity and timezone',async()=>{
+ const calls=[],f=panelFixture(async(url,options)=>{calls.push([url,options]);return response(200,{name:'Mon NAS',timezone:'America/Cayenne',revision:1});});
+ const {fieldset}=panelForm(f);await f.run('saveControlPreferences(form)');
+ assert.equal(calls[0][0],'/api/control-panel/configure');assert.deepEqual(JSON.parse(calls[0][1].body),{name:'Mon NAS',timezone:'America/Cayenne',revision:0});
+ assert.equal(f.run('user.timezone'),'America/Cayenne');assert.equal(f.run('controlState.revision'),1);assert.equal(f.elements.get('#side-host').textContent,'Mon NAS');assert.equal(fieldset.disabled,false);
+});
+test('preferences conflict preserves typed values and allows correction',async()=>{
+ const f=panelFixture(async()=>response(409,{error:'Les préférences ont changé.'}));const {values,fieldset}=panelForm(f);
+ await f.run('saveControlPreferences(form)');assert.equal(values.name,'Mon NAS');assert.equal(f.run('controlState.revision'),0);assert.equal(fieldset.disabled,false);
+ assert.equal(f.elements.get('#control-error').textContent,'Les préférences ont changé.');
+});
+test('session expiration while saving preferences keeps the login intact',async()=>{
+ const f=panelFixture(async()=>response(401,{error:'Session expirée.'}));panelForm(f);
+ await f.run('saveControlPreferences(form)');assert.equal(f.elements.has('#content'),false);assert.equal(f.elements.get('#login-error').textContent,'Session expirée.');
+});
+test('refreshing sessions preserves preference draft and its original revision',async()=>{
+ const f=panelFixture(async()=>response(200,{...panelSample,revision:4,name:'Elsewhere',accounts:[]}));const {values}=panelForm(f);f.elements.set('#control-sessions',{innerHTML:''});
+ await f.run('refreshControlSessions()');assert.equal(values.name,'Mon NAS');assert.equal(f.run('controlState.revision'),0);assert.equal(f.run('controlState.accounts.length'),0);
+});
+test('only other valid sessions can be selected for disconnection',()=>{
+ const f=panelFixture(async()=>response(200,{}));
+ assert.match(f.run('controlSessions([{...sample.accounts[0],valid_sessions:1}])'),/data-name="admin" disabled/);
+ assert.doesNotMatch(f.run('controlSessions(sample.accounts)'),/data-name="admin" disabled/);
+ assert.match(f.run('controlSessions(sample.accounts)'),/Déconnecter les autres/);
+});
