@@ -7,7 +7,7 @@ Point d’entrée pour reprendre le développement sans relire tout l’historiq
 - **Version courante : 0.8.0-alpha.21** — [événements en vignettes et filtre par type d’objet dans la relecture](RECORDING-PLAYBACK.md).
 - Versions précédentes : 0.8.0-alpha.20 — relecture des enregistrements par jour ; 0.8.0-alpha.19 — [mises à jour signées depuis le navigateur](BROWSER-UPDATES.md).
 - Schéma SQLite inchangé depuis alpha.19. Aucun module figé modifié par alpha.20 ni alpha.21 : ces versions sont distribuables par paquet `.nacre-update`.
-- Installation de développement : mise à jour par paquet signé depuis alpha.20 (11 novembre 2026). Le détail et les mises à jour suivantes sont consignés dans [Déploiements](SPARK-DEPLOYMENT.md) ; vérifier la version réellement installée avant d’agir.
+- Installation de développement : alpha.21 installée le 12 novembre 2026 par paquet signé, comme alpha.20 la veille. Le détail et les mises à jour suivantes sont consignés dans [Déploiements](SPARK-DEPLOYMENT.md) ; vérifier la version réellement installée avant d’agir.
 
 ## Reprendre en cinq minutes
 
