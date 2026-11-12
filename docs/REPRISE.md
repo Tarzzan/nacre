@@ -7,7 +7,7 @@ Point d’entrée pour reprendre le développement sans relire tout l’historiq
 - **Version courante : 0.8.0-alpha.22** — [détection et objets suivis par caméra](CAMERA-DETECTION.md), appliqués sans redémarrer le service vidéo.
 - Versions précédentes : 0.8.0-alpha.21 — [événements en vignettes et filtre par type d’objet dans la relecture](RECORDING-PLAYBACK.md) ; 0.8.0-alpha.20 — relecture des enregistrements par jour ; 0.8.0-alpha.19 — [mises à jour signées depuis le navigateur](BROWSER-UPDATES.md).
 - Schéma SQLite inchangé depuis alpha.19. Aucun module figé modifié par alpha.20, alpha.21 ni alpha.22 : ces versions sont distribuables par paquet `.nacre-update`.
-- Installation de développement : alpha.21 installée le 12 novembre 2026 par paquet signé, comme alpha.20 la veille. Le détail et les mises à jour suivantes sont consignés dans [Déploiements](SPARK-DEPLOYMENT.md) ; vérifier la version réellement installée avant d’agir.
+- Installation de développement : alpha.22 installée le 12 novembre 2026 par paquet signé, après alpha.21 le matin même et alpha.20 la veille. La carte Détection y a été éprouvée sur la caméra réelle (ajout puis retrait d’un type, sans redémarrage) ; les types suivis y sont revenus aux seules personnes. Le détail et les mises à jour suivantes sont consignés dans [Déploiements](SPARK-DEPLOYMENT.md) ; vérifier la version réellement installée avant d’agir.
 
 ## Reprendre en cinq minutes
 
