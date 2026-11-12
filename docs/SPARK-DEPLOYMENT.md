@@ -1,5 +1,19 @@
 # Déploiements de la console sur Spark
 
+## 11 novembre 2026 — alpha.20, première mise à jour par paquet signé
+
+![Mise à jour réussie sur Spark](images/spark-alpha20-update.jpg)
+
+L’installation alpha.19 a reçu le paquet `nacre-0.8.0-alpha.20.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.20), construit depuis le commit [`82b65ea`](https://github.com/Tarzzan/nacre/commit/82b65ea21e885eafb80c8ef06179b9073111ee3b) après validation CI x86-64/ARM64. C’est le premier usage réel du [parcours de mise à jour](BROWSER-UPDATES.md) : aucun script de déploiement accompagné n’a servi.
+
+Avant l’import, les neuf modules figés de Spark ont été comparés à ceux du paquet (identiques), et la même mise à jour a été répétée sur une console alpha.19 et son superviseur dans un répertoire temporaire. Sur Spark, le paquet a été envoyé à la route d’import de la page Mises à jour par une session administrateur temporaire, refermée ensuite ; le navigateur de pilotage ne pouvait pas sélectionner un fichier local. La signature a été vérifiée par Spark, puis l’installation confirmée et suivie dans le navigateur jusqu’à **Mise à jour réussie** et au rechargement, session conservée.
+
+Le superviseur a enregistré la préparation à 23 h 51 min 17 s et la validation à 23 h 51 min 53 s, heure de Guyane, confirmation humaine comprise. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, configuration Samba et configuration Frigate identiques avant et après ; seul l’horodatage du collecteur d’alertes a changé dans les réglages, sans alerte active. Les conteneurs Samba et Frigate gardent leurs identifiants et heures de démarrage ; le service systemd n’a pas été relancé, le superviseur ayant remplacé la console lui-même. Samba a répondu à `smbcontrol smbd ping`.
+
+La [relecture](RECORDING-PLAYBACK.md) a ensuite été contrôlée sur la caméra réelle : quatre jours proposés, journée en cours en une plage avec sept moments détectés, jour ancien réduit à 127 passages conservés. Un extrait du jour et un extrait de l’avant-veille ont été lus sans erreur en 2880 × 1620. Aucune image de surveillance n’a été capturée ni publiée.
+
+Deux observations pour l’exploitation : le fuseau de la console de Spark n’a jamais été réglé, la relecture y affiche donc des heures UTC tant qu’il n’est pas choisi dans le Panneau de configuration ; les copies de retour arrière (code et base précédents, 1,5 Mo) restent dans `state/console/updates/`, sans purge automatique. Aucune panne n’a été injectée sur Spark : le retour arrière automatique reste prouvé sur bancs isolés uniquement.
+
 ## 11 novembre 2026 — alpha.13
 
 ![Services sur Spark après mise à jour](images/spark-alpha13-services.jpg)

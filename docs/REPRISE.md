@@ -7,7 +7,7 @@ Point d’entrée pour reprendre le développement sans relire tout l’historiq
 - **Version courante : 0.8.0-alpha.20** — [relecture des enregistrements par jour](RECORDING-PLAYBACK.md).
 - Version précédente : 0.8.0-alpha.19 — [mises à jour signées depuis le navigateur](BROWSER-UPDATES.md).
 - Schéma SQLite inchangé depuis alpha.19. Aucun module figé modifié par alpha.20 : la version est distribuable par paquet `.nacre-update`.
-- L’état de l’installation de développement est consigné dans [Déploiements](SPARK-DEPLOYMENT.md). Ne pas déduire le déploiement de cette note.
+- Installation de développement : alpha.20 installée le 11 novembre 2026 par paquet signé, premier usage réel de ce parcours. Le détail et les mises à jour suivantes sont consignés dans [Déploiements](SPARK-DEPLOYMENT.md) ; vérifier la version réellement installée avant d’agir.
 
 ## Reprendre en cinq minutes
 
@@ -24,11 +24,13 @@ Point d’entrée pour reprendre le développement sans relire tout l’historiq
 - **Interface sans style en ligne.** La politique de sécurité (`style-src 'self'`) bloque les attributs `style`. Les positions calculées passent par des attributs SVG ou des classes. Les liens à comportement natif ne portent pas `data-action` : le gestionnaire global annule l’action par défaut.
 - **Réponses tardives.** Chaque écran vérifie session, page et numéro de requête avant d’écrire dans la page. Les tests JavaScript couvrent ce point pour chaque vue.
 - **Vidéo.** Nacre lit l’API interne de Frigate ; il ne modifie la configuration que par les tâches de caméra. La relecture est en lecture seule. Frigate produit les extraits sans plages d’octets : la frise sert de déplacement.
+- **Déployer.** Comparer d’abord les modules figés de l’installation à ceux du paquet, répéter la mise à jour sur une console temporaire de la version installée, puis importer le paquet de la release. Relever les empreintes des comptes et configurations avant et après.
 - **Bancs.** Les essais d’interface utilisent une console réelle avec un service vidéo simulé et une mire synthétique. Aucune image de surveillance, session ou secret n’entre dans le dépôt.
 - **Qualification.** Une suite complète par changement suffit. Les campagnes QEMU longues sont réservées aux changements de stockage ou de reprise.
 
 ## Limites ouvertes
 
+- Fuseau : une installation dont les préférences n’ont jamais été enregistrées affiche des heures UTC, relecture comprise.
 - Surveillance : pas de vignettes, de recherche par objet, d’export long ni de lecture multi-caméra synchronisée ; une seule caméra réelle observée.
 - Mises à jour : pas de migration de schéma réversible, de rotation de la clé de confiance, de purge des copies locales ni de mise à jour des composants.
 - Stockage : pas de programmation des snapshots natifs ([issue 4](https://github.com/Tarzzan/nacre/issues/4)) ; opérations privilégiées validées en VM seulement.

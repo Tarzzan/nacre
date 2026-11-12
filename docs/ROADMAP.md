@@ -14,7 +14,7 @@ Les versions futures sont des objectifs sans date promise. Chaque étape demande
 
 ## Relecture des enregistrements 0.8.0-alpha.20
 
-Frise par jour civil, moments avec présence détectée, lecture enchaînée et extraits téléchargeables pour chaque caméra, en lecture seule de Frigate. [Guide et limites](RECORDING-PLAYBACK.md). Première fonction destinée à être distribuée par paquet signé depuis le navigateur. Restent ouverts : vignettes et recherche par objet, export de longues périodes, lecture synchronisée de plusieurs caméras, protection d’un passage et intégrité des fichiers vidéo.
+Frise par jour civil, moments avec présence détectée, lecture enchaînée et extraits téléchargeables pour chaque caméra, en lecture seule de Frigate. [Guide et limites](RECORDING-PLAYBACK.md). Première fonction distribuée par paquet signé sur l’installation de développement. Restent ouverts : vignettes et recherche par objet, export de longues périodes, lecture synchronisée de plusieurs caméras, protection d’un passage et intégrité des fichiers vidéo.
 
 ## Mise à jour du logiciel 0.8.0-alpha.19
 
