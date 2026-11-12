@@ -19,7 +19,7 @@ Un débit positif ne prouve ni la qualité des images ni le bon fonctionnement d
 
 ## Ouvrir une caméra
 
-**Ouvrir [nom]** affiche le direct de la seule caméra sélectionnée, la [relecture de ses enregistrements par jour](RECORDING-PLAYBACK.md) (depuis alpha.20, à la place des derniers segments ; événements en vignettes depuis alpha.21) et son pilotage disponible. Le sélecteur permet d’en choisir une autre. **Toutes les caméras** revient à l’inventaire et retire immédiatement le direct de la page. Les réponses arrivées après un changement de vue, de caméra ou de session ne peuvent pas réouvrir l’ancien direct.
+**Ouvrir [nom]** affiche le direct de la seule caméra sélectionnée, la [relecture de ses enregistrements par jour](RECORDING-PLAYBACK.md) (depuis alpha.20, à la place des derniers segments ; événements en vignettes depuis alpha.21), sa [détection et ses objets suivis](CAMERA-DETECTION.md) (depuis alpha.22) et son pilotage disponible. Le sélecteur permet d’en choisir une autre. **Toutes les caméras** revient à l’inventaire et retire immédiatement le direct de la page. Les réponses arrivées après un changement de vue, de caméra ou de session ne peuvent pas réouvrir l’ancien direct.
 
 ![Direct synthétique d’une seule caméra](images/camera-detail.jpg)
 

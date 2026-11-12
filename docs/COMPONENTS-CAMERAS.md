@@ -30,7 +30,7 @@ Aucun dépôt ou plan de sauvegarde n’est créé. Une image Samba récupérée
 5. Activer ONVIF uniquement si la caméra le prend en charge et indiquer son port. Ce parcours utilise le même compte pour RTSP et ONVIF ; les comptes distincts ne sont pas encore exposés.
 6. Confirmer l’enregistrement et le redémarrage de Frigate. Cette opération interrompt brièvement toutes les caméras du service.
 
-La nouvelle caméra enregistre en continu avec une conservation d’un jour, modifiable dans **Réglages**. La détection et le suivi automatique restent désactivés. Frigate valide la configuration avant publication. La disponibilité du flux est présentée séparément de l’acceptation de la configuration : un compte incorrect ne doit pas être présenté comme une caméra en ligne.
+La nouvelle caméra enregistre en continu avec une conservation d’un jour, modifiable dans **Réglages**. La détection reste désactivée à l’ajout ; elle s’active ensuite, avec le choix des objets suivis, dans la carte [Détection](CAMERA-DETECTION.md). Le suivi automatique PTZ reste désactivé. Frigate valide la configuration avant publication. La disponibilité du flux est présentée séparément de l’acceptation de la configuration : un compte incorrect ne doit pas être présenté comme une caméra en ligne.
 
 Le sélecteur choisit la caméra utilisée pour le direct, les enregistrements, les clips, les presets et le PTZ. Le pilotage n’est proposé que lorsque le moteur annonce la capacité correspondante. Le tableau de bord utilise une caméra disponible dans les statistiques au lieu d’imposer le nom `tapo`.
 

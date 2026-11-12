@@ -300,6 +300,43 @@ def ws_frame(payload):
     return head + mask + bytes(byte ^ mask[i % 4] for i, byte in enumerate(data))
 
 
+def video_put(path, payload, timeout=10):
+    request = Request(f'http://{video_ip()}:5000' + path, data=json.dumps(payload).encode(), method='PUT', headers={'Content-Type': 'application/json'})
+    try:
+        with urlopen(request, timeout=timeout) as response:
+            return json.load(response)
+    except (HTTPError, URLError, TimeoutError, OSError, ValueError):
+        raise Problem('La vidéo est temporairement indisponible.', 503)
+
+
+@contextmanager
+def video_socket(refusal):
+    """Canal de commande interne de Frigate, ouvert le temps d’un envoi."""
+    with socket.create_connection((video_ip(), 5000), timeout=4) as sock:
+        sock.settimeout(4)
+        key = base64.b64encode(secrets.token_bytes(16)).decode()
+        sock.sendall((f'GET /ws HTTP/1.1\r\nHost: {video_ip()}:5000\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n\r\n').encode())
+        head = b''
+        while b'\r\n\r\n' not in head and len(head) < 16384:
+            chunk = sock.recv(2048)
+            if not chunk:
+                break
+            head += chunk
+        expected = base64.b64encode(hashlib.sha1((key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').encode()).digest())
+        if not head.startswith(b'HTTP/1.1 101') or expected.lower() not in head.lower():
+            raise Problem(refusal, 503)
+        yield sock
+
+
+def video_command(topic, payload):
+    try:
+        with PTZ_LOCK, video_socket('Le canal de commande vidéo n’a pas pu être ouvert.') as sock:
+            sock.sendall(ws_frame({'topic': topic, 'payload': payload}))
+            time.sleep(0.08)
+    except OSError:
+        raise Problem('La vidéo est temporairement indisponible.', 503)
+
+
 def ptz_move(action, preset=None, camera="tapo"):
     allowed = {'left': 'MOVE_LEFT', 'right': 'MOVE_RIGHT', 'up': 'MOVE_UP', 'down': 'MOVE_DOWN', 'stop': 'STOP'}
     if action not in allowed and action != 'preset':
@@ -313,19 +350,7 @@ def ptz_move(action, preset=None, camera="tapo"):
         allowed['preset'] = 'PRESET_' + preset
     if action != 'stop' and 'pt' not in info.get('features', []):
         raise Problem('Le pilotage PTZ n’est pas encore disponible.', 503)
-    with PTZ_LOCK, socket.create_connection((video_ip(), 5000), timeout=4) as sock:
-        sock.settimeout(4)
-        key = base64.b64encode(secrets.token_bytes(16)).decode()
-        sock.sendall((f'GET /ws HTTP/1.1\r\nHost: {video_ip()}:5000\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n\r\n').encode())
-        head = b''
-        while b'\r\n\r\n' not in head and len(head) < 16384:
-            chunk = sock.recv(2048)
-            if not chunk:
-                break
-            head += chunk
-        expected = base64.b64encode(hashlib.sha1((key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').encode()).digest())
-        if not head.startswith(b'HTTP/1.1 101') or expected.lower() not in head.lower():
-            raise Problem('Le canal PTZ n’a pas pu être ouvert.', 503)
+    with PTZ_LOCK, video_socket('Le canal PTZ n’a pas pu être ouvert.') as sock:
         try:
             sock.sendall(ws_frame({'topic': camera+'/ptz', 'payload': allowed[action]}))
             if action not in ('stop', 'preset'):
@@ -557,7 +582,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise Problem('Ce lien de connexion a expiré ou a déjà été utilisé.', 401)
                 session_token, _ = make_session('admin')
                 return self.reply(303, b'', extra={'Location': '/', 'Set-Cookie': f'nas_session={session_token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800'})
-            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/updates.js', '/components.js', '/playback.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
+            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/updates.js', '/components.js', '/playback.js', '/detection.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
                 path = STATIC / ('index.html' if url.path == '/' else url.path[1:])
                 return self.reply(200, path.read_bytes(), mimetypes.guess_type(path)[0] or 'text/plain')
             if post and url.path == '/api/login':
@@ -713,6 +738,9 @@ class Handler(BaseHTTPRequestHandler):
                     return self.reply(200, response.read(4 * 1024**2), 'image/jpeg')
             if url.path == '/api/camera/live':
                 return self.proxy_stream('/api/'+camera_id+'?fps=5&height=720', 'multipart/x-mixed-replace; boundary=frame')
+            if url.path == '/api/camera/detection':
+                from detection import state
+                return self.reply(200, state(sys.modules[__name__], camera_id))
             if url.path == '/api/camera/timeline':
                 from playback import timeline
                 return self.reply(200, timeline(sys.modules[__name__], camera_id, query.get('day')))
@@ -751,7 +779,7 @@ class Handler(BaseHTTPRequestHandler):
     def mutate(self, route, body, session):
         user = session['name']
         with LOCK:
-            if route in ('/api/service','/api/camera/settings','/api/smb/user','/api/smb/share'):
+            if route in ('/api/service','/api/camera/settings','/api/camera/detection','/api/smb/user','/api/smb/share'):
                 from deployment import ensure_idle
                 ensure_idle(sys.modules[__name__])
             if route == '/api/logout':
@@ -771,6 +799,9 @@ class Handler(BaseHTTPRequestHandler):
             if route == '/api/cameras/add':
                 from cameras import submit
                 return submit(sys.modules[__name__],body,user)
+            if route == '/api/camera/detection':
+                from detection import apply
+                return apply(sys.modules[__name__],body,user)
             if route == '/api/updates/apply':
                 from updates import apply
                 return apply(sys.modules[__name__],body,session)
