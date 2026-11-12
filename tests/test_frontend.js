@@ -427,7 +427,8 @@ test('opening view distinguishes unrestricted empty ongoing and repeated local h
 });
 
 function cameraFixture(fetch){
- const f=fixture(fetch);vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/components.js'),'utf8'),f.context);
+ const f=fixture(fetch);
+ for(const name of ['components.js','playback.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static',name),'utf8'),f.context);
  f.run('user={name:"admin",role:"admin"};shell();page="camera";');return f;
 }
 const cameraSamples=[{id:'entry',name:'Entrée',enabled:true,status:'receiving',online:true,fps:5,observed_at:1700000000,days:3},
@@ -606,4 +607,94 @@ test('late upload errors cannot modify another page or new session',async()=>{
  const submit={disabled:false};f.context.uploadForm={querySelector:()=>submit};const pending=f.run('uploadUpdate(uploadForm)');
  f.run('page="files"');complete(response(409,{error:'Old error'}));await pending;
  assert.equal(f.elements.get('#update-upload-error').textContent,'');assert.equal(submit.disabled,false);
+});
+
+// Relecture : journée synthétique de 24 h en UTC, deux plages et un moment détecté.
+const dayStart=1794182400,playbackSample={camera:'entry',timezone:'UTC',day:'2026-11-08',today:'2026-11-09',start:dayStart,end:dayStart+86400,now:dayStart+2*86400,clip_max:300,
+ days:[{day:'2026-11-09',recorded:600},{day:'2026-11-08',recorded:9000},{day:'2026-11-06',recorded:60}],
+ hours:Array.from({length:24},(_,i)=>({start:dayStart+i*3600,end:dayStart+(i+1)*3600,label:String(i).padStart(2,'0')+':00',recorded:0,detected:0})),
+ intervals:[[dayStart+3600,dayStart+3600+7200],[dayStart+18000,dayStart+19800]],detections:[[dayStart+4000,dayStart+4090]],recorded:9000,detected:90,segments:900};
+function playbackFixture(fetch){const f=cameraFixture(fetch);f.context.sample=JSON.parse(JSON.stringify(playbackSample));return f;}
+test('playback seeks inside ranges, skips gaps forward and stops after the last range',()=>{
+ const f=playbackFixture(async()=>response(200,{}));
+ assert.deepEqual(JSON.parse(f.run('JSON.stringify(playbackLocate(sample,sample.start+4000))')),{start:dayStart+4000,end:dayStart+4300,moved:false});
+ assert.deepEqual(JSON.parse(f.run('JSON.stringify(playbackLocate(sample,sample.start))')),{start:dayStart+3600,end:dayStart+3900,moved:true});
+ // Un extrait ne déborde pas de sa plage ; sa fin mène à la plage suivante.
+ assert.deepEqual(JSON.parse(f.run('JSON.stringify(playbackLocate(sample,sample.start+10700))')),{start:dayStart+10700,end:dayStart+10800,moved:false});
+ assert.deepEqual(JSON.parse(f.run('JSON.stringify(playbackLocate(sample,sample.start+10800))')),{start:dayStart+18000,end:dayStart+18300,moved:true});
+ assert.equal(f.run('playbackLocate(sample,sample.start+19800)'),null);
+ assert.deepEqual(JSON.parse(f.run('JSON.stringify(playbackBefore(sample,sample.start+18000))')),{start:dayStart+10500,end:dayStart+10800,moved:false});
+ assert.deepEqual(JSON.parse(f.run('JSON.stringify(playbackBefore(sample,sample.start+3700))')),{start:dayStart+3600,end:dayStart+3700,moved:false});
+ assert.equal(f.run('playbackBefore(sample,sample.start+3600)'),null);
+});
+test('typed time follows the civil hours sent by the NAS, including clock changes',()=>{
+ const f=playbackFixture(async()=>response(200,{}));
+ assert.equal(f.run('playbackInstant(sample,"01:06:40")'),dayStart+4000);
+ assert.equal(f.run('playbackInstant(sample,"23:59")'),dayStart+86340);
+ for(const bad of ['','24:00','1:00','aa:bb'])assert.equal(f.run(`playbackInstant(sample,${JSON.stringify(bad)})`),null);
+ // Passage à l’heure d’été : 02:00 n’existe pas ; retour à l’heure d’hiver : la première occurrence est retenue.
+ f.run('sample.hours=[["00:00",0],["01:00",3600],["03:00",7200]].map(([label,offset])=>({label,start:sample.start+offset,end:sample.start+offset+3600}))');
+ assert.equal(f.run('playbackInstant(sample,"02:30")'),null);assert.equal(f.run('playbackInstant(sample,"03:30")'),dayStart+9000);
+ f.run('sample.hours=[["01:00",3600],["02:00",7200],["02:00",10800]].map(([label,offset])=>({label,start:sample.start+offset,end:sample.start+offset+3600}))');
+ assert.equal(f.run('playbackInstant(sample,"02:15")'),dayStart+8100);
+});
+test('playback card draws the day without inline styles and escapes received values',()=>{
+ const f=playbackFixture(async()=>response(200,{}));
+ let html=f.run('playbackData=sample;playbackCard(sample)');
+ assert.doesNotMatch(html,/style=/);
+ assert.equal((html.match(/<rect class="pb-rec"/g)||[]).length,2);assert.equal((html.match(/<rect class="pb-det"/g)||[]).length,1);
+ assert.match(html,/<rect class="pb-rec" x="60\.0" y="0" width="120\.0"/);assert.doesNotMatch(html,/pb-future/);
+ assert.match(html,/2 h 30 min<\/strong> enregistrées en 2 plages/);assert.match(html,/présence détectée pendant <strong>1 min 30 s/);
+ assert.match(html,/Sans enregistrement : 03:00:00 → 05:00:00\./);assert.match(html,/Moments avec présence détectée/);
+ assert.match(html,new RegExp(`data-start="${dayStart+3995}"`));assert.match(html,/id="playback-time" type="time" step="1" value="01:00:00"/);
+ // Jour voisin enregistré : le 7 novembre, sans enregistrement, est ignoré par les flèches.
+ assert.match(html,/data-day="2026-11-06" aria-label="Jour enregistré précédent" >/);assert.match(html,/data-day="2026-11-09" aria-label="Jour enregistré suivant" >/);
+ assert.match(html,/dimanche 9 novembre|lundi 9 novembre/);assert.match(html,/\(aujourd’hui\)/);
+ html=f.run('sample.detections=[];sample.detected=0;playbackCard(sample)');
+ assert.match(html,/Plages enregistrées/);assert.doesNotMatch(html,/présence détectée pendant/);
+ html=f.run('sample.intervals=[];sample.recorded=0;sample.day="2026-11-07";playbackCard(sample)');
+ assert.match(html,/Aucun enregistrement conservé pour le/);assert.match(html,/value="2026-11-07" selected>[^<]*aucun enregistrement/);assert.doesNotMatch(html,/pb-track|playback-go/);
+ html=f.run('sample.timezone="<img src=x>";sample.days=[{day:"2026-11-07\\" data-x=\\"1",recorded:5}];sample.day="2026-11-07";sample.hours[0].label="<b>";playbackCard(sample)');
+ assert.doesNotMatch(html,/<img src=x>|data-x="1"|<b>/);
+ assert.match(f.run('playbackCard(null)'),/temporairement indisponibles/);
+});
+test('today leaves the hours to come distinct from missing recordings',()=>{
+ const f=playbackFixture(async()=>response(200,{}));
+ const html=f.run('sample.now=sample.start+43200;sample.today=sample.day;playbackData=sample;playbackCard(sample)');
+ assert.match(html,/<rect class="pb-future" x="720\.0" y="0" width="720\.0"/);assert.match(html,/À venir/);
+});
+test('camera detail loads the timeline once and keeps the chosen day across refreshes',async()=>{
+ const calls=[],f=playbackFixture(async url=>{calls.push(url);return response(200,url==='/api/cameras'?cameraSamples:url.includes('/info')?{features:[]}:url.includes('/settings')?{days:3,enabled:true}:playbackSample);});
+ f.run('selectedCamera="entry";cameraDetail=true;');await f.run('renderSurveillance()');
+ assert.ok(calls.includes('/api/camera/timeline?camera=entry'));assert.ok(!calls.some(u=>u.includes('camera/recordings')||u.includes('camera/clip')));
+ const html=f.elements.get('#content').innerHTML;assert.match(html,/id="playback"/);assert.match(html,/pb-track/);assert.doesNotMatch(html,/<video/);
+ calls.length=0;await f.run('playbackLoad("2026-11-06")');
+ assert.deepEqual(calls,['/api/camera/timeline?camera=entry&day=2026-11-06']);assert.equal(f.run('playbackDay'),'2026-11-06');
+ calls.length=0;await f.run('renderSurveillance()');
+ assert.ok(calls.includes('/api/camera/timeline?camera=entry&day=2026-11-06'));
+});
+test('unavailable or malformed timelines never invent recordings and a refused day is forgotten',async()=>{
+ for(const [status,body] of [[200,[]],[200,{intervals:'x'}],[503,{error:'La vidéo est temporairement indisponible.'}]]){
+  const f=playbackFixture(async url=>url==='/api/cameras'?response(200,cameraSamples):url.includes('/timeline')?response(status,body):response(200,url.includes('/info')?{features:[]}:{days:3,enabled:true}));
+  f.run('selectedCamera="entry";cameraDetail=true;playbackDay="2026-11-06";');await f.run('renderSurveillance()');
+  const html=f.elements.get('#content').innerHTML;assert.match(html,/Enregistrements temporairement indisponibles/);assert.doesNotMatch(html,/pb-track/);
+  assert.equal(f.run('playbackData'),null);assert.equal(f.run('playbackDay'),'2026-11-06');
+ }
+ const f=playbackFixture(async url=>url==='/api/cameras'?response(200,cameraSamples):url.includes('/timeline')?response(400,{error:'Date hors de la période consultable.'}):response(200,url.includes('/info')?{features:[]}:{days:3,enabled:true}));
+ f.run('selectedCamera="entry";cameraDetail=true;playbackDay="2001-01-01";');await f.run('renderSurveillance()');
+ assert.equal(f.run('playbackDay'),'');
+});
+test('late timelines cannot replace the day after another choice, camera or page',async()=>{
+ const complete=[],f=playbackFixture(()=>new Promise(resolve=>complete.push(resolve)));
+ f.run('selectedCamera="entry";cameraDetail=true;playbackData=sample;');
+ const old=f.run('playbackLoad("2026-11-06")'),fresh=f.run('playbackLoad("2026-11-09")');
+ complete[1](response(200,{...playbackSample,day:'2026-11-09'}));await fresh;
+ complete[0](response(200,{...playbackSample,day:'2026-11-06'}));await old;
+ assert.equal(f.run('playbackDay'),'2026-11-09');assert.equal(f.run('playbackData.day'),'2026-11-09');
+ for(const leave of ['selectedCamera="garage"','cameraDetail=false','page="files"']){
+  f.run('selectedCamera="entry";cameraDetail=true;page="camera";');
+  const pending=f.run('playbackLoad("2026-11-08")');f.run(leave);
+  complete[complete.length-1](response(200,{...playbackSample,day:'2026-11-08'}));await pending;
+  assert.equal(f.run('playbackData.day'),'2026-11-09',leave);
+ }
 });
