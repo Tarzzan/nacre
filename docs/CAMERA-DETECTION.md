@@ -41,6 +41,7 @@ Les événements des nouveaux types apparaissent dans la [relecture](RECORDING-P
 - Pas de réglage des seuils, des zones, des masques ni de la résolution de détection. Les alertes de Frigate gardent leurs propres types.
 - Activer la détection consomme du processeur ; Nacre ne mesure pas cette charge avant d’appliquer.
 - Le choix se fait caméra par caméra ; pas de réglage commun à toutes.
+- Une seule copie de la configuration est gardée : celle d’avant le dernier réglage. Pas d’historique ni de retour arrière depuis l’interface.
 - L’application en mémoire dépend de la version de Frigate fournie avec Nacre (0.18.2). Frigate ne sait pas enregistrer lui-même un fichier au format qu’écrit Nacre : c’est pourquoi Nacre reste le seul rédacteur du fichier.
 - Si la détection a été basculée depuis Frigate, sa mémoire d’état prime sur le fichier au redémarrage. Un réglage appliqué depuis Nacre aligne les deux.
 
