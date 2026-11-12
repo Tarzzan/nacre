@@ -44,7 +44,7 @@ function playbackCard(data){
  const rect=(cls,[a,b])=>{const x=pbX(data,a),w=Math.max(pbX(data,b)-x,2);return `<rect class="${cls}" x="${x.toFixed(1)}" y="0" width="${w.toFixed(1)}" height="34"/>`;};
  const gaps=data.intervals.slice(1).map((v,i)=>[data.intervals[i][1],v[0]]);
  const detected=data.detections.length>0,moments=detected?data.detections:data.intervals.length>1?data.intervals:[];
- const count=data.hours.length,ticks=data.hours.map((h,i)=>i%3?'':`<span class="pb-s${Math.min(3,count-i)}">${esc(h.label)}</span>`).join('');
+ const count=data.hours.length,ticks=data.hours.map((h,i)=>i%3?'':`<span class="pb-s${Math.min(3,count-i)}${i%6?' pb-alt':''}">${esc(h.label)}</span>`).join('');
  const first=data.intervals[0]?.[0];
  return `<section class="card wide playback" id="playback"><div class="cardhead"><h2>Relecture</h2><span class="muted">Heures du NAS · ${esc(data.timezone)}</span></div><div class="pb-body">`+
  `<div class="pb-days">${button('playback-day','','left','small',`data-day="${esc(older?.day||'')}" aria-label="Jour enregistré précédent" ${older?'':'disabled'}`)}<select id="playback-day" aria-label="Jour à relire">${days.map(d=>`<option value="${esc(d.day)}" ${d.day===data.day?'selected':''}>${esc(pbDay(d.day))}${d.day===data.today?' (aujourd’hui)':''} · ${d.recorded?pbDuration(d.recorded):'aucun enregistrement'}</option>`).join('')}</select>${button('playback-day','','right','small',`data-day="${esc(newer?.day||'')}" aria-label="Jour enregistré suivant" ${newer?'':'disabled'}`)}</div>`+
