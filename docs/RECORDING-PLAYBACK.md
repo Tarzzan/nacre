@@ -1,6 +1,6 @@
 # Relire les enregistrements par jour
 
-Depuis **0.8.0-alpha.20**, la fiche d’une caméra dans **Surveillance** comporte une carte **Relecture**. Elle remplace la liste des derniers segments : tous les enregistrements encore conservés par Frigate deviennent accessibles depuis le navigateur, jour par jour. Depuis **0.8.0-alpha.21**, les événements du jour y apparaissent en vignettes, avec un filtre par type d’objet.
+Depuis **0.8.0-alpha.20**, la fiche d’une caméra dans **Surveillance** comporte une carte **Relecture**. Elle remplace la liste des derniers segments : tous les enregistrements encore conservés par Frigate deviennent accessibles depuis le navigateur, jour par jour. Depuis **0.8.0-alpha.21**, les événements du jour y apparaissent en vignettes, avec un filtre par type d’objet. Depuis **0.8.0-alpha.23**, une carte **Recherche d’événements** retrouve un passage [sur plusieurs jours](#rechercher-sur-plusieurs-jours).
 
 ![Événements filtrés sur le banc simulé](images/playback-events.jpg)
 
@@ -21,6 +21,22 @@ Les vignettes de cette capture sont des pictogrammes générés pour le banc ; a
 
 Un clic ou une heure dans une période sans enregistrement ne produit pas d’erreur : Nacre l’annonce et reprend au début de la plage suivante. Après la dernière plage, il indique qu’il n’y a plus rien à lire ce jour-là.
 
+## Rechercher sur plusieurs jours
+
+Sous la relecture, la carte **Recherche d’événements** évite de parcourir les jours un à un.
+
+![Recherche sur plusieurs jours sur le banc simulé](images/event-search.jpg)
+
+1. Choisir la période avec **Du** et **au** (les sept derniers jours par défaut), puis **Rechercher**. Rien n’est demandé au service vidéo avant ce clic.
+2. Lire le total, puis les vignettes regroupées par jour, du plus récent au plus ancien. Chaque jour indique son nombre d’événements.
+3. Choisir un **type d’objet** pour ne garder que lui sur toute la période. Les compteurs des autres types restent affichés.
+4. **Afficher la suite** ajoute les soixante événements suivants à la liste.
+5. Cliquer sur une vignette : son jour s’ouvre dans la carte **Relecture** et la lecture commence cinq secondes avant l’événement. Les résultats restent affichés pour en ouvrir un autre.
+
+Les événements peuvent être gardés plus longtemps que la vidéo. Quand Frigate n’annonce plus aucun enregistrement pour l’heure d’un événement, sa vignette porte **Vidéo non conservée** et ne s’ouvre pas. Cet indice est donné à l’heure près : si l’heure est encore en partie enregistrée mais que le passage ne l’est plus, la relecture l’annonce à l’ouverture au lieu de lire un autre moment.
+
+Les résultats sont gardés tant que la caméra reste ouverte, y compris après **Actualiser** ; ils ne sont pas relus automatiquement. Relancer **Rechercher** pour y voir les événements les plus récents.
+
 ## Ce que montrent les indications
 
 | Indication | Origine et portée |
@@ -38,16 +54,16 @@ Au-delà de la durée de conservation continue, Frigate ne garde que certains pa
 ## Périmètre et limites
 
 - **Types d’objets.** Nacre montre ce que Frigate suit. Une installation qui ne suit que les personnes n’affiche qu’un type, donc pas de filtre ; depuis alpha.22, les types suivis se choisissent dans la carte [Détection](CAMERA-DETECTION.md) de la caméra.
-- **Volume.** Mille événements au plus sont présentés par jour ; au-delà, la carte le signale. Les vignettes sont chargées à mesure du défilement et ne sont pas mises en cache par le navigateur.
+- **Volume.** Mille événements au plus sont présentés par jour ; au-delà, la carte le signale. La recherche compte les dix mille événements les plus récents de la période ; au-delà, elle l’indique et la suite reste accessible page par page. Les vignettes sont chargées à mesure du défilement et ne sont pas mises en cache par le navigateur.
 - **Vignettes.** Ce sont celles que Frigate produit (175 × 175 pixels sur l’installation mesurée). Chaque demande vérifie que l’événement appartient à la caméra consultée. Les instantanés en pleine résolution ne sont pas proposés.
 - **Lecture seule.** Aucune configuration, tâche ou vidéo n’est écrite. Frigate n’est ni redémarré ni reconfiguré. Un téléchargement est inscrit au journal d’activité avec le compte et le nom du fichier.
 - **Extraits de cinq minutes au plus**, produits à la demande par Frigate dans la qualité enregistrée. Sur la caméra mesurée, cinq minutes représentent environ 120 Mo. Ce volume transite par la console ; aucun plafond de taille n’est ajouté.
 - **Déplacement dans un extrait.** Frigate diffuse l’extrait sans plages d’octets : le curseur du lecteur ne permet pas toujours d’avancer dans la partie non encore reçue. La frise et l’heure saisie servent de déplacement.
 - **Fin d’extrait.** Un extrait s’arrête à la fin de sa plage. S’il manque un segment à l’intérieur, la vidéo obtenue est plus courte que l’intervalle annoncé.
 - **Jour en cours.** La frise reflète l’inventaire au chargement. **Actualiser** relit les enregistrements récents.
-- **Période consultable.** Dates jusqu’à 400 jours en arrière pour la frise, extraits jusqu’à 31 jours : la conservation réglable s’arrête à 30 jours.
+- **Période consultable.** Dates jusqu’à 400 jours en arrière pour la frise et la recherche, extraits jusqu’à 31 jours : la conservation réglable s’arrête à 30 jours.
 - **Comptes en lecture seule.** Ils consultent et téléchargent les extraits, comme ils consultaient déjà les clips. Les réglages et le pilotage restent réservés aux administrateurs.
-- **Non couvert.** Recherche sur plusieurs jours, filtre par zone ou par score, export de longues périodes, lecture synchronisée de plusieurs caméras, protection d’un passage contre la suppression et contrôle d’intégrité des fichiers vidéo.
+- **Non couvert.** Recherche sur plusieurs caméras à la fois, par nom reconnu ou par tranche horaire, filtre par zone ou par score, export de longues périodes, lecture synchronisée de plusieurs caméras, protection d’un passage contre la suppression et contrôle d’intégrité des fichiers vidéo.
 
 ## Erreurs affichées
 
@@ -57,6 +73,9 @@ Au-delà de la durée de conservation continue, Frigate ne garde que certains pa
 | Date hors de la période consultable | Jour futur ou trop ancien. Le choix est oublié à l’actualisation suivante. |
 | Cette heure n’existe pas ce jour-là | Saisie invalide, ou heure sautée par un passage à l’heure d’été. |
 | Événements indisponibles | Le service vidéo n’a pas fourni la liste des événements. La frise et les moments détectés restent utilisables. |
+| Recherche indisponible | Le service vidéo n’a pas fourni les événements de la période. Les résultats précédents restent affichés. |
+| Période invalide | La date de début suit la date de fin, ou une date est future ou trop ancienne. Rien n’est demandé au service vidéo. |
+| La vidéo de l’événement n’est plus conservée | Le jour s’est ouvert, mais aucune plage enregistrée ne recoupe l’événement. Aucun autre moment n’est lu à sa place. |
 | Vignette indisponible | Frigate ne fournit plus l’image de cet événement. La lecture reste possible si la vidéo est conservée. |
 | Extrait indisponible | Frigate n’a pas fourni la plage demandée, par exemple si elle vient d’être supprimée par la conservation. |
 
@@ -67,5 +86,7 @@ Huit tests Python sur inventaire simulé : fusion des segments, bornage au jour 
 Parcours navigateur sur un banc local : console réelle, service vidéo simulé, mire générée localement, trois jours dont un avec un trou et un ne gardant que des passages. Clic dans un trou, heure saisie, moment détecté, enchaînement automatique, retour de cinq minutes, changement de jour, téléchargement et date refusée y ont été contrôlés. Aucune image réelle n’est publiée.
 
 Événements (alpha.21) : trois tests Python supplémentaires sur le bornage au jour et à la caméra, les entrées malformées, le plafond, la relecture maintenue quand les événements manquent, et la vignette refusée pour un identifiant invalide ou une autre caméra. Trois tests JavaScript sur les vignettes, l’échappement, le filtre appliqué sans reconstruire la carte et le repli sur les moments détectés. Parcours navigateur sur le banc avec vignettes synthétiques, en largeur d’ordinateur et de téléphone.
+
+Recherche (alpha.23) : cinq tests Python sur un service simulé qui applique les filtres demandés : période par défaut, compteurs par type et par jour, type choisi, pages qui se suivent sans trou ni doublon, plafond de comptage avec suite accessible, indice de vidéo à l’heure près, demandes refusées avant toute requête vidéo, comptes en lecture seule et service indisponible. Quatre tests JavaScript : carte et résultats sans style en ligne, valeurs échappées, page suivante ajoutée sans recharger les vignettes, réponses tardives ou malformées écartées, ouverture d’un résultat dans la relecture et message quand la vidéo manque. Parcours navigateur sur le banc : quinze jours, 112 événements, deux pages, filtre, ouverture d’un résultat, en largeur d’ordinateur et de téléphone.
 
 Sur l’installation de développement, seules des lectures de l’API de Frigate ont servi à mesurer le format des réponses, le poids d’un extrait, l’absence de plages d’octets, puis la forme des événements et la taille des vignettes. Ces mesures concernent une caméra et une version de Frigate ; elles ne qualifient ni d’autres modèles ni une charge multi-caméra.

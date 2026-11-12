@@ -582,7 +582,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise Problem('Ce lien de connexion a expiré ou a déjà été utilisé.', 401)
                 session_token, _ = make_session('admin')
                 return self.reply(303, b'', extra={'Location': '/', 'Set-Cookie': f'nas_session={session_token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800'})
-            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/updates.js', '/components.js', '/playback.js', '/detection.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
+            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/updates.js', '/components.js', '/playback.js', '/detection.js', '/search.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
                 path = STATIC / ('index.html' if url.path == '/' else url.path[1:])
                 return self.reply(200, path.read_bytes(), mimetypes.guess_type(path)[0] or 'text/plain')
             if post and url.path == '/api/login':
@@ -744,6 +744,9 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == '/api/camera/timeline':
                 from playback import timeline
                 return self.reply(200, timeline(sys.modules[__name__], camera_id, query.get('day')))
+            if url.path == '/api/camera/search':
+                from playback import search
+                return self.reply(200, search(sys.modules[__name__], camera_id, query))
             if url.path == '/api/camera/event-thumbnail':
                 from playback import thumbnail, THUMBNAIL_MAX
                 with video_get(thumbnail(sys.modules[__name__], camera_id, query.get('id'))) as response:

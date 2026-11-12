@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.23 — Recherche d’événements sur plusieurs jours
+
+La fiche d’une caméra comporte une carte **Recherche d’événements** : une période de jours, puis les événements Frigate de cette période en vignettes, du plus récent au plus ancien, regroupés par jour avec leur nombre. Un filtre par type d’objet porte sur toute la période ; les résultats se chargent par pages de soixante. Un clic ouvre le jour de l’événement dans la **Relecture** et lance la lecture cinq secondes avant. Un événement dont la vidéo n’est plus conservée reste visible et l’indique. Lecture seule de Frigate ; aucun changement de schéma ni de module figé. 298 tests Python et 84 JavaScript. [Guide et limites](docs/RECORDING-PLAYBACK.md#rechercher-sur-plusieurs-jours).
+
 ## 0.8.0-alpha.22 — Détection et objets suivis par caméra
 
 La fiche d’une caméra comporte une carte **Détection** : état appliqué par Frigate et types d’objets suivis. Un administrateur active ou met en pause la détection et choisit les types parmi ceux que le modèle installé sait reconnaître (personnes, véhicules, animaux, objets). Le réglage est validé par Frigate, enregistré par Nacre avec copie de la configuration précédente, puis appliqué sans redémarrer le service vidéo : l’enregistrement continue. Nacre ne confirme qu’un réglage relu dans l’état de Frigate. Donne son utilité au filtre par type de la relecture. Aucun changement de schéma ni de module figé. 293 tests Python et 80 JavaScript. [Guide et limites](docs/CAMERA-DETECTION.md).

@@ -123,6 +123,14 @@ function playbackPlay(t,auto=false){
  if(!clip){playbackClip=null;pbCursor(null);return pbStatus(auto?'Fin des enregistrements de cette journée.':`Aucun enregistrement à partir de ${pbClock(t)} ce jour-là.`);}
  playbackShow(clip,clip.moved&&!auto?`Rien de conservé à ${pbClock(t)} : reprise à la plage suivante. `:'');
 }
+// Ouvre un événement trouvé par la recherche : charge son jour si besoin, puis lit cinq secondes avant.
+async function playbackOpen(day,start,end){
+ if(playbackData?.day!==day)await playbackLoad(day);
+ const data=playbackData;if(!data||data.day!==day)return;
+ if(pbKept(data,{start,end}))playbackPlay(pbLead(data,start,end));
+ else{playbackClip=null;pbCursor(null);pbStatus(`La vidéo de l’événement de ${pbClock(start)} n’est plus conservée.`);}
+ ($('#playback-player')||$('#playback'))?.scrollIntoView?.({block:'center'});
+}
 async function playbackLoad(day){
  const generation=sessionGeneration,request=++playbackRequest,camera=selectedCamera;
  const current=()=>generation===sessionGeneration&&page==='camera'&&cameraDetail&&selectedCamera===camera&&request===playbackRequest;

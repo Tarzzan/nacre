@@ -93,7 +93,7 @@ Un centre **Alertes** rassemble les incidents locaux, leur prise en compte et le
 
 ![Vue multi-caméra sur le banc simulé](docs/images/camera-overview.jpg)
 
-**Retrouver un moment dans les enregistrements.** La carte **Relecture** d’une caméra présente chaque jour conservé sur une frise : plages enregistrées, présence détectée et périodes sans enregistrement. Un clic, une heure saisie ou la vignette d’un événement lance la lecture, qui s’enchaîne et peut être téléchargée. Les événements se filtrent par type d’objet. [Relecture par jour et limites](docs/RECORDING-PLAYBACK.md). La carte **Détection** active la détection et choisit les types suivis (personnes, véhicules, animaux) sans redémarrer le service vidéo. [Détection et objets suivis](docs/CAMERA-DETECTION.md).
+**Retrouver un moment dans les enregistrements.** La carte **Relecture** d’une caméra présente chaque jour conservé sur une frise : plages enregistrées, présence détectée et périodes sans enregistrement. Un clic, une heure saisie ou la vignette d’un événement lance la lecture, qui s’enchaîne et peut être téléchargée. Les événements se filtrent par type d’objet, et une recherche les retrouve sur plusieurs jours. [Relecture par jour et limites](docs/RECORDING-PLAYBACK.md). La carte **Détection** active la détection et choisit les types suivis (personnes, véhicules, animaux) sans redémarrer le service vidéo. [Détection et objets suivis](docs/CAMERA-DETECTION.md).
 
 ![Événements d’une journée sur le banc simulé](docs/images/playback-events.jpg)
 
@@ -204,7 +204,7 @@ La CI rejoue les tests ordinaires ; **les tests privilégiés QEMU et matériels
 | [Note de reprise](docs/REPRISE.md) | État livré, décisions, limites et prochaine étape pour reprendre le développement |
 | [Vision](docs/VISION.md) | Positionnement, principes et ambition reformulée |
 | [Composants et caméras](docs/COMPONENTS-CAMERAS.md) | Installation web, connexions, protection des secrets et limites |
-| [Relecture des enregistrements](docs/RECORDING-PLAYBACK.md) | Frise par jour, événements en vignettes, extraits et limites |
+| [Relecture des enregistrements](docs/RECORDING-PLAYBACK.md) | Frise par jour, événements en vignettes, recherche sur plusieurs jours, extraits et limites |
 | [Détection et objets suivis](docs/CAMERA-DETECTION.md) | Activation, types suivis par caméra, application sans redémarrage et limites |
 | [Premier démarrage](docs/FIRST-RUN.md) | Assistant, composants optionnels et reprise du parcours |
 | [Installation](docs/INSTALLATION.md) | Prérequis, accès, configuration et mise à jour |

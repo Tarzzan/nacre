@@ -1,4 +1,4 @@
-"""Relecture des enregistrements : plages conservées par jour civil, événements et extraits bornés.
+"""Relecture des enregistrements : plages conservées par jour civil, événements, recherche sur une période et extraits bornés.
 
 Lecture seule de l'API interne de Frigate. Aucune configuration, tâche ou vidéo n'est écrite.
 """
@@ -7,6 +7,7 @@ import json
 import math
 import re
 import time
+from collections import Counter
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
@@ -24,6 +25,12 @@ EVENT_ID = re.compile(r'\d{1,12}(\.\d{1,9})?-[a-z0-9]{1,16}\Z')
 # Événements présentés pour une journée ; au-delà, la réponse signale qu'il en reste.
 EVENT_MAX = 1000
 THUMBNAIL_MAX = 2 * 1024 ** 2
+# Recherche sur une période : résultats servis par pages, compteurs établis sur les plus récents.
+LABEL = re.compile(r'[a-z][a-z0-9_ ]{0,31}\Z')
+SEARCH_PAGE = 60
+SEARCH_COUNTED = 10000
+SEARCH_DEFAULT_DAYS = 7
+SEARCH_UNAVAILABLE = 'Recherche indisponible : le service vidéo ne fournit pas les événements.'
 
 
 def zone(app):
@@ -83,18 +90,29 @@ def overlap(intervals, start, end):
     return sum(max(0, min(b, end) - max(a, start)) for a, b in intervals)
 
 
+def summary(app, camera, tz_name):
+    payload = fetch(app, f'/api/{camera}/recordings/summary?timezone={quote(tz_name, safe="/")}')
+    for item in payload if isinstance(payload, list) else []:
+        if isinstance(item, dict) and isinstance(item.get('day'), str) and DAY.fullmatch(item['day']):
+            yield item['day'], [h for h in item['hours'] if isinstance(h, dict) and number(h.get('duration')) and h['duration'] > 0] if isinstance(item.get('hours'), list) else []
+
+
 def available_days(app, camera, tz_name):
     """Jours civils pour lesquels Frigate annonce des enregistrements, du plus récent au plus ancien."""
-    payload = fetch(app, f'/api/{camera}/recordings/summary?timezone={quote(tz_name, safe="/")}')
     days = {}
-    for item in payload if isinstance(payload, list) else []:
-        if not isinstance(item, dict) or not isinstance(item.get('day'), str) or not DAY.fullmatch(item['day']):
-            continue
-        hours = item.get('hours') if isinstance(item.get('hours'), list) else []
-        seconds = sum(h['duration'] for h in hours if isinstance(h, dict) and number(h.get('duration')) and h['duration'] > 0)
+    for day, hours in summary(app, camera, tz_name):
+        seconds = sum(h['duration'] for h in hours)
         if seconds > 0:
-            days[item['day']] = days.get(item['day'], 0) + seconds
+            days[day] = days.get(day, 0) + seconds
     return [{'day': day, 'recorded': round(seconds)} for day, seconds in sorted(days.items(), reverse=True)[:HISTORY_DAYS]]
+
+
+def recorded_hours(app, camera, tz_name):
+    """Heures civiles (jour, heure) encore couvertes par un enregistrement ; None si Frigate ne le dit pas."""
+    try:
+        return {(day, h['hour']) for day, hours in summary(app, camera, tz_name) for h in hours if isinstance(h.get('hour'), str)}
+    except app.Problem:
+        return None
 
 
 def score(item):
@@ -103,6 +121,21 @@ def score(item):
         if number(value) and 0 < value <= 1:
             return round(value * 100)
     return None
+
+
+def event(item, camera, start, end, now):
+    """Événement Frigate réduit aux champs présentés, ou None s'il est inexploitable ou hors de l'intervalle."""
+    if not isinstance(item, dict) or item.get('camera') != camera:
+        return None
+    ident, label, begin, stop = item.get('id'), item.get('label'), item.get('start_time'), item.get('end_time')
+    if not isinstance(ident, str) or not EVENT_ID.fullmatch(ident) or not isinstance(label, str) or not 0 < len(label) <= 64:
+        return None
+    if not number(begin) or not start <= begin < end or not (stop is None or number(stop)):
+        return None
+    sub = item.get('sub_label')
+    sub = sub[0] if isinstance(sub, list) and sub else sub
+    return {'id': ident, 'label': label, 'sub_label': sub[:80] if isinstance(sub, str) and sub else None,
+            'start': begin, 'end': max(begin, now if stop is None else stop), 'ongoing': stop is None, 'score': score(item)}
 
 
 def events(app, camera, start, end, now):
@@ -116,20 +149,73 @@ def events(app, camera, start, end, now):
         return None, False
     if not isinstance(payload, list):
         return None, False
-    found = []
-    for item in payload[:EVENT_MAX]:
-        if not isinstance(item, dict) or item.get('camera') != camera:
-            continue
-        ident, label, begin, stop = item.get('id'), item.get('label'), item.get('start_time'), item.get('end_time')
-        if not isinstance(ident, str) or not EVENT_ID.fullmatch(ident) or not isinstance(label, str) or not 0 < len(label) <= 64:
-            continue
-        if not number(begin) or not start <= begin < end or not (stop is None or number(stop)):
-            continue
-        sub = item.get('sub_label')
-        sub = sub[0] if isinstance(sub, list) and sub else sub
-        found.append({'id': ident, 'label': label, 'sub_label': sub[:80] if isinstance(sub, str) and sub else None,
-                      'start': begin, 'end': max(begin, now if stop is None else stop), 'ongoing': stop is None, 'score': score(item)})
+    found = [e for e in (event(item, camera, start, end, now) for item in payload[:EVENT_MAX]) if e]
     return sorted(found, key=lambda e: e['start']), len(payload) > EVENT_MAX
+
+
+def search(app, camera, query, now=None):
+    """Événements d'une caméra sur une période de jours civils, du plus récent au plus ancien, par pages.
+
+    La première page porte les compteurs par type et par jour ; les suivantes se demandent avec `before`.
+    Lecture seule de Frigate.
+    """
+    now = time.time() if now is None else now
+    tz_name, tz = zone(app)
+    last, today = bounds(app, query.get('to') or None, tz, now)
+    last = last or today
+    first = bounds(app, query.get('from') or None, tz, now)[0] or max(last - datetime.timedelta(days=SEARCH_DEFAULT_DAYS - 1), today - datetime.timedelta(days=HISTORY_DAYS))
+    if first > last:
+        raise app.Problem('Période invalide : le début suit la fin.')
+    label = query.get('label') or ''
+    if label and not LABEL.fullmatch(label):
+        raise app.Problem('Type d’objet invalide.')
+    start, end = midnight(first, tz), min(midnight(last + datetime.timedelta(days=1), tz), now)
+    cursor = query.get('before')
+    if cursor is not None:
+        try:
+            cursor = float(cursor)
+        except ValueError:
+            cursor = math.nan
+        if not (math.isfinite(cursor) and start < cursor <= end):
+            raise app.Problem('Position de recherche invalide.')
+
+    def listing(before, limit, wanted=''):
+        try:
+            payload = fetch(app, f'/api/events?cameras={camera}&after={start}&before={before}&limit={limit + 1}&include_thumbnails=0&sort=date_desc' + (f'&labels={quote(wanted)}' if wanted else ''))
+        except app.Problem:
+            raise app.Problem(SEARCH_UNAVAILABLE, 503) from None
+        if not isinstance(payload, list):
+            raise app.Problem(SEARCH_UNAVAILABLE, 503)
+        found = [e for e in (event(item, camera, start, end, now) for item in payload[:limit]) if e]
+        return sorted(found, key=lambda e: -e['start']), len(payload) > limit
+
+    def civil(e):
+        return datetime.datetime.fromtimestamp(e['start'], tz)
+
+    facets = following = None
+    if end <= start:
+        page, facets = [], {'total': 0, 'matched': 0, 'more': False, 'types': [], 'days': []}
+    elif cursor is None:
+        counted, more = listing(end, SEARCH_COUNTED)
+        chosen = [e for e in counted if not label or e['label'] == label]
+        types, days = Counter(e['label'] for e in counted), Counter(civil(e).date().isoformat() for e in chosen)
+        facets = {'total': len(counted), 'matched': len(chosen), 'more': more,
+                  'types': [{'label': name, 'count': count} for name, count in sorted(types.items(), key=lambda t: (-t[1], t[0]))],
+                  'days': [{'day': day, 'count': count} for day, count in sorted(days.items(), reverse=True)]}
+        page = chosen[:SEARCH_PAGE]
+        # Au-delà des événements comptés, la suite se lit directement dans Frigate.
+        following = page[-1]['start'] if len(chosen) > SEARCH_PAGE else counted[-1]['start'] if more and counted else None
+    else:
+        page, more = listing(cursor, SEARCH_PAGE, label)
+        following = page[-1]['start'] if more and page else None
+    hours = recorded_hours(app, camera, tz_name) if page else None
+    for e in page:
+        moment = civil(e)
+        e['day'] = moment.date().isoformat()
+        # Indice seulement : la relecture du jour dit précisément ce qui est conservé.
+        e['recorded'] = hours is None or (e['day'], moment.strftime('%H')) in hours
+    return {'camera': camera, 'timezone': tz_name, 'from': first.isoformat(), 'to': last.isoformat(), 'today': today.isoformat(),
+            'label': label, 'events': page, 'next': following, 'facets': facets}
 
 
 def thumbnail(app, camera, ident):
