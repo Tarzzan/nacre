@@ -704,7 +704,7 @@ const eventSamples=[{id:'1794186400.5-aaaa11',label:'person',sub_label:null,star
  {id:'1794187000.5-bbbb22',label:'car',sub_label:'Voisin <b>',start:dayStart+4600,end:dayStart+4660,ongoing:false,score:null},
  {id:'1794190000.5-cccc33',label:'person',sub_label:null,start:dayStart+15000,end:dayStart+15020,ongoing:false,score:81},
  {id:'1794200500.5-dddd44',label:'"><img src=x>',sub_label:null,start:dayStart+18100,end:dayStart+86500,ongoing:true,score:60}];
-function eventFixture(){const f=playbackFixture(async()=>response(200,{}));f.context.sample.events=JSON.parse(JSON.stringify(eventSamples));f.context.sample.events_more=false;return f;}
+function eventFixture(){const f=playbackFixture(async()=>response(200,{}));f.context.eventSamples=eventSamples;f.context.sample.events=JSON.parse(JSON.stringify(eventSamples));f.context.sample.events_more=false;return f;}
 test('events become thumbnails with a type filter, without inline styles or unescaped values',()=>{
  const f=eventFixture();
  let html=f.run('playbackData=sample;playbackCard(sample)');
@@ -724,6 +724,11 @@ test('events become thumbnails with a type filter, without inline styles or unes
  assert.equal((html.match(/class="pb-event"[^>]* hidden>/g)||[]).length,3);assert.match(html,/data-label="car" aria-pressed="true"/);assert.match(html,/data-label="" aria-pressed="false"/);
  assert.match(html,/<rect class="pb-evt" data-kind="mark" data-label="car" x="76\.7" y="0" width="5\.0" height="11" visibility="visible"/);
  assert.equal((html.match(/visibility="visible"/g)||[]).length,1);assert.match(html,/id="playback-count" role="status">1 sur 4 · Voiture</);assert.match(html,/id="playback-mark-legend"><i class="pb-evt"><\/i><span>Voiture</);
+ // Un événement au tout début d’une plage part du début de la plage, pas du trou qui la précède.
+ html=f.run('playbackLabel="";sample.events[3].start=sample.start+18002;playbackCard(sample)');
+ assert.match(html,new RegExp(`data-start="${dayStart+18000}"><img[^>]*id=1794200500`));
+ html=f.run('sample.detections=[[sample.start+3601,sample.start+3620]];sample.events=[];playbackCard(sample)');assert.match(html,new RegExp(`data-action="playback-moment" data-start="${dayStart+3600}"`));
+ f.run('sample.events=JSON.parse(JSON.stringify(eventSamples));');
  // Un type absent ce jour-là ne masque rien ; le choix est gardé pour les autres jours.
  html=f.run('playbackLabel="dog";playbackCard(sample)');
  assert.doesNotMatch(html,/class="pb-event"[^>]* hidden>/);assert.match(html,/data-label="" aria-pressed="true"/);assert.equal(f.run('playbackLabel'),'dog');

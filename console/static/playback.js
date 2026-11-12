@@ -53,6 +53,8 @@ function pbCount(data){
  return `${total} événement${total>1?'s':''}${types.length===1?' · '+pbLabel(types[0][0]):''}`;
 }
 function pbKept(data,e){return data.intervals.some(([a,b])=>e.start<b&&e.end>=a);}
+// Départ cinq secondes avant le moment, sans sortir de la plage conservée qui le contient.
+function pbLead(data,a,b=a){const range=data.intervals.find(([x,y])=>a<y&&b>=x);return Math.max(range?range[0]:data.start,a-5);}
 function playbackEvents(data){
  const active=pbActive(data),types=pbTypes(data);
  const chip=(label,text,n)=>`<button type="button" class="pb-chip" data-action="playback-filter" data-kind="chip" data-label="${esc(label)}" aria-pressed="${label===active}">${esc(text)}<b>${n}</b></button>`;
@@ -60,7 +62,7 @@ function playbackEvents(data){
  (types.length>1?`<div class="pb-filter" role="group" aria-label="Filtrer par type d’objet">${chip('','Tous',data.events.length)}${types.map(([label,n])=>chip(label,pbLabel(label),n)).join('')}</div>`:'')+
  `<div class="pb-events">${data.events.map(e=>{
   const kept=pbKept(data,e),what=pbLabel(e.label)+(e.sub_label?' · '+e.sub_label:''),meta=[pbClock(e.start),e.ongoing?'en cours':pbDuration(e.end-e.start),e.score?e.score+' %':''].filter(Boolean).join(' · ');
-  return `<button type="button" class="pb-event" data-action="playback-event" data-kind="event" data-label="${esc(e.label)}" data-start="${Math.max(data.start,e.start-5)}"${kept?'':' disabled'}${active&&e.label!==active?' hidden':''}><img class="pb-thumb" src="/api/camera/event-thumbnail?camera=${encodeURIComponent(data.camera)}&id=${encodeURIComponent(e.id)}" alt="" loading="lazy" width="175" height="175"><strong>${esc(what)}</strong><span>${esc(meta)}</span>${kept?'':'<em>Vidéo non conservée</em>'}</button>`;
+  return `<button type="button" class="pb-event" data-action="playback-event" data-kind="event" data-label="${esc(e.label)}" data-start="${pbLead(data,e.start,e.end)}"${kept?'':' disabled'}${active&&e.label!==active?' hidden':''}><img class="pb-thumb" src="/api/camera/event-thumbnail?camera=${encodeURIComponent(data.camera)}&id=${encodeURIComponent(e.id)}" alt="" loading="lazy" width="175" height="175"><strong>${esc(what)}</strong><span>${esc(meta)}</span>${kept?'':'<em>Vidéo non conservée</em>'}</button>`;
  }).join('')}</div>`+
  (data.events_more?`<p class="capacity-note">Seuls les ${data.events.length} premiers événements de la journée sont affichés. Utilisez la frise ou l’heure pour atteindre les suivants.</p>`:'');
 }
@@ -98,7 +100,7 @@ function playbackCard(data){
  (gaps.length?`<p class="capacity-note">Sans enregistrement : ${gaps.slice(0,3).map(([a,b])=>`${pbClock(a)} → ${pbClock(b)}`).join(', ')}${gaps.length>3?` et ${gaps.length-3} autre${gaps.length>4?'s':''} période${gaps.length>4?'s':''}`:''}.</p>`:'')+
  `<div class="pb-go"><label for="playback-time">Lire à partir de</label><input id="playback-time" type="time" step="1" value="${esc(pbClock(first))}">${button('playback-go','Lire',null,'primary small')}</div>`+
  `<div id="playback-player"></div>`+
- (events?.length?playbackEvents(data):(events?'':'<p class="capacity-note">Événements indisponibles : le service vidéo ne les a pas fournis. La frise et les moments restent utilisables.</p>')+(moments.length?`<h3>${detected?'Moments avec présence détectée':'Plages enregistrées'}</h3><div class="pb-moments">${table(['Début','Fin','Durée',''],moments.slice(0,PB_ROWS).map(([a,b])=>`<tr><td>${pbClock(a)}</td><td>${pbClock(b)}</td><td>${pbDuration(b-a)}</td><td>${button('playback-moment','Lire',null,'small',`data-start="${Math.max(data.start,a-(detected?5:0))}"`)}</td></tr>`))}</div>${moments.length>PB_ROWS?`<p class="capacity-note">${PB_ROWS} premiers moments affichés sur ${moments.length}. Utilisez la frise ou l’heure pour atteindre les suivants.</p>`:''}`:'')))+
+ (events?.length?playbackEvents(data):(events?'':'<p class="capacity-note">Événements indisponibles : le service vidéo ne les a pas fournis. La frise et les moments restent utilisables.</p>')+(moments.length?`<h3>${detected?'Moments avec présence détectée':'Plages enregistrées'}</h3><div class="pb-moments">${table(['Début','Fin','Durée',''],moments.slice(0,PB_ROWS).map(([a,b])=>`<tr><td>${pbClock(a)}</td><td>${pbClock(b)}</td><td>${pbDuration(b-a)}</td><td>${button('playback-moment','Lire',null,'small',`data-start="${detected?pbLead(data,a,b):a}"`)}</td></tr>`))}</div>${moments.length>PB_ROWS?`<p class="capacity-note">${PB_ROWS} premiers moments affichés sur ${moments.length}. Utilisez la frise ou l’heure pour atteindre les suivants.</p>`:''}`:'')))+
  `<p class="capacity-note">Les extraits durent 5 minutes au plus et s’enchaînent jusqu’à la fin de la plage. La présence détectée et les événements proviennent du suivi d’objets de Frigate ; ils ne sont ni exhaustifs ni une alarme. Un événement est rattaché au jour où il commence. Au-delà de la conservation continue, Frigate peut ne garder que certains passages.</p></div></section>`;
 }
 function pbCursor(t){
