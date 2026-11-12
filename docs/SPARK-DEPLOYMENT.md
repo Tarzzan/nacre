@@ -1,5 +1,27 @@
 # Déploiements de la console sur Spark
 
+## 12 novembre 2026 — alpha.22
+
+L’installation alpha.21 a reçu le paquet `nacre-0.8.0-alpha.22.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.22), construit depuis le commit [`55050b7`](https://github.com/Tarzzan/nacre/commit/55050b75f69cf9a428945392409f6d0826965e96) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
+
+Avant l’import : neuf modules figés identiques entre Spark et le paquet, aucune tâche active, répétition de la mise à jour alpha.21 → alpha.22 sur une console et son superviseur en répertoire temporaire. Le fichier importé est celui téléchargé depuis la release, empreinte contrôlée. Il a été envoyé par une session administrateur temporaire, refermée ensuite ; l’installation a été confirmée et suivie dans le navigateur jusqu’à **Mise à jour réussie**, session conservée.
+
+Le superviseur a enregistré la préparation à 10 h 41 min 40 s et la validation à 10 h 42 min 15 s, heure de Guyane, confirmation humaine comprise. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés et configuration Samba identiques avant et après. Conteneurs Samba et Frigate inchangés (identifiants et heures de démarrage), service systemd non relancé. Samba a répondu à `smbcontrol smbd ping`.
+
+La carte [Détection](CAMERA-DETECTION.md) a ensuite été éprouvée sur la caméra réelle, depuis le navigateur :
+
+- État lu : détection active, personnes suivies, dix-neuf types proposés d’après le modèle installé.
+- **Voiture** ajoutée puis retirée, par deux réglages confirmés en 9 secondes chacun, validation par Frigate comprise. Entre les deux, Frigate annonçait bien les deux types, chacun avec son filtre aux seuils par défaut.
+- Un troisième envoi du réglage déjà appliqué a répondu **Aucun changement**.
+- Frigate n’a pas redémarré (même heure de démarrage, état sain). L’enregistrement est resté continu : 89 segments sur le quart d’heure, aucun trou. La caméra est restée à 5 images par seconde, aucune image ignorée, aucune erreur dans les journaux de Frigate sur la demi-heure.
+- Les deux réglages figurent au journal d’activité.
+
+La configuration Frigate a donc changé, et seulement ainsi : le fichier indique désormais la détection active et les personnes suivies. Avant, il indiquait la détection désactivée alors qu’elle était active par la seule mémoire d’état de Frigate ; le fichier et l’état appliqué concordent maintenant. La copie de la configuration précédente est conservée dans le répertoire privé de la console. Les types suivis sont revenus à leur état d’origine : le choix de ce que la caméra doit suivre reste à faire par son propriétaire.
+
+Limites de ce contrôle : aucune voiture n’étant passée pendant les trente secondes de suivi, la reconnaissance d’un nouveau type n’a pas été observée. La bascule de la détection (pause puis reprise) n’a pas été exercée sur Spark pour ne pas suspendre la détection en service ; elle l’a été sur un second Frigate temporaire, sans réseau ni caméra, lancé puis retiré de Spark avant la fusion. Aucune image de surveillance n’a été capturée ni publiée.
+
+Les copies de retour arrière occupent 4,6 Mo pour trois mises à jour dans `state/console/updates/`, toujours sans purge automatique. Le fuseau de la console n’est toujours pas réglé (heures UTC). Aucune panne n’a été injectée sur Spark.
+
 ## 12 novembre 2026 — alpha.21
 
 L’installation alpha.20 a reçu le paquet `nacre-0.8.0-alpha.21.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.21), construit depuis le commit [`8d603df`](https://github.com/Tarzzan/nacre/commit/8d603df60f4fab492fa8b03d220a4c09717ce225) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md) qu’alpha.20.
