@@ -17,6 +17,12 @@ Nacre réunit l’administration des fichiers, des partages réseau, des volumes
 
 ## Dans le navigateur
 
+### Administrer le NAS depuis un panneau commun
+
+Le **Panneau de configuration** rassemble les accès au stockage, aux partages, aux sauvegardes et aux services. Il permet de régler le nom et le fuseau de la console, puis de déconnecter les sessions d’un compte en conservant sa session d’administration. [Guide et limites](docs/CONTROL-PANEL.md).
+
+![Panneau de configuration sur le banc isolé](docs/images/control-panel.jpg)
+
 ### Maîtriser la conservation des sauvegardes
 
 **Choisir quand le nettoyage démarre.** Réservez la rétention automatique à un créneau quotidien. Les captures en attente sont regroupées et le navigateur distingue l’attente d’un échec ; une opération commencée termine son contrôle. [Créneau de maintenance](docs/MAINTENANCE-WINDOW.md).
@@ -136,7 +142,7 @@ La [reprise sur Linux neuf](docs/FRESH-LINUX.md) retrouve données, clés et com
 | Snapshots natifs | Btrfs, ZFS, LVM classique/thin ; clones Btrfs/ZFS, copie LVM ext4/XFS | Clone ZFS non monté ; pas de programmation native |
 | Surveillance | Inventaire multi-caméra, ajout et correction Tapo/RTSP, direct sélectionné, clips et PTZ ONVIF | Une Tapo C530WS validée historiquement ; charge et compatibilité multi-caméra réelles à qualifier |
 | Composants | Installation web de restic, Samba et Frigate, progression persistante | Docker et droits natifs à préparer sur Linux |
-| Administration | Sessions, rôles, CSRF, services, journal d’activité | Pas de MFA ni d’orchestration multi-NAS |
+| Administration | Panneau de configuration, préférences versionnées, révocation des sessions, rôles, CSRF, services, journal d’activité | Pas de MFA ni d’orchestration multi-NAS |
 
 **Taille des fichiers et sauvegardes :** aucun plafond applicatif fixe ; les limites physiques du stockage et les contrôles de capacité restent applicables.
 

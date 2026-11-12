@@ -52,7 +52,7 @@ def account(app, body, session):
     return {'csrf': csrf, 'phase': 'system'}
 
 
-def finish(app, body, session):
+def preferences(app, body):
     name, timezone = body.get('name'), body.get('timezone')
     if not isinstance(name, str) or not 1 <= len(name.strip()) <= 48 or any(ord(c) < 32 for c in name):
         raise app.Problem('Le nom du NAS doit contenir de 1 à 48 caractères.')
@@ -62,12 +62,17 @@ def finish(app, body, session):
         ZoneInfo(timezone)
     except (ValueError, ZoneInfoNotFoundError):
         raise app.Problem('Fuseau horaire inconnu sur ce système.') from None
+    return name.strip(), timezone
+
+
+def finish(app, body, session):
+    name, timezone = preferences(app, body)
     with app.database() as db:
         db.execute('BEGIN IMMEDIATE')
         state = read(app, db)
         if state['phase'] == 'account':
             raise app.Problem('Sécurisez d’abord le compte administrateur.', 409)
-        state.update(phase='complete', name=name.strip(), timezone=timezone)
+        state.update(phase='complete', name=name, timezone=timezone, preferences_revision=state.get('preferences_revision',0)+1)
         write(db, state)
         db.execute('INSERT INTO audit(ts,username,action,detail) VALUES(?,?,?,?)', (time.time(), session['name'], 'Première configuration enregistrée', ''))
     return state

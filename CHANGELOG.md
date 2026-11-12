@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.18 — Panneau de configuration du NAS
+
+Point d’entrée pour l’administration quotidienne : identité et fuseau de la console, accès regroupés au stockage, aux partages, à la protection et à l’exploitation. Préférences versionnées contre les écrasements entre onglets. Décompte des sessions valides et révocation ciblée avec maintien de la session courante, sans changement des comptes SMB. 262 tests Python et 60 JavaScript. [Guide et parcours illustré](docs/CONTROL-PANEL.md).
+
 ## 0.8.0-alpha.17 — Préserver les communications Frigate après une déconnexion
 
 Image Frigate dérivée de bases épinglées, avec correction ciblée de la course entre le contrôle WebSocket et l’envoi. Une fermeture ne tue plus le lecteur IPC dans le scénario reproduit ; les autres erreurs restent visibles. Construction intégrée au navigateur et aux reprises, refus d’un source amont inattendu. 254 tests Python, 53 JavaScript et cinq tests du moteur réel sur chaque architecture. [Cause, reproduction et limites](docs/FRIGATE-WEBSOCKET.md).
