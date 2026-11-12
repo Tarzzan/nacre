@@ -93,6 +93,10 @@ Un centre **Alertes** rassemble les incidents locaux, leur prise en compte et le
 
 ![Vue multi-caméra sur le banc simulé](docs/images/camera-overview.jpg)
 
+**Retrouver un moment dans les enregistrements.** La carte **Relecture** d’une caméra présente chaque jour conservé sur une frise : plages enregistrées, présence détectée et périodes sans enregistrement. Un clic, une heure saisie ou un moment détecté lance la lecture, qui s’enchaîne et peut être téléchargée. [Relecture par jour et limites](docs/RECORDING-PLAYBACK.md).
+
+![Relecture d’une journée sur le banc simulé](docs/images/recording-playback.jpg)
+
 ### Installer les composants et connecter les caméras
 
 **Samba et Frigate : installation réelle vérifiée sur Linux ARM64 neuf.** Déclenchement depuis Services, suivi nommé, contrôle de disponibilité et conservation des données à la relance. [Procédure, versions et résultats](docs/FRESH-WEB-INSTALL.md).
@@ -146,7 +150,7 @@ La [reprise sur Linux neuf](docs/FRESH-LINUX.md) retrouve données, clés et com
 | Protection | Restic chiffré et dédupliqué, sources multiples, restauration privée, plans horaires, rétention manuelle ou après réussite | Captures de fichiers non atomiques ; rétention calendaire et créneaux disponibles, quotas non gérés |
 | Volumes | Inventaire, diagnostic SMART selon droits, disque entier ext4/Btrfs, miroir RAID1 | Opérations privilégiées validées en VM ; reconstruction RAID1 Btrfs qualifiée en VM ; pas de partitionnement |
 | Snapshots natifs | Btrfs, ZFS, LVM classique/thin ; clones Btrfs/ZFS, copie LVM ext4/XFS | Clone ZFS non monté ; pas de programmation native |
-| Surveillance | Inventaire multi-caméra, ajout et correction Tapo/RTSP, direct sélectionné, clips et PTZ ONVIF | Une Tapo C530WS validée historiquement ; charge et compatibilité multi-caméra réelles à qualifier |
+| Surveillance | Inventaire multi-caméra, ajout et correction Tapo/RTSP, direct sélectionné, relecture par jour avec frise, moments détectés et extraits téléchargeables, PTZ ONVIF | Une Tapo C530WS validée historiquement ; extraits de 5 minutes, sans vignettes ni recherche par objet ; charge et compatibilité multi-caméra réelles à qualifier |
 | Composants | Installation web de restic, Samba et Frigate, progression persistante | Docker et droits natifs à préparer sur Linux |
 | Administration | Panneau de configuration, préférences versionnées, révocation des sessions, rôles, CSRF, services, journal d’activité | Pas de MFA ni d’orchestration multi-NAS |
 
@@ -185,7 +189,7 @@ La console web tourne en utilisateur. Le service natif expose des opérations fe
 
 ## Ce qui est vérifié
 
-- **193 tests Python et 20 tests JavaScript**, dont reprise après arrêt brutal, intégrité des copies, protection des clés, refus de reprise dangereuse, rétention sur dépôt chiffré et expiration de session. Un scénario QEMU distinct vérifie comptes web/Samba, SID, données et rattachement du dépôt.
+- **282 tests Python et 74 tests JavaScript**, dont reprise après arrêt brutal, intégrité des copies, protection des clés, refus de reprise dangereuse, rétention sur dépôt chiffré et expiration de session. Un scénario QEMU distinct vérifie comptes web/Samba, SID, données et rattachement du dépôt.
 - Dépôt HTTP de 257 Mio et archive contenant un fichier de 1 Gio + 7 octets.
 - Sauvegarde chiffrée, restauration multivolume, droits SMB et exclusion des dossiers internes.
 - Banc QEMU avec vrais systèmes de fichiers et disques images : snapshots, provisionnement, restauration LVM, perte/remontage d’un volume.
@@ -197,8 +201,10 @@ La CI rejoue les tests ordinaires ; **les tests privilégiés QEMU et matériels
 
 | Document | Contenu |
 | :--- | :--- |
+| [Note de reprise](docs/REPRISE.md) | État livré, décisions, limites et prochaine étape pour reprendre le développement |
 | [Vision](docs/VISION.md) | Positionnement, principes et ambition reformulée |
 | [Composants et caméras](docs/COMPONENTS-CAMERAS.md) | Installation web, connexions, protection des secrets et limites |
+| [Relecture des enregistrements](docs/RECORDING-PLAYBACK.md) | Frise par jour, moments détectés, extraits et limites |
 | [Premier démarrage](docs/FIRST-RUN.md) | Assistant, composants optionnels et reprise du parcours |
 | [Installation](docs/INSTALLATION.md) | Prérequis, accès, configuration et mise à jour |
 | [Architecture](docs/ARCHITECTURE.md) | Composants, données persistantes, frontières de confiance |
