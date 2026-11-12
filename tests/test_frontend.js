@@ -428,7 +428,7 @@ test('opening view distinguishes unrestricted empty ongoing and repeated local h
 
 function cameraFixture(fetch){
  const f=fixture(fetch);
- for(const name of ['components.js','playback.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static',name),'utf8'),f.context);
+ for(const name of ['components.js','playback.js','detection.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static',name),'utf8'),f.context);
  f.run('user={name:"admin",role:"admin"};shell();page="camera";');return f;
 }
 const cameraSamples=[{id:'entry',name:'Entrée',enabled:true,status:'receiving',online:true,fps:5,observed_at:1700000000,days:3},
@@ -452,7 +452,7 @@ test('only the selected camera opens a live stream and returning removes it imme
  const calls=[],f=cameraFixture(async url=>{calls.push(url);return response(200,url==='/api/cameras'?cameraSamples:url.includes('/info')?{features:['pt']}:url.includes('/settings')?{days:3,enabled:true}:[]);});
  f.run('selectedCamera="entry";cameraDetail=true;');await f.run('renderSurveillance()');
  assert.match(f.elements.get('#content').innerHTML,/src="\/api\/camera\/live\?camera=entry"/);
- assert.equal(calls.filter(u=>u.startsWith('/api/camera/')).length,3);
+ assert.equal(calls.filter(u=>u.startsWith('/api/camera/')).length,4);
  assert.ok(calls.slice(1).every(u=>u.endsWith('?camera=entry')));
  f.run('cameraDetail=false;');const pending=f.run('renderSurveillance()');
  assert.doesNotMatch(f.elements.get('#content').innerHTML,/<img/);await pending;
@@ -470,9 +470,9 @@ test('late camera catalogs cannot override a newer refresh or navigation',async(
 test('late camera details cannot reopen a live stream after returning to overview',async()=>{
  const complete=[],f=cameraFixture(url=>url==='/api/cameras'?Promise.resolve(response(200,cameraSamples)):new Promise(resolve=>complete.push(resolve)));
  f.run('selectedCamera="entry";cameraDetail=true;');const detail=f.run('renderSurveillance()');
- for(let n=0;n<8&&!complete.length;n++)await Promise.resolve();assert.equal(complete.length,3);
+ for(let n=0;n<8&&!complete.length;n++)await Promise.resolve();assert.equal(complete.length,4);
  f.run('cameraDetail=false;');await f.run('renderSurveillance()');
- complete[0](response(200,{features:['pt']}));complete[1](response(200,[]));complete[2](response(200,{days:3}));await detail;
+ complete[0](response(200,{features:['pt']}));complete[1](response(200,[]));complete[2](response(200,{days:3}));complete[3](response(200,{enabled:true,tracked:['person'],groups:[]}));await detail;
  assert.match(f.elements.get('#content').innerHTML,/camera-catalog/);assert.doesNotMatch(f.elements.get('#content').innerHTML,/camera\/live/);
 });
 test('paused cameras have no live or enabled PTZ even with old metrics and capabilities',async()=>{
@@ -762,4 +762,47 @@ test('filter updates the open card in place and an event thumbnail starts playba
  const classes=[],img={id:'',hidden:false,classList:{contains:c=>c==='pb-thumb'},parentElement:{classList:{add:c=>classes.push(c)}}};
  for(const fn of f.listeners.get('error'))fn({target:img});
  assert.equal(img.hidden,true);assert.deepEqual(classes,['pb-nothumb']);assert.match(player.innerHTML,/<video/);
+});
+
+const detectionSample={enabled:true,tracked:['person','car'],groups:[{id:'people',name:'Personnes',labels:['person']},{id:'vehicles',name:'Véhicules',labels:['car','bicycle']},{id:'others',name:'Autres types déjà suivis',labels:['<b>x</b>']}]};
+test('detection card shows the applied state without inline styles or unescaped values',()=>{
+ const f=cameraFixture(async()=>response(200,{}));f.context.d=JSON.parse(JSON.stringify(detectionSample));f.context.d.tracked.push('<b>x</b>');
+ let html=f.run('detectionCard(detectionValid(d))');
+ assert.match(html,/id="detection"/);assert.match(html,/<span class="badge ">Active<\/span>/);
+ assert.match(html,/<span class="dt-type">Personne<\/span><span class="dt-type">Voiture<\/span><span class="dt-type">&lt;b&gt;x&lt;\/b&gt;<\/span>/);
+ assert.match(html,/data-action="detection-edit"/);assert.doesNotMatch(html,/style=|<b>x/);assert.doesNotMatch(html,/en pause/i);
+ f.run('d.enabled=false;user.role="viewer";');html=f.run('detectionCard(detectionValid(d))');
+ assert.match(html,/<span class="badge dim">En pause<\/span>/);assert.match(html,/aucun événement n’est créé/);assert.doesNotMatch(html,/detection-edit/);
+ for(const bad of ['null','[]','{enabled:"yes",tracked:[],groups:[]}','{enabled:true,tracked:"person",groups:[]}','{enabled:true,tracked:[7],groups:[]}','{enabled:true,tracked:[],groups:[{name:"x",labels:"y"}]}']){
+  assert.equal(f.run(`detectionValid(${bad})`),null,bad);
+ }
+ html=f.run('detectionCard(null)');assert.match(html,/Indisponible/);assert.doesNotMatch(html,/detection-edit|dt-type/);
+});
+test('camera detail asks for detection once and survives its absence',async()=>{
+ const calls=[],answer=detection=>async url=>{calls.push(url);if(url.includes('/detection'))return detection;
+  return response(200,url==='/api/cameras'?cameraSamples:url.includes('/info')?{features:[]}:url.includes('/settings')?{days:3,enabled:true}:playbackSample);};
+ let f=playbackFixture(answer(response(200,detectionSample)));
+ f.run('selectedCamera="entry";cameraDetail=true;');await f.run('renderSurveillance()');
+ assert.equal(calls.filter(u=>u==='/api/camera/detection?camera=entry').length,1);
+ let html=f.elements.get('#content').innerHTML;assert.match(html,/<span class="dt-type">Voiture<\/span>/);assert.ok(html.indexOf('id="detection"')<html.indexOf('id="playback"'));
+ for(const detection of [response(503,{error:'Détection indisponible.'}),response(200,{enabled:true})]){
+  f=playbackFixture(answer(detection));f.run('selectedCamera="entry";cameraDetail=true;detectionData={enabled:true,tracked:["person"],groups:[]};');await f.run('renderSurveillance()');
+  html=f.elements.get('#content').innerHTML;assert.match(html,/id="detection"[^]*Indisponible/);assert.match(html,/pb-track/);assert.equal(f.run('detectionData'),null);
+ }
+});
+test('detection form proposes the offered types and posts the choice for the open camera',async()=>{
+ const posts=[],f=cameraFixture(async(url,options)=>{posts.push([url,options?.body]);return response(200,{message:'Détection mise à jour.'});});
+ f.context.captured=null;f.context.cameraSamples=cameraSamples;f.context.d=JSON.parse(JSON.stringify(detectionSample));
+ f.run('modal=(title,content,label,submit)=>{captured={title,content,label,submit};};selectedCamera="entry";cameraDetail=true;cameraCatalog=cameraSamples;detectionData=detectionValid(d);');
+ const click=async()=>{const el={dataset:{action:'detection-edit'}};for(const fn of f.listeners.get('click'))await fn({target:{closest:s=>s.includes('detection-edit')?el:null},preventDefault(){}});};
+ await click();const shown=f.run('captured');
+ assert.equal(shown.title,'Détection · Entrée');assert.equal(shown.label,'Appliquer');
+ assert.match(shown.content,/name="enabled" checked/);assert.match(shown.content,/<legend>Véhicules<\/legend>/);
+ assert.match(shown.content,/value="car" checked>Voiture/);assert.match(shown.content,/value="bicycle" >Vélo/);assert.match(shown.content,/value="&lt;b&gt;x&lt;\/b&gt;"/);
+ assert.match(shown.content,/sans redémarrer le service vidéo/);assert.doesNotMatch(shown.content,/style=|<b>x/);
+ const form={has:name=>name==='enabled',getAll:name=>name==='track'?['person','bicycle']:[]};
+ const result=await shown.submit(form);assert.equal(result.message,'Détection mise à jour.');
+ const [url,body]=posts.at(-1);assert.equal(url,'/api/camera/detection');assert.deepEqual(JSON.parse(body),{camera:'entry',enabled:true,track:['person','bicycle']});
+ // Un lecteur, une autre page ou un état indisponible n’ouvrent rien.
+ for(const setup of ['user.role="viewer"','user.role="admin";page="home"','page="camera";detectionData=null']){f.run('captured=null;'+setup);await click();assert.equal(f.run('captured'),null,setup);}
 });

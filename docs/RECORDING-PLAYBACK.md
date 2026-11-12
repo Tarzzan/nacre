@@ -37,7 +37,7 @@ Au-delà de la durée de conservation continue, Frigate ne garde que certains pa
 
 ## Périmètre et limites
 
-- **Types d’objets.** Nacre montre ce que Frigate suit. Une installation qui ne suit que les personnes n’affiche qu’un type, donc pas de filtre ; le choix des objets suivis reste un réglage de Frigate que Nacre ne modifie pas.
+- **Types d’objets.** Nacre montre ce que Frigate suit. Une installation qui ne suit que les personnes n’affiche qu’un type, donc pas de filtre ; depuis alpha.22, les types suivis se choisissent dans la carte [Détection](CAMERA-DETECTION.md) de la caméra.
 - **Volume.** Mille événements au plus sont présentés par jour ; au-delà, la carte le signale. Les vignettes sont chargées à mesure du défilement et ne sont pas mises en cache par le navigateur.
 - **Vignettes.** Ce sont celles que Frigate produit (175 × 175 pixels sur l’installation mesurée). Chaque demande vérifie que l’événement appartient à la caméra consultée. Les instantanés en pleine résolution ne sont pas proposés.
 - **Lecture seule.** Aucune configuration, tâche ou vidéo n’est écrite. Frigate n’est ni redémarré ni reconfiguré. Un téléchargement est inscrit au journal d’activité avec le compte et le nom du fichier.
