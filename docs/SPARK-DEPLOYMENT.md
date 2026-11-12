@@ -1,5 +1,27 @@
 # Déploiements de la console sur Spark
 
+## 12 novembre 2026 — alpha.23
+
+L’installation alpha.22 a reçu le paquet `nacre-0.8.0-alpha.23.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.23), construit depuis le commit [`6578550`](https://github.com/Tarzzan/nacre/commit/65785505d7dfd79a48edb0b3a9d6460e6fcf1408) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
+
+Avant la fusion, le code de recherche a été exécuté en lecture seule contre les événements réels de Spark, sans rien y installer ni y écrire : 527 événements lus en neuf pages. Cet essai a montré que deux objets vus sur la même image partagent leur instant de début (quatre cas sur cette caméra) et qu’un événement pouvait être sauté entre deux pages ; le défaut a été corrigé et couvert par un test avant la fusion.
+
+Avant l’import : neuf modules figés identiques entre Spark et le paquet, aucune tâche active, répétition de la mise à jour alpha.22 → alpha.23 sur une console et son superviseur en répertoire temporaire. Le fichier importé est celui téléchargé depuis la release, empreinte contrôlée. Il a été envoyé par une session administrateur temporaire, refermée ensuite ; l’installation a été confirmée et suivie dans le navigateur jusqu’à **Mise à jour réussie**, session conservée.
+
+Le superviseur a enregistré la préparation à 19 h 25 min 41 s et la validation à 19 h 26 min 15 s, heure de Guyane, confirmation humaine comprise. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configuration Samba et configuration Frigate identiques avant et après. Conteneurs Samba et Frigate inchangés (identifiants et heures de démarrage), service systemd non relancé. Samba a répondu à `smbcontrol smbd ping` ; les journaux de Frigate ne comptent aucune erreur sur les quarante minutes encadrant la mise à jour.
+
+La [recherche d’événements](RECORDING-PLAYBACK.md#rechercher-sur-plusieurs-jours) a ensuite été contrôlée sur la caméra réelle, depuis le navigateur :
+
+- Période proposée : les sept derniers jours. Aucune requête de recherche avant le clic.
+- 532 événements sur quatre jours (142, 115, 183 et 92), lus en neuf pages : 532 vignettes distinctes, aucun doublon ni manque par rapport aux compteurs par jour.
+- Deux types présents : le filtre **Enregistrement manuel** réduit la liste à son seul événement, du 9 novembre ; **Personne** en garde 532 sur 533, un événement étant survenu entre-temps.
+- Recherche réduite à une seule journée : 92 événements annoncés pour le 9 novembre.
+- Un résultat du 9 novembre a ouvert ce jour dans la relecture, alors réglée sur le 12, et la lecture a démarré cinq secondes avant l’événement, sans erreur. Les résultats sont restés affichés.
+
+Limites de ce contrôle : sur cette installation, toutes les heures portant un événement gardent encore de la vidéo. L’indication **Vidéo non conservée** et le message d’un passage disparu n’ont donc été observés que sur le banc simulé. Le plafond de comptage (dix mille événements) n’est pas atteignable ici. Frigate ne suivant que les personnes, le filtre n’a que deux types à proposer. Aucune image de surveillance n’a été capturée ni publiée.
+
+Les copies de retour arrière occupent 6,1 Mo pour quatre mises à jour dans `state/console/updates/`, toujours sans purge automatique. Le fuseau de la console n’est toujours pas réglé (heures UTC). Aucune panne n’a été injectée sur Spark.
+
 ## 12 novembre 2026 — alpha.22
 
 L’installation alpha.21 a reçu le paquet `nacre-0.8.0-alpha.22.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.22), construit depuis le commit [`55050b7`](https://github.com/Tarzzan/nacre/commit/55050b75f69cf9a428945392409f6d0826965e96) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
@@ -18,7 +40,7 @@ La carte [Détection](CAMERA-DETECTION.md) a ensuite été éprouvée sur la cam
 
 La configuration Frigate a donc changé, et seulement ainsi : le fichier indique désormais la détection active et les personnes suivies. Avant, il indiquait la détection désactivée alors qu’elle était active par la seule mémoire d’état de Frigate ; le fichier et l’état appliqué concordent maintenant. Nacre ne garde qu’une copie, celle d’avant le dernier réglage : la configuration d’avant le premier n’y figure plus, le second l’ayant remplacée. Les types suivis sont revenus à leur état d’origine : le choix de ce que la caméra doit suivre reste à faire par son propriétaire.
 
-Limites de ce contrôle : aucune voiture n’étant passée pendant les trente secondes de suivi, la reconnaissance d’un nouveau type n’a pas été observée. Personne n’est passé non plus dans les dix minutes suivantes : aucun événement n’a encore été créé après les réglages au moment de ce compte rendu, la scène étant calme depuis vingt-cinq minutes avant eux. La bascule de la détection (pause puis reprise) n’a pas été exercée sur Spark pour ne pas suspendre la détection en service ; elle l’a été sur un second Frigate temporaire, sans réseau ni caméra, lancé puis retiré de Spark avant la fusion. Aucune image de surveillance n’a été capturée ni publiée.
+Limites de ce contrôle : aucune voiture n’étant passée pendant les trente secondes de suivi, la reconnaissance d’un nouveau type n’a pas été observée. Personne n’est passé non plus dans les dix minutes suivantes : la scène était calme depuis vingt-cinq minutes avant eux. Un événement « personne » a été créé à 11 h 05, heure de Guyane, vingt-deux minutes après le dernier réglage : le suivi continuait. La bascule de la détection (pause puis reprise) n’a pas été exercée sur Spark pour ne pas suspendre la détection en service ; elle l’a été sur un second Frigate temporaire, sans réseau ni caméra, lancé puis retiré de Spark avant la fusion. Aucune image de surveillance n’a été capturée ni publiée.
 
 Les copies de retour arrière occupent 4,6 Mo pour trois mises à jour dans `state/console/updates/`, toujours sans purge automatique. Le fuseau de la console n’est toujours pas réglé (heures UTC). Aucune panne n’a été injectée sur Spark.
 
