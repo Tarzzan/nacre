@@ -1,5 +1,19 @@
 # Déploiements de la console sur Spark
 
+## 12 novembre 2026 — alpha.21
+
+L’installation alpha.20 a reçu le paquet `nacre-0.8.0-alpha.21.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.21), construit depuis le commit [`8d603df`](https://github.com/Tarzzan/nacre/commit/8d603df60f4fab492fa8b03d220a4c09717ce225) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md) qu’alpha.20.
+
+Avant l’import : neuf modules figés identiques entre Spark et le paquet, aucune tâche active, répétition de la mise à jour alpha.20 → alpha.21 sur une console et son superviseur en répertoire temporaire. Le fichier importé est celui téléchargé depuis la release, empreinte contrôlée. Il a été envoyé à la route d’import par une session administrateur temporaire, refermée ensuite ; l’installation a été confirmée et suivie dans le navigateur jusqu’à **Mise à jour réussie**, session conservée.
+
+Le superviseur a enregistré la préparation à 8 h 49 min 24 s et la validation à 8 h 49 min 59 s, heure de Guyane, confirmation humaine comprise. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configuration Samba et configuration Frigate identiques avant et après ; seul l’horodatage du collecteur d’alertes a changé dans les réglages, sans alerte active. Conteneurs Samba et Frigate inchangés (identifiants et heures de démarrage), service systemd non relancé. Samba a répondu à `smbcontrol smbd ping`.
+
+Les [événements de la relecture](RECORDING-PLAYBACK.md) ont été contrôlés sur la caméra réelle : 47 événements le jour même, 115 la veille, 183 l’avant-veille, 92 le 9 novembre, tous rattachés à une plage conservée. Seul le 9 novembre compte deux types (personnes et un enregistrement manuel) : le filtre y apparaît, réduit la liste à une vignette et place un repère sur la frise. Un événement a été lu sans erreur en 2880 × 1620, sans message de reprise. Douze vignettes ont été chargées par la page en 175 × 175 ; un identifiant inconnu est refusé. Aucune image de surveillance n’a été capturée ni publiée.
+
+Limite de ce contrôle : le navigateur de pilotage ne dessinait pas la page, son panneau étant masqué. Le chargement des vignettes au défilement n’a donc pas été observé sur Spark ; il l’a été sur le banc simulé, et les vignettes de Spark ont été chargées en le forçant. Sur cette caméra, Frigate ne suit que les personnes : le filtre par type reste absent des jours ordinaires.
+
+Les copies de retour arrière occupent désormais 3 Mo pour deux mises à jour dans `state/console/updates/`, toujours sans purge automatique. Le fuseau de la console n’est toujours pas réglé (heures UTC). Aucune panne n’a été injectée sur Spark.
+
 ## 11 novembre 2026 — alpha.20, première mise à jour par paquet signé
 
 ![Mise à jour réussie sur Spark](images/spark-alpha20-update.jpg)

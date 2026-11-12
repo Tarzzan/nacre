@@ -72,7 +72,7 @@ Le constructeur lit uniquement l’arbre Git indiqué, signe le manifeste et vé
 
 ## Premier usage réel
 
-La version alpha.20 a été installée par ce parcours sur l’installation de développement, depuis alpha.19 : signature vérifiée, copie préalable, validation par le superviseur et session conservée. Le retour arrière n’y a pas été déclenché. [Compte rendu](SPARK-DEPLOYMENT.md).
+La version alpha.20 a été installée par ce parcours sur l’installation de développement, depuis alpha.19 : signature vérifiée, copie préalable, validation par le superviseur et session conservée. Le retour arrière n’y a pas été déclenché. La version alpha.21 a suivi le lendemain par le même parcours. [Comptes rendus](SPARK-DEPLOYMENT.md).
 
 ## Preuves isolées
 
