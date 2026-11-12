@@ -1,5 +1,9 @@
 # Validation
 
+## Événements dans la relecture — 0.8.0-alpha.21
+
+285 tests Python et 77 JavaScript. Trois essais Python supplémentaires sur événements simulés : bornage au jour et à la caméra, entrées malformées, plafond signalé, relecture maintenue sans événements, vignette refusée pour un identifiant invalide ou une autre caméra. Trois essais JavaScript : vignettes sans style en ligne, valeurs échappées, filtre appliqué sans reconstruire la carte, repli sur les moments détectés. Parcours navigateur sur banc local à vignettes synthétiques, en largeur d’ordinateur et de téléphone. Sur l’installation de développement, lectures seules de l’API d’événements de Frigate pour en mesurer la forme ; aucune image rapatriée. [Détail et limites](RECORDING-PLAYBACK.md).
+
 ## Relecture des enregistrements — 0.8.0-alpha.20
 
 282 tests Python et 74 JavaScript. Huit essais Python sur inventaire Frigate simulé : fusion et bornage des segments, réponses malformées ou trop volumineuses, changements d’heure, dates refusées avant toute requête vidéo, droits, bornes des extraits et trace des téléchargements. Sept essais JavaScript sur la frise, la saisie d’heure et les réponses tardives. Parcours navigateur sur banc local à service vidéo simulé et mire synthétique ; aucune image réelle publiée. Sur l’installation de développement, lectures seules de l’API Frigate pour mesurer les formats et le poids d’un extrait. [Détail et limites](RECORDING-PLAYBACK.md).

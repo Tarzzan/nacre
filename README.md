@@ -93,9 +93,9 @@ Un centre **Alertes** rassemble les incidents locaux, leur prise en compte et le
 
 ![Vue multi-caméra sur le banc simulé](docs/images/camera-overview.jpg)
 
-**Retrouver un moment dans les enregistrements.** La carte **Relecture** d’une caméra présente chaque jour conservé sur une frise : plages enregistrées, présence détectée et périodes sans enregistrement. Un clic, une heure saisie ou un moment détecté lance la lecture, qui s’enchaîne et peut être téléchargée. [Relecture par jour et limites](docs/RECORDING-PLAYBACK.md).
+**Retrouver un moment dans les enregistrements.** La carte **Relecture** d’une caméra présente chaque jour conservé sur une frise : plages enregistrées, présence détectée et périodes sans enregistrement. Un clic, une heure saisie ou la vignette d’un événement lance la lecture, qui s’enchaîne et peut être téléchargée. Les événements se filtrent par type d’objet. [Relecture par jour et limites](docs/RECORDING-PLAYBACK.md).
 
-![Relecture d’une journée sur le banc simulé](docs/images/recording-playback.jpg)
+![Événements d’une journée sur le banc simulé](docs/images/playback-events.jpg)
 
 ### Installer les composants et connecter les caméras
 
@@ -150,7 +150,7 @@ La [reprise sur Linux neuf](docs/FRESH-LINUX.md) retrouve données, clés et com
 | Protection | Restic chiffré et dédupliqué, sources multiples, restauration privée, plans horaires, rétention manuelle ou après réussite | Captures de fichiers non atomiques ; rétention calendaire et créneaux disponibles, quotas non gérés |
 | Volumes | Inventaire, diagnostic SMART selon droits, disque entier ext4/Btrfs, miroir RAID1 | Opérations privilégiées validées en VM ; reconstruction RAID1 Btrfs qualifiée en VM ; pas de partitionnement |
 | Snapshots natifs | Btrfs, ZFS, LVM classique/thin ; clones Btrfs/ZFS, copie LVM ext4/XFS | Clone ZFS non monté ; pas de programmation native |
-| Surveillance | Inventaire multi-caméra, ajout et correction Tapo/RTSP, direct sélectionné, relecture par jour avec frise, moments détectés et extraits téléchargeables, PTZ ONVIF | Une Tapo C530WS validée historiquement ; extraits de 5 minutes, sans vignettes ni recherche par objet ; charge et compatibilité multi-caméra réelles à qualifier |
+| Surveillance | Inventaire multi-caméra, ajout et correction Tapo/RTSP, direct sélectionné, relecture par jour avec frise, événements en vignettes filtrables par type et extraits téléchargeables, PTZ ONVIF | Une Tapo C530WS validée historiquement ; extraits de 5 minutes, sans recherche sur plusieurs jours ; charge et compatibilité multi-caméra réelles à qualifier |
 | Composants | Installation web de restic, Samba et Frigate, progression persistante | Docker et droits natifs à préparer sur Linux |
 | Administration | Panneau de configuration, préférences versionnées, révocation des sessions, rôles, CSRF, services, journal d’activité | Pas de MFA ni d’orchestration multi-NAS |
 
@@ -204,7 +204,7 @@ La CI rejoue les tests ordinaires ; **les tests privilégiés QEMU et matériels
 | [Note de reprise](docs/REPRISE.md) | État livré, décisions, limites et prochaine étape pour reprendre le développement |
 | [Vision](docs/VISION.md) | Positionnement, principes et ambition reformulée |
 | [Composants et caméras](docs/COMPONENTS-CAMERAS.md) | Installation web, connexions, protection des secrets et limites |
-| [Relecture des enregistrements](docs/RECORDING-PLAYBACK.md) | Frise par jour, moments détectés, extraits et limites |
+| [Relecture des enregistrements](docs/RECORDING-PLAYBACK.md) | Frise par jour, événements en vignettes, extraits et limites |
 | [Premier démarrage](docs/FIRST-RUN.md) | Assistant, composants optionnels et reprise du parcours |
 | [Installation](docs/INSTALLATION.md) | Prérequis, accès, configuration et mise à jour |
 | [Architecture](docs/ARCHITECTURE.md) | Composants, données persistantes, frontières de confiance |

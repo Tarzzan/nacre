@@ -1,4 +1,4 @@
-"""Relecture des enregistrements : plages conservées par jour civil et extraits bornés.
+"""Relecture des enregistrements : plages conservées par jour civil, événements et extraits bornés.
 
 Lecture seule de l'API interne de Frigate. Aucune configuration, tâche ou vidéo n'est écrite.
 """
@@ -19,6 +19,11 @@ HISTORY_DAYS = 400
 CLIP_HISTORY = 31 * 86400
 # Plafond de lecture de l'inventaire d'une journée ; sans rapport avec la taille des vidéos.
 MAX_BYTES = 96 * 1024 ** 2
+# Identifiant d'événement Frigate : horodatage de début, puis suffixe aléatoire.
+EVENT_ID = re.compile(r'\d{1,12}(\.\d{1,9})?-[a-z0-9]{1,16}\Z')
+# Événements présentés pour une journée ; au-delà, la réponse signale qu'il en reste.
+EVENT_MAX = 1000
+THUMBNAIL_MAX = 2 * 1024 ** 2
 
 
 def zone(app):
@@ -92,6 +97,51 @@ def available_days(app, camera, tz_name):
     return [{'day': day, 'recorded': round(seconds)} for day, seconds in sorted(days.items(), reverse=True)[:HISTORY_DAYS]]
 
 
+def score(item):
+    data = item.get('data') if isinstance(item.get('data'), dict) else {}
+    for value in (data.get('top_score'), data.get('score'), item.get('top_score')):
+        if number(value) and 0 < value <= 1:
+            return round(value * 100)
+    return None
+
+
+def events(app, camera, start, end, now):
+    """Événements Frigate commencés dans l'intervalle, du plus ancien au plus récent.
+
+    Retourne (None, False) si le service ne les fournit pas : la relecture reste utilisable sans eux.
+    """
+    try:
+        payload = fetch(app, f'/api/events?cameras={camera}&after={start}&before={end}&limit={EVENT_MAX + 1}&include_thumbnails=0&sort=date_asc')
+    except app.Problem:
+        return None, False
+    if not isinstance(payload, list):
+        return None, False
+    found = []
+    for item in payload[:EVENT_MAX]:
+        if not isinstance(item, dict) or item.get('camera') != camera:
+            continue
+        ident, label, begin, stop = item.get('id'), item.get('label'), item.get('start_time'), item.get('end_time')
+        if not isinstance(ident, str) or not EVENT_ID.fullmatch(ident) or not isinstance(label, str) or not 0 < len(label) <= 64:
+            continue
+        if not number(begin) or not start <= begin < end or not (stop is None or number(stop)):
+            continue
+        sub = item.get('sub_label')
+        sub = sub[0] if isinstance(sub, list) and sub else sub
+        found.append({'id': ident, 'label': label, 'sub_label': sub[:80] if isinstance(sub, str) and sub else None,
+                      'start': begin, 'end': max(begin, now if stop is None else stop), 'ongoing': stop is None, 'score': score(item)})
+    return sorted(found, key=lambda e: e['start']), len(payload) > EVENT_MAX
+
+
+def thumbnail(app, camera, ident):
+    """Chemin Frigate de la vignette d'un événement, après vérification qu'il appartient à la caméra."""
+    if not isinstance(ident, str) or not EVENT_ID.fullmatch(ident):
+        raise app.Problem('Identifiant d’événement invalide.')
+    event = fetch(app, f'/api/events/{ident}')
+    if not isinstance(event, dict) or event.get('id') != ident or event.get('camera') != camera:
+        raise app.Problem('Événement inconnu pour cette caméra.', 404)
+    return f'/api/events/{ident}/thumbnail.jpg'
+
+
 def timeline(app, camera, day=None, now=None):
     now = time.time() if now is None else now
     tz_name, tz = zone(app)
@@ -116,6 +166,7 @@ def timeline(app, camera, day=None, now=None):
         if type(item.get('objects')) is int and item['objects'] > 0:
             detected.append((a, b))
     recorded, detected = merge(recorded), merge(detected)
+    found, more = events(app, camera, start, limit, now) if limit > start else ([], False)
     hours, cursor = [], start
     while cursor < end:
         stop = min(cursor + 3600, end)
@@ -126,7 +177,7 @@ def timeline(app, camera, day=None, now=None):
             'start': start, 'end': end, 'now': now, 'days': days, 'hours': hours,
             'intervals': recorded, 'detections': detected, 'segments': count,
             'recorded': round(overlap(recorded, start, end)), 'detected': round(overlap(detected, start, end)),
-            'clip_max': CLIP_MAX}
+            'events': found, 'events_more': more, 'clip_max': CLIP_MAX}
 
 
 def clip(app, camera, query, now=None):
