@@ -40,7 +40,7 @@ def upload(app,handler):
                 stream.write(data);remaining-=len(data)
         engine.prepare(app.ROOT,path)
     except engine.UpdateError as error:raise app.Problem(str(error),409) from None
-    except (ValueError,KeyError,OSError,tarfile.TarError):raise app.Problem('Paquet de mise à jour non valide.') from None
+    except (ValueError,KeyError,OSError,EOFError,tarfile.TarError):raise app.Problem('Paquet de mise à jour non valide.') from None
     finally:path.unlink(missing_ok=True)
     return status(app)
 

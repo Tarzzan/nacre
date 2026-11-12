@@ -1,6 +1,7 @@
 """Real update/recovery processes on temporary roots. No Docker or real NAS data."""
 from contextlib import closing
 import hashlib
+import gzip
 import http.client
 import io
 import json
@@ -199,3 +200,10 @@ class UpdateTests(unittest.TestCase):
         with patch.object(engine.shutil,'disk_usage',return_value=SimpleNamespace(free=0)),self.assertRaises(engine.UpdateError):engine.backup(self.root)
         self.assertEqual(engine.inventory(self.root),self.before)
         self.start();self.assertEqual(engine.state(self.root)['phase'],'failed');self.unchanged()
+
+    def test_decompression_budget_counts_padding_before_tar_parsing(self):
+        candidate=self.base/'padding.nacre-update'
+        with gzip.open(candidate,'wb') as stream:stream.write(b'\0'*4096)
+        with patch.object(engine,'MAX_EXPANDED',1024),self.assertRaisesRegex(engine.UpdateError,'hors limites'):
+            engine.prepare(self.root,candidate)
+        self.assertEqual(engine.inventory(self.root),self.before)

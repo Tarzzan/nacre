@@ -7,6 +7,7 @@ import ast
 from contextlib import contextmanager, closing
 import fcntl
 import hashlib
+import gzip
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -18,6 +19,7 @@ import sqlite3
 import subprocess
 import sys
 import tarfile
+import tempfile
 import time
 from urllib.request import Request, urlopen
 
@@ -114,7 +116,20 @@ def installed(root):
 def verify(root,package,destination):
     if Path(package).stat().st_size>MAX_PACKAGE:raise UpdateError('Paquet de mise à jour trop volumineux (32 Mio).')
     destination=Path(destination);destination.mkdir(mode=0o700)
-    with tarfile.open(package,'r:gz') as archive:
+    # Bound all decompressed bytes, including extended TAR headers and padding.
+    # Member-size totals alone do not bound gzip bombs or large PAX metadata.
+    with tempfile.TemporaryFile(dir=destination) as unpacked:
+        with gzip.open(package,'rb') as compressed:
+            expanded=0
+            while chunk:=compressed.read(1024**2):
+                expanded+=len(chunk)
+                if expanded>MAX_EXPANDED:raise UpdateError('Paquet de mise à jour hors limites.')
+                unpacked.write(chunk)
+        unpacked.seek(0)
+        return verify_tar(root,unpacked,destination)
+
+def verify_tar(root,unpacked,destination):
+    with tarfile.open(fileobj=unpacked,mode='r:') as archive:
         members=[];total=0
         for member in archive:
             members.append(member);total+=member.size
