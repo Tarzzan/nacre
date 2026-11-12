@@ -40,6 +40,8 @@ jobs:
           node --check console/static/alerts.js
           node --check console/static/notifications.js
           node --check console/static/retention.js
+          node --check console/static/components.js
+          node --check console/static/playback.js
           node --test tests/test_frontend.js
   frigate:
     name: Frigate WebSocket / ${{ matrix.os }}

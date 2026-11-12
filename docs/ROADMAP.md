@@ -12,6 +12,10 @@ Les versions futures sont des objectifs sans date promise. Chaque étape demande
 | **1.0 — cible à qualifier** | Version exploitable avec périmètre de support précis | Revue de sécurité, endurance, mises à jour et reprise éprouvées ; aucun défaut critique connu |
 | **Après stabilisation** | Gestion de plusieurs NAS | Identités inter-hôtes, révocation, fonctionnement déconnecté et politiques de groupe spécifiés |
 
+## Relecture des enregistrements 0.8.0-alpha.20
+
+Frise par jour civil, moments avec présence détectée, lecture enchaînée et extraits téléchargeables pour chaque caméra, en lecture seule de Frigate. [Guide et limites](RECORDING-PLAYBACK.md). Première fonction destinée à être distribuée par paquet signé depuis le navigateur. Restent ouverts : vignettes et recherche par objet, export de longues périodes, lecture synchronisée de plusieurs caméras, protection d’un passage et intégrité des fichiers vidéo.
+
 ## Mise à jour du logiciel 0.8.0-alpha.19
 
 Import signé depuis le navigateur, superviseur indépendant, copie préalable et retour arrière avant validation, reprise après interruption. [Guide et limites](BROWSER-UPDATES.md). Restent ouverts : migrations de schéma réversibles, rotation de confiance, nettoyage des copies, mises à jour des composants et qualification prolongée.

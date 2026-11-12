@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.20 — Relecture des enregistrements par jour
+
+La fiche d’une caméra présente chaque jour conservé sur une frise de minuit à minuit, dans le fuseau du NAS : plages enregistrées, présence détectée par Frigate, périodes sans enregistrement et heures à venir. Lecture depuis un clic, une heure saisie ou un moment détecté ; extraits de cinq minutes enchaînés, retour de cinq minutes et téléchargement inscrit au journal. Un instant sans enregistrement renvoie à la plage suivante avec une explication. Lecture seule de l’inventaire Frigate, jours de 23 et 25 heures pris en compte, extraits accessibles sur toute la conservation réglable. La liste des derniers segments est remplacée. 282 tests Python et 74 JavaScript. [Guide et limites](docs/RECORDING-PLAYBACK.md).
+
 ## 0.8.0-alpha.19 — Mises à jour signées depuis le navigateur
 
 Import et vérification d’un paquet signé, confirmation, suivi après reconnexion et superviseur indépendant. Copie préalable du code et de SQLite ; retour automatique si le contrôle de démarrage échoue, y compris après interruption du superviseur. Code, schéma et modules critiques vérifiés ; accès de maintenance pendant la validation. Paquets de code sans migration, service natif ni remplacement Samba/Frigate. [Parcours, preuves et limites](docs/BROWSER-UPDATES.md).

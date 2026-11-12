@@ -1,5 +1,9 @@
 # Validation
 
+## Relecture des enregistrements — 0.8.0-alpha.20
+
+282 tests Python et 74 JavaScript. Huit essais Python sur inventaire Frigate simulé : fusion et bornage des segments, réponses malformées ou trop volumineuses, changements d’heure, dates refusées avant toute requête vidéo, droits, bornes des extraits et trace des téléchargements. Sept essais JavaScript sur la frise, la saisie d’heure et les réponses tardives. Parcours navigateur sur banc local à service vidéo simulé et mire synthétique ; aucune image réelle publiée. Sur l’installation de développement, lectures seules de l’API Frigate pour mesurer les formats et le poids d’un extrait. [Détail et limites](RECORDING-PLAYBACK.md).
+
 ## Mises à jour signées — 0.8.0-alpha.19
 
 274 tests Python et 67 JavaScript. Douze nouveaux essais Python sur consoles et superviseurs réels en répertoires temporaires : réussite, candidat altérant la base puis échouant, copie interrompue, arrêt brutal du superviseur pendant la vérification, signature et chemins invalides, modification après préparation, tâche active, expiration, espace insuffisant, cache Python obsolète malgré taille et horodatage identiques, autorisations et maintenance. Régressions de reprise complète et d’unité portable actualisées. Sept nouveaux essais JavaScript sur navigation, échappement, perte de réponse, refus, reconnexion, retour arrière et expiration.

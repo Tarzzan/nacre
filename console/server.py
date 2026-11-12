@@ -557,7 +557,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise Problem('Ce lien de connexion a expiré ou a déjà été utilisé.', 401)
                 session_token, _ = make_session('admin')
                 return self.reply(303, b'', extra={'Location': '/', 'Set-Cookie': f'nas_session={session_token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800'})
-            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/updates.js', '/components.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
+            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/updates.js', '/components.js', '/playback.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
                 path = STATIC / ('index.html' if url.path == '/' else url.path[1:])
                 return self.reply(200, path.read_bytes(), mimetypes.guess_type(path)[0] or 'text/plain')
             if post and url.path == '/api/login':
@@ -713,11 +713,15 @@ class Handler(BaseHTTPRequestHandler):
                     return self.reply(200, response.read(4 * 1024**2), 'image/jpeg')
             if url.path == '/api/camera/live':
                 return self.proxy_stream('/api/'+camera_id+'?fps=5&height=720', 'multipart/x-mixed-replace; boundary=frame')
+            if url.path == '/api/camera/timeline':
+                from playback import timeline
+                return self.reply(200, timeline(sys.modules[__name__], camera_id, query.get('day')))
             if url.path == '/api/camera/clip':
-                start, end = float(query['start']), float(query['end'])
-                if not 0 < end - start <= 300 or start < time.time() - 7 * 86400 or end > time.time() + 60:
-                    raise Problem('Intervalle vidéo invalide (5 minutes maximum).')
-                return self.proxy_stream(f'/api/{camera_id}/start/{start}/end/{end}/clip.mp4', 'video/mp4')
+                from playback import clip
+                upstream, filename = clip(sys.modules[__name__], camera_id, query)
+                if filename:
+                    audit(session['name'], 'Téléchargement d’extrait vidéo', filename)
+                return self.proxy_stream(upstream, 'video/mp4', filename)
             raise Problem('Ressource inconnue.', 404)
         except Problem as error:
             self.reply(error.status, {'error': error.message})
@@ -1047,11 +1051,13 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             shutil.copyfileobj(source, self.wfile, 256 * 1024)
 
-    def proxy_stream(self, path, content):
+    def proxy_stream(self, path, content, filename=None):
         with video_get(path, headers={'Range': self.headers['Range']} if self.headers.get('Range') else {}, timeout=20) as upstream:
             self.send_response(upstream.status)
             self.send_header('Content-Type', upstream.headers.get('Content-Type', content))
             self.send_header('Cache-Control', 'no-store')
+            if filename:
+                self.send_header('Content-Disposition', f'attachment; filename="{filename}"')
             for key in ('Content-Length', 'Content-Range', 'Accept-Ranges'):
                 if upstream.headers.get(key):
                     self.send_header(key, upstream.headers[key])
