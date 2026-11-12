@@ -2,7 +2,7 @@
 
 ## Détection et objets suivis — 0.8.0-alpha.22
 
-293 tests Python et 80 JavaScript. Huit essais Python sur service vidéo simulé : état limité aux types connus, réponses malformées, fichier écrit avec copie privée et sans redémarrage, filtre par défaut de chaque type, bascule de la détection, refus sans modification, fichier rétabli si Frigate n’applique pas, application non confirmée jamais annoncée. Trois essais JavaScript sur la carte, son absence et le formulaire. Parcours navigateur sur banc local, en largeur d’ordinateur et de téléphone. Sur l’installation de développement, lecture du code de Frigate et répétitions hors service dans son conteneur, sur copie temporaire. [Détail et limites](CAMERA-DETECTION.md).
+293 tests Python et 80 JavaScript. Huit essais Python sur service vidéo simulé : état limité aux types connus, réponses malformées, fichier écrit avec copie privée et sans redémarrage, filtre par défaut de chaque type, bascule de la détection, refus sans modification, fichier rétabli si Frigate n’applique pas, application non confirmée jamais annoncée. Trois essais JavaScript sur la carte, son absence et le formulaire. Parcours navigateur sur banc local, en largeur d’ordinateur et de téléphone. Lecture du code de Frigate et répétitions hors service dans son conteneur, sur copie temporaire. Essai du code réel de Nacre contre un second Frigate 0.18.2 temporaire, sans réseau ni caméra : ajout, retrait, pause, reprise, réglage rejoué, seuils par défaut identiques à ceux d’un démarrage, état retrouvé après redémarrage de ce moteur d’essai. Cet essai a révélé qu’un filtre vide est ignoré par Frigate ; corrigé avant toute mise en service. [Détail et limites](CAMERA-DETECTION.md).
 
 ## Événements dans la relecture — 0.8.0-alpha.21
 

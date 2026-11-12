@@ -38,7 +38,8 @@ class DetectionTests(unittest.TestCase):
             if put:
                 return put(payload)
             objects = payload['config_data']['cameras']['entry']['objects']
-            self.live['track'] = objects['track'];self.live['filters'].update(objects['filters'])
+            # Comme Frigate : un filtre vide est ignoré, donc non créé.
+            self.live['track'] = objects['track'];self.live['filters'].update({k: v for k, v in objects.get('filters', {}).items() if v})
             return {'success': True}
         def video_command(topic, payload):
             self.commands.append((topic, payload))
@@ -118,7 +119,8 @@ class DetectionTests(unittest.TestCase):
         path, payload = self.puts[0]
         self.assertEqual((path, len(self.puts)), ('/api/config/set', 1))
         self.assertEqual((payload['skip_save'], payload['requires_restart'], payload['update_topic']), (True, 0, 'config/cameras/entry/objects'))
-        self.assertEqual(payload['config_data'], {'cameras': {'entry': {'objects': {'track': ['person', 'car', 'dog'], 'filters': {'person': {}, 'car': {}, 'dog': {}}}}}})
+        # Seuls les types sans filtre en reçoivent un, non vide : celui d’un type déjà suivi n’est pas touché.
+        self.assertEqual(payload['config_data'], {'cameras': {'entry': {'objects': {'track': ['person', 'car', 'dog'], 'filters': {'car': {'min_area': 0}, 'dog': {'min_area': 0}}}}}})
         self.assertEqual(self.commands, [])
         backup = app.STATE / 'config-avant-detection.yml'
         self.assertEqual((backup.read_bytes(), backup.stat().st_mode & 0o777, self.config.stat().st_mode & 0o777), (before, 0o600, 0o600))
@@ -137,6 +139,9 @@ class DetectionTests(unittest.TestCase):
         status, data = self.run_with(lambda _: self.post({'enabled': False, 'track': ['person']}))
         self.assertEqual((status, self.commands[-1], self.saved()), (200, ('entry/detect/set', 'OFF'), (['person'], False)))
         self.assertIn(('Détection réglée', 'entry : en pause ; person'), self.audit())
+        self.configure(tracked=('person', 'car'))
+        self.assertEqual(self.run_with(lambda _: self.post({'enabled': True, 'track': ['person']}))[0], 200)
+        self.assertEqual(self.puts[0][1]['config_data'], {'cameras': {'entry': {'objects': {'track': ['person']}}}})
 
     def test_invalid_choices_change_nothing(self):
         self.configure()

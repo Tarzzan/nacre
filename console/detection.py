@@ -96,11 +96,15 @@ def apply(app, body, actor):
     detail = f"{camera} : {'active' if enabled else 'en pause'} ; {', '.join(track)}"
     if set(live['tracked']) != set(track) or not set(track) <= live['filters']:
         # Application en mémoire seulement : Nacre reste l’unique rédacteur du fichier.
-        # Le filtre vide donne à chaque nouveau type les seuils par défaut qu’il aurait au démarrage.
+        # Frigate lit le filtre de chaque type suivi et ignore un filtre vide : un type sans filtre en reçoit un
+        # réduit à une valeur par défaut, ce qui lui donne les seuils qu’il aurait au démarrage.
+        objects = {'track': track}
+        missing = {label: {'min_area': 0} for label in track if label not in live['filters']}
+        if missing:
+            objects['filters'] = missing
         try:
             answer = app.video_put('/api/config/set', {'requires_restart': 0, 'skip_save': True,
-                'update_topic': f'config/cameras/{camera}/objects',
-                'config_data': {'cameras': {camera: {'objects': {'track': track, 'filters': {label: {} for label in track}}}}}})
+                'update_topic': f'config/cameras/{camera}/objects', 'config_data': {'cameras': {camera: {'objects': objects}}}})
             if not isinstance(answer, dict) or answer.get('success') is not True:
                 raise app.Problem('Refus.', 503)
         except app.Problem:
