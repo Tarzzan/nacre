@@ -29,7 +29,7 @@ Exécuter sous le compte Nacre, sans sudo, après initialisation de l’installa
 | Avant arrêt | Droits administrateur et CSRF ; code local conforme à son inventaire ; aucune tâche Nacre en attente ou en cours |
 | Copie préalable | Arrêt de la console ; verrou exclusif partagé avec les workers ; espace libre ; copie privée du code et sauvegarde SQLite contrôlée |
 | Installation | Signature et empreintes revérifiées au moment d’utiliser le paquet ; remplacement atomique de chaque fichier ; état persistant entre les étapes |
-| Vérification | Nouveau processus, accès de maintenance, initialisation et base cohérentes ; trois réponses HTTP successives portant la version et le schéma attendus, authentifiées par un nonce temporaire ; budget de 45 secondes |
+| Vérification | Nouveau processus sans réutilisation du cache Python, accès de maintenance, initialisation et base cohérentes ; trois réponses HTTP successives portant la version et le schéma attendus, authentifiées par un nonce temporaire ; budget de 45 secondes |
 | Validation | Inventaire mis à jour, résultat enregistré, reprise des tâches de fond de la console |
 | Échec avant validation | Arrêt du candidat ; validation des copies ; restauration du code et de la base ; relance de la console précédente |
 | Superviseur interrompu | À sa relance, arrêt de son ancien processus identifié par PID et date de création ; restauration avant démarrage si une installation n’avait pas été validée |
@@ -72,6 +72,6 @@ Le constructeur lit uniquement l’arbre Git indiqué, signe le manifeste et vé
 
 ## Preuves isolées
 
-`tests/test_updates.py` lance de véritables consoles et superviseurs dans des répertoires temporaires, avec clés de signature éphémères et données fictives. Il couvre la réussite, un candidat qui altère la base puis échoue, une copie interrompue, la mort du superviseur pendant la vérification, les paquets altérés ou ambigus, le plafond de décompression incluant les métadonnées TAR, les modifications après préparation, les tâches actives, l’expiration, le manque d’espace et les autorisations HTTP. Les comptes, sessions, clés et fichier témoin sont comparés après reprise.
+`tests/test_updates.py` lance de véritables consoles et superviseurs dans des répertoires temporaires, avec clés de signature éphémères et données fictives. Il couvre la réussite, un candidat qui altère la base puis échoue, une copie interrompue, la mort du superviseur pendant la vérification, les paquets altérés ou ambigus, le plafond de décompression incluant les métadonnées TAR, les modifications après préparation, les tâches actives, l’expiration, le manque d’espace, le cache Python obsolète et les autorisations HTTP. Les comptes, sessions, clés et fichier témoin sont comparés après reprise.
 
 Le parcours navigateur a importé et installé un candidat valide, rechargé sa nouvelle version, puis importé un candidat dont le démarrage échoue volontairement et constaté le retour automatique à la version précédente. Les captures montrent le banc local ; aucune caméra, donnée ou configuration réelle n’a servi à ces essais. Les tests JavaScript couvrent aussi la connexion perdue pendant la confirmation, la reconnexion, l’expiration de session et les réponses tardives après navigation.

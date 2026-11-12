@@ -265,7 +265,10 @@ def terminate(root,process=None):
         except subprocess.TimeoutExpired:raise UpdateError('La console ne s’arrête pas.') from None
 
 def launch(root,port,probe=None):
-    env={**os.environ,'NAS_ROOT':str(root),'NAS_PORT':str(port),'NACRE_SUPERVISED':'1'}
+    # A rollback can restore equal-size sources within the same timestamp second.
+    # Ignore existing .pyc files and do not leave a candidate's cached modules behind.
+    env={**os.environ,'NAS_ROOT':str(root),'NAS_PORT':str(port),'NACRE_SUPERVISED':'1',
+         'PYTHONDONTWRITEBYTECODE':'1','PYTHONPYCACHEPREFIX':str(area(root)/('bytecode-'+secrets.token_hex(12)))}
     if probe:env['NACRE_UPDATE_PROBE']=probe
     else:env.pop('NACRE_UPDATE_PROBE',None)
     process=subprocess.Popen([sys.executable,str(Path(root)/'console/server.py')],cwd=root,env=env,start_new_session=True)

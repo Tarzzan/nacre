@@ -6,6 +6,7 @@ import http.client
 import io
 import json
 import os
+import py_compile
 from pathlib import Path
 import secrets
 import signal
@@ -207,3 +208,14 @@ class UpdateTests(unittest.TestCase):
         with patch.object(engine,'MAX_EXPANDED',1024),self.assertRaisesRegex(engine.UpdateError,'hors limites'):
             engine.prepare(self.root,candidate)
         self.assertEqual(engine.inventory(self.root),self.before)
+
+    def test_launch_ignores_stale_bytecode_with_equal_size_and_timestamp(self):
+        module=self.root/'console/cached_fixture.py'
+        module.write_text("VALUE='old'\n");before=module.stat()
+        py_compile.compile(str(module),doraise=True)
+        module.write_text("VALUE='new'\n");os.utime(module,ns=(before.st_atime_ns,before.st_mtime_ns))
+        server=self.root/'console/server.py'
+        server.write_text("from cached_fixture import VALUE\nassert VALUE=='new', 'stale cached code'\n"+server.read_text())
+        self.start()
+        self.assertEqual(self.get('/api/me')[0],200)
+        self.assertEqual(engine.state(self.root)['phase'],'idle')
