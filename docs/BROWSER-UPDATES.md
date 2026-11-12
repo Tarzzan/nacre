@@ -70,6 +70,10 @@ python3 scripts/build_update.py \
 
 Le constructeur lit uniquement l’arbre Git indiqué, signe le manifeste et vérifie que la clé correspond à la clé publique de cette version. Joindre le paquet et son empreinte à la release. Avant d’annoncer une compatibilité web, comparer les modules figés à la version installée : un paquet valide peut nécessiter une installation accompagnée s’ils ont évolué. Aucun script d’installation fourni dans l’archive n’est exécuté.
 
+## Premier usage réel
+
+La version alpha.20 a été installée par ce parcours sur l’installation de développement, depuis alpha.19 : signature vérifiée, copie préalable, validation par le superviseur et session conservée. Le retour arrière n’y a pas été déclenché. [Compte rendu](SPARK-DEPLOYMENT.md).
+
 ## Preuves isolées
 
 `tests/test_updates.py` lance de véritables consoles et superviseurs dans des répertoires temporaires, avec clés de signature éphémères et données fictives. Il couvre la réussite, un candidat qui altère la base puis échoue, une copie interrompue, la mort du superviseur pendant la vérification, les paquets altérés ou ambigus, le plafond de décompression incluant les métadonnées TAR, les modifications après préparation, les tâches actives, l’expiration, le manque d’espace, le cache Python obsolète et les autorisations HTTP. Les comptes, sessions, clés et fichier témoin sont comparés après reprise.
