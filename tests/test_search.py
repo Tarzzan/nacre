@@ -100,6 +100,32 @@ class SearchTests(unittest.TestCase):
         # Les pages suivantes filtrent dans Frigate, sans relire toute la période.
         self.assertTrue(any('labels=car' in c and f'limit=6' in c for c in calls))
 
+    def test_simultaneous_events_are_never_split_between_two_pages(self):
+        self.configure()
+        # Deux objets vus sur la même image partagent leur instant de début : Frigate les distingue par l'identifiant seul.
+        events = []
+        for i in range(9):
+            for suffix in ('aaa111', 'bbb222') if i % 2 else ('aaa111',):
+                item = self.event(1, 3600 + i * 60); item['id'] = f"{item['start_time']:.6f}-{suffix}"; events.append(item)
+        context, _ = self.frigate(events, [])
+        for size in (2, 3, 4, 5):
+            seen, cursor = [], None
+            with patch.object(playback, 'SEARCH_PAGE', size), context:
+                for _ in range(20):
+                    data = playback.search(app, 'entry', {} if cursor is None else {'before': str(cursor)})
+                    seen += data['events']; cursor = data['next']
+                    if cursor is None:
+                        break
+            self.assertEqual((len(seen), len({e['id'] for e in seen})), (13, 13), size)
+        with patch.object(playback, 'SEARCH_PAGE', 3), patch.object(playback, 'SEARCH_COUNTED', 4), context:
+            seen, cursor = [], None
+            for _ in range(20):
+                data = playback.search(app, 'entry', {} if cursor is None else {'before': str(cursor)})
+                seen += data['events']; cursor = data['next']
+                if cursor is None:
+                    break
+        self.assertEqual(len({e['id'] for e in seen}), 13)
+
     def test_counting_is_capped_and_the_rest_stays_reachable(self):
         self.configure()
         events = [self.event(1, 3600 + i * 60, 'car' if i < 4 else 'person') for i in range(12)]

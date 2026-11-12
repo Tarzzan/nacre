@@ -2,7 +2,7 @@
 
 ## 0.8.0-alpha.23 — Recherche d’événements sur plusieurs jours
 
-La fiche d’une caméra comporte une carte **Recherche d’événements** : une période de jours, puis les événements Frigate de cette période en vignettes, du plus récent au plus ancien, regroupés par jour avec leur nombre. Un filtre par type d’objet porte sur toute la période ; les résultats se chargent par pages de soixante. Un clic ouvre le jour de l’événement dans la **Relecture** et lance la lecture cinq secondes avant. Un événement dont la vidéo n’est plus conservée reste visible et l’indique. Lecture seule de Frigate ; aucun changement de schéma ni de module figé. 298 tests Python et 84 JavaScript. [Guide et limites](docs/RECORDING-PLAYBACK.md#rechercher-sur-plusieurs-jours).
+La fiche d’une caméra comporte une carte **Recherche d’événements** : une période de jours, puis les événements Frigate de cette période en vignettes, du plus récent au plus ancien, regroupés par jour avec leur nombre. Un filtre par type d’objet porte sur toute la période ; les résultats se chargent par pages de soixante. Un clic ouvre le jour de l’événement dans la **Relecture** et lance la lecture cinq secondes avant. Un événement dont la vidéo n’est plus conservée reste visible et l’indique. Lecture seule de Frigate ; aucun changement de schéma ni de module figé. 299 tests Python et 84 JavaScript. [Guide et limites](docs/RECORDING-PLAYBACK.md#rechercher-sur-plusieurs-jours).
 
 ## 0.8.0-alpha.22 — Détection et objets suivis par caméra
 

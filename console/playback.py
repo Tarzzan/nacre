@@ -186,8 +186,18 @@ def search(app, camera, query, now=None):
             raise app.Problem(SEARCH_UNAVAILABLE, 503) from None
         if not isinstance(payload, list):
             raise app.Problem(SEARCH_UNAVAILABLE, 503)
-        found = [e for e in (event(item, camera, start, end, now) for item in payload[:limit]) if e]
-        return sorted(found, key=lambda e: -e['start']), len(payload) > limit
+        found = sorted((e for e in (event(item, camera, start, end, now) for item in payload[:limit + 1]) if e), key=lambda e: -e['start'])
+        return cut(found, limit)
+
+    def cut(found, size):
+        # Deux objets vus sur la même image commencent au même instant, et la suite se demande par « avant cet instant » :
+        # une page ne se termine donc jamais entre deux événements simultanés.
+        if len(found) <= size:
+            return found, False
+        page = found[:size]
+        while len(page) > 1 and page[-1]['start'] == found[len(page)]['start']:
+            page.pop()
+        return page, True
 
     def civil(e):
         return datetime.datetime.fromtimestamp(e['start'], tz)
@@ -202,9 +212,9 @@ def search(app, camera, query, now=None):
         facets = {'total': len(counted), 'matched': len(chosen), 'more': more,
                   'types': [{'label': name, 'count': count} for name, count in sorted(types.items(), key=lambda t: (-t[1], t[0]))],
                   'days': [{'day': day, 'count': count} for day, count in sorted(days.items(), reverse=True)]}
-        page = chosen[:SEARCH_PAGE]
+        page, further = cut(chosen, SEARCH_PAGE)
         # Au-delà des événements comptés, la suite se lit directement dans Frigate.
-        following = page[-1]['start'] if len(chosen) > SEARCH_PAGE else counted[-1]['start'] if more and counted else None
+        following = page[-1]['start'] if further else counted[-1]['start'] if more and counted else None
     else:
         page, more = listing(cursor, SEARCH_PAGE, label)
         following = page[-1]['start'] if more and page else None
