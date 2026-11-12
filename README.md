@@ -17,6 +17,12 @@ Nacre réunit l’administration des fichiers, des partages réseau, des volumes
 
 ## Dans le navigateur
 
+### Mettre Nacre à jour avec retour arrière
+
+Importez un paquet signé depuis **Panneau de configuration → Mises à jour Nacre**, vérifiez la version puis confirmez. Un superviseur indépendant conserve le code et la base précédents et les restaure si le contrôle de démarrage échoue. Le navigateur retrouve le résultat après reconnexion. [Guide, installation initiale et limites](docs/BROWSER-UPDATES.md).
+
+![Mise à jour réussie sur le banc isolé](docs/images/update-success.jpg)
+
 ### Administrer le NAS depuis un panneau commun
 
 Le **Panneau de configuration** rassemble les accès au stockage, aux partages, aux sauvegardes et aux services. Il permet de régler le nom et le fuseau de la console, puis de déconnecter les sessions d’un compte en conservant sa session d’administration. [Guide et limites](docs/CONTROL-PANEL.md).

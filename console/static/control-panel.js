@@ -3,7 +3,7 @@ let controlState=null,controlRequest=0,controlSessionsRequest=0;
 const controlGroups=[
  ['Stocker et partager','Dossiers, volumes et accès aux fichiers.',[['storage','disk','Stockage'],['native','disk','Volumes et snapshots'],['shares','share','Partages SMB'],['users','users','Comptes et permissions']]],
  ['Protéger vos données','Destinations, plans et points de restauration.',[['backups','backup','Sauvegardes'],['snapshots','backup','Points de restauration'],['retention','activity','Conservation des sauvegardes']]],
- ['Exploiter votre NAS','Composants, surveillance et suivi des incidents.',[['services','server','Services'],['camera','camera','Caméras'],['alerts','activity','Alertes'],['notifications','activity','Notifications'],['events','activity','Journal d’activité']]]
+ ['Exploiter votre NAS','Composants, surveillance et suivi des incidents.',[['updates','download','Mises à jour Nacre'],['services','server','Services'],['camera','camera','Caméras'],['alerts','activity','Alertes'],['notifications','activity','Notifications'],['events','activity','Journal d’activité']]]
 ];
 function controlSessions(accounts){
  return table(['Compte','Rôle','Sessions valides',''],accounts.map(a=>{

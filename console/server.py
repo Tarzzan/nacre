@@ -557,7 +557,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise Problem('Ce lien de connexion a expiré ou a déjà été utilisé.', 401)
                 session_token, _ = make_session('admin')
                 return self.reply(303, b'', extra={'Location': '/', 'Set-Cookie': f'nas_session={session_token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800'})
-            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/components.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
+            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/updates.js', '/components.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
                 path = STATIC / ('index.html' if url.path == '/' else url.path[1:])
                 return self.reply(200, path.read_bytes(), mimetypes.guess_type(path)[0] or 'text/plain')
             if post and url.path == '/api/login':
@@ -577,9 +577,18 @@ class Handler(BaseHTTPRequestHandler):
                 token, csrf = make_session(username)
                 audit(username, 'Connexion')
                 return self.reply(200, {'csrf': csrf, 'name': username, 'role': user['role']}, extra={'Set-Cookie': f'nas_session={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800'})
+            if not post and url.path == '/api/update-health':
+                from updates import probe
+                return self.reply(200,probe(sys.modules[__name__],self))
             session = self.session()
+            from updates import maintenance
+            if maintenance(sys.modules[__name__]) and (post or url.path not in ('/api/me','/api/updates')):
+                raise Problem('Mise à jour en cours. La console sera bientôt disponible.',503)
             if post:
                 self.authorize_write(session, require_admin=url.path != '/api/logout')
+                if url.path == '/api/updates/upload':
+                    from updates import upload
+                    return self.reply(200,upload(sys.modules[__name__],self))
                 if url.path == '/api/upload':
                     return self.upload(query, session)
                 result = self.mutate(url.path, self.body(), session)
@@ -588,6 +597,10 @@ class Handler(BaseHTTPRequestHandler):
                 from onboarding import read
                 setup = read(sys.modules[__name__])
                 return self.reply(200, {**{key: session[key] for key in ('name', 'csrf', 'role')}, 'setup_required': session['role'] == 'admin' and setup['phase'] != 'complete', 'timezone': setup['timezone'], 'nas_name': setup['name'], 'app_version': release_version()})
+            if url.path == '/api/updates':
+                if session['role'] != 'admin':raise Problem('Accès réservé aux administrateurs.',403)
+                from updates import status
+                return self.reply(200,status(sys.modules[__name__]))
             if url.path == '/api/control-panel':
                 if session['role'] != 'admin':raise Problem('Accès réservé aux administrateurs.',403)
                 from control_panel import read
@@ -750,6 +763,9 @@ class Handler(BaseHTTPRequestHandler):
             if route == '/api/cameras/add':
                 from cameras import submit
                 return submit(sys.modules[__name__],body,user)
+            if route == '/api/updates/apply':
+                from updates import apply
+                return apply(sys.modules[__name__],body,session)
             if route in ('/api/control-panel/configure','/api/control-panel/revoke'):
                 from control_panel import configure, revoke
                 return (configure if route.endswith('/configure') else revoke)(sys.modules[__name__],body,session)
@@ -1090,6 +1106,13 @@ if __name__ == '__main__':
             db.execute('INSERT INTO tickets VALUES (?,?)', (digest(token), time.time() + 60))
         print('http://127.0.0.1:'+str(int(os.environ.get('NAS_PORT','8766')))+'/connexion-locale?ticket=' + token)
     else:
+        probation_server=None
+        if os.environ.get('NACRE_UPDATE_PROBE'):
+            from updates import maintenance
+            probation_server=Server(('127.0.0.1',int(os.environ.get('NAS_PORT','8766'))),Handler)
+            probation_thread=threading.Thread(target=probation_server.serve_forever,daemon=True)
+            probation_thread.start()
+            while maintenance(sys.modules[__name__]):time.sleep(.2)
         protection().recover()
         protection().start_scheduler()
         shares().start_watch()
@@ -1099,4 +1122,5 @@ if __name__ == '__main__':
         start_notifications(sys.modules[__name__])
         port=int(os.environ.get('NAS_PORT','8766'))
         print(f'Console NAS sur http://127.0.0.1:{port}', flush=True)
-        Server(('127.0.0.1', port), Handler).serve_forever()
+        if probation_server:probation_thread.join()
+        else:Server(('127.0.0.1', port), Handler).serve_forever()

@@ -79,7 +79,10 @@ class RecoveryTests(unittest.TestCase):
             db.execute('INSERT INTO plans(id,enabled,config,next_run) VALUES(?,1,?,1)',('b'*24,json.dumps({'sources':['native_data','fichiers']})))
             db.execute("INSERT INTO jobs(id,status) VALUES('j','running')")
             db.execute('INSERT INTO repositories(id,key_file,target) VALUES(?,?,?)',('a'*24,'/old/key','native_data'))
+        pending=self.root/'state/console/updates';pending.mkdir()
+        (pending/'status.json').write_text('{"phase":"queued"}')
         recovery.neutralize(self.root,'/old',{'volumes':{}})
+        self.assertFalse(pending.exists())
         with self.db() as db:
             policy=json.loads(db.execute("SELECT value FROM settings WHERE key='retention-policy:fixture'").fetchone()[0])
             self.assertFalse(policy['enabled']);self.assertEqual(policy['version'],6)

@@ -563,3 +563,47 @@ test('only other valid sessions can be selected for disconnection',()=>{
  assert.doesNotMatch(f.run('controlSessions(sample.accounts)'),/data-name="admin" disabled/);
  assert.match(f.run('controlSessions(sample.accounts)'),/Déconnecter les autres/);
 });
+
+function updateFixture(fetch){
+ const f=fixture(fetch);vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/updates.js'),'utf8'),f.context);
+ f.run('user={name:"admin",role:"admin",csrf:"synthetic"};page="updates";shell();');return f;
+}
+const updateStatus={phase:'prepared',id:'fixture',version:'1.0.0-alpha.2',previous_version:'1.0.0-alpha.1',current_version:'1.0.0-alpha.1',available:true,package_limit:33554432};
+test('update preview escapes remote state and restricts viewer access',async()=>{
+ const f=updateFixture(async()=>response(200,{...updateStatus,version:'<img src=x>',error:'<script>'}));
+ await f.run('renderUpdates()');assert.match(f.elements.get('#content').innerHTML,/&lt;img src=x&gt;/);assert.doesNotMatch(f.elements.get('#content').innerHTML,/<script>/);
+ f.run('user.role="viewer"');await f.run('renderUpdates()');assert.match(f.elements.get('#content').innerHTML,/réservées aux administrateurs/);
+});
+test('late update page response does not overwrite navigation',async()=>{
+ let complete;const f=updateFixture(()=>new Promise(resolve=>complete=resolve));
+ const pending=f.run('renderUpdates()');f.run('page="files";$("#content").innerHTML="preserved"');complete(response(200,updateStatus));await pending;
+ assert.equal(f.elements.get('#content').innerHTML,'preserved');
+});
+test('lost installation response starts state reconciliation without repeating POST',async()=>{
+ let calls=0;const f=updateFixture(async()=>{calls++;throw new TypeError('network closed');});
+ f.context.initial=updateStatus;f.run('updateState=initial');
+ await f.run('queueUpdate("fixture")');assert.equal(f.run('updateState.phase'),'queued');
+ await f.run('renderUpdates()');assert.match(f.elements.get('#content').innerHTML,/Installation demandée/);assert.equal(calls,2);
+});
+test('installation refusal remains an error and does not fake a queued update',async()=>{
+ const f=updateFixture(async()=>response(409,{error:'Tâche en cours.'}));f.context.initial=updateStatus;f.run('updateState=initial');
+ await assert.rejects(f.run('queueUpdate("fixture")'),/Tâche en cours/);assert.equal(f.run('updateState.phase'),'prepared');
+});
+test('update polling reconnects, presents rollback and stops at terminal state',async()=>{
+ let calls=0,timers=0;const f=updateFixture(async()=>{if(++calls===1)throw new TypeError('offline');return response(200,{...updateStatus,phase:'rolled_back'});});
+ f.elements.set('#update-connection',{textContent:''});f.elements.set('#update-report',{innerHTML:''});f.context.setTimeout=()=>++timers;
+ const check=f.run('watchUpdate(updateView,sessionGeneration)');await check();assert.match(f.elements.get('#update-connection').textContent,/Reconnexion/);
+ const before=timers;await check();assert.match(f.elements.get('#update-report').innerHTML,/Version précédente restaurée/);assert.equal(timers,before);
+ f.run('page="files"');await check();assert.equal(calls,2);
+});
+test('update polling stops cleanly on session expiry',async()=>{
+ let timers=0;const f=updateFixture(async()=>response(401,{error:'Session expirée.'}));f.context.setTimeout=()=>++timers;
+ const check=f.run('watchUpdate(updateView,sessionGeneration)');const before=timers;await check();assert.equal(timers,before);assert.equal(f.elements.has('#content'),false);
+});
+test('late upload errors cannot modify another page or new session',async()=>{
+ let complete;const f=updateFixture(()=>new Promise(resolve=>complete=resolve));
+ f.context.initial=updateStatus;f.run('updateState=initial');f.elements.set('#update-package',{files:[{size:100}]});f.elements.set('#update-upload-error',{textContent:''});
+ const submit={disabled:false};f.context.uploadForm={querySelector:()=>submit};const pending=f.run('uploadUpdate(uploadForm)');
+ f.run('page="files"');complete(response(409,{error:'Old error'}));await pending;
+ assert.equal(f.elements.get('#update-upload-error').textContent,'');assert.equal(submit.disabled,false);
+});

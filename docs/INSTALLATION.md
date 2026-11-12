@@ -78,3 +78,7 @@ python3 lab.py status
 ```
 
 `python3 verifier.py` vérifie Frigate et effectue un cycle SMB avec un fichier témoin temporaire. Ce n’est pas un test purement en lecture. Avant de partager un journal, retirer identifiants, adresses privées, chemins personnels et liens d’accès.
+
+## Mettre à jour la console
+
+À partir d’alpha.19, le service utilisateur comprend un superviseur indépendant. Les versions compatibles peuvent être importées sous forme de paquets signés depuis le navigateur. Une installation antérieure doit d’abord recevoir alpha.19 et actualiser son service. Voir [Mises à jour et retour arrière](BROWSER-UPDATES.md).

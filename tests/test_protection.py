@@ -44,7 +44,7 @@ class HardwareTests(unittest.TestCase):
 
     def test_service_has_no_fixed_host_path(self):
         text=unit_text('/srv/Mon NAS')
-        self.assertIn('/srv/Mon NAS/console/server.py',text)
+        self.assertIn('/srv/Mon NAS/state/console/updates/runtime.py',text)
         self.assertNotIn('tarzzan',text)
         self.assertIn('NACRE_SYSTEMD_TASKS=1',text)
 

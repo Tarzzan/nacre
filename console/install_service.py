@@ -9,6 +9,10 @@ import tempfile
 import socket
 import time
 import re
+if __package__:
+    from .update_engine import provision
+else:
+    from update_engine import provision
 
 
 def unit_text(root, executable=sys.executable, port=8766):
@@ -25,7 +29,7 @@ Description=Nacre - Console NAS locale
 [Service]
 Type=simple
 WorkingDirectory={str(root).replace('%','%%')}
-ExecStart=:{quote(executable)} {quote(root / 'console/server.py')}
+ExecStart=:{quote(executable)} {quote(root / 'state/console/updates/runtime.py')} {quote(root)} {port}
 Environment=NACRE_SYSTEMD_TASKS=1
 Environment=NAS_PORT={port}
 Restart=on-failure
@@ -64,6 +68,7 @@ def install(root, port=8766):
         candidate=Path(temporary)/'nacre-console.service'
         candidate.write_text(content)
         subprocess.run(['systemd-analyze','--user','verify',str(candidate)],check=True)
+    provision(root)
     from lab import private_write
     if previous:
         backup=path.with_suffix('.service.avant-nacre')

@@ -12,9 +12,13 @@ Les versions futures sont des objectifs sans date promise. Chaque étape demande
 | **1.0 — cible à qualifier** | Version exploitable avec périmètre de support précis | Revue de sécurité, endurance, mises à jour et reprise éprouvées ; aucun défaut critique connu |
 | **Après stabilisation** | Gestion de plusieurs NAS | Identités inter-hôtes, révocation, fonctionnement déconnecté et politiques de groupe spécifiés |
 
+## Mise à jour du logiciel 0.8.0-alpha.19
+
+Import signé depuis le navigateur, superviseur indépendant, copie préalable et retour arrière avant validation, reprise après interruption. [Guide et limites](BROWSER-UPDATES.md). Restent ouverts : migrations de schéma réversibles, rotation de confiance, nettoyage des copies, mises à jour des composants et qualification prolongée.
+
 ## Administration quotidienne 0.8.0-alpha.18
 
-Panneau de configuration, préférences versionnées, accès regroupés et révocation des sessions de console. [Guide et périmètre](CONTROL-PANEL.md). Cette étape prépare le parcours d’administration du jalon 0.9. La mise à jour transactionnelle, la réduction des privilèges Docker et la matrice matérielle restent ouvertes.
+Panneau de configuration, préférences versionnées, accès regroupés et révocation des sessions de console. [Guide et périmètre](CONTROL-PANEL.md). Cette étape prépare le parcours d’administration du jalon 0.9. La réduction des privilèges Docker et la matrice matérielle restent ouvertes. Le premier parcours de mise à jour avec retour arrière arrive en alpha.19.
 
 ## Fraîcheur vidéo 0.8.0-alpha.16
 
