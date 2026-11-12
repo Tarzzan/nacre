@@ -31,10 +31,12 @@ class PlaybackTests(unittest.TestCase):
     def midnight(self, day):
         return datetime.datetime(day.year, day.month, day.day, tzinfo=self.zone).timestamp()
 
-    def frigate(self, summary, segments):
+    def frigate(self, summary, segments, events=None):
         calls = []
         def video_get(path, **kwargs):
             calls.append(path)
+            if path.startswith('/api/events'):
+                return io.BytesIO(json.dumps([] if events is None else events).encode())
             return io.BytesIO(json.dumps(summary if '/summary' in path else segments).encode())
         return patch.object(app, 'video_get', side_effect=video_get), calls
 
@@ -56,7 +58,9 @@ class PlaybackTests(unittest.TestCase):
         with context:
             status, data = self.get('/api/camera/timeline?camera=entry')
         self.assertEqual(status, 200)
-        self.assertEqual(calls, ['/api/entry/recordings/summary?timezone=America/Cayenne', f'/api/entry/recordings?after={start}&before={start + 86400}'])
+        self.assertEqual(calls, ['/api/entry/recordings/summary?timezone=America/Cayenne', f'/api/entry/recordings?after={start}&before={start + 86400}',
+                                 f'/api/events?cameras=entry&after={start}&before={start + 86400}&limit=1001&include_thumbnails=0&sort=date_asc'])
+        self.assertEqual((data['events'], data['events_more']), ([], False))
         self.assertEqual((data['day'], data['today'], data['timezone']), (yesterday.isoformat(), today.isoformat(), 'America/Cayenne'))
         self.assertEqual(data['days'], [{'day': yesterday.isoformat(), 'recorded': 224}])
         # Le segment à cheval sur minuit est borné au jour ; un écart de 1,5 s ne crée pas de trou.
@@ -142,6 +146,80 @@ class PlaybackTests(unittest.TestCase):
         context, _ = self.frigate([], [])
         with context:
             self.assertEqual(self.get('/api/camera/timeline?camera=entry', token)[0], 200)
+
+    def test_events_are_bounded_to_the_day_and_camera(self):
+        self.configure(); now = time.time()
+        yesterday = datetime.datetime.now(self.zone).date() - datetime.timedelta(days=1); start = self.midnight(yesterday)
+        event = lambda offset, **more: {'id': f'{start + offset:.6f}-abc123', 'camera': 'entry', 'label': 'person', 'start_time': start + offset, 'end_time': start + offset + 12,
+                                        'sub_label': None, 'thumbnail': 'private-fixture', 'data': {'top_score': 0.7734, 'score': 0.5, 'path_data': [[0.1, 0.2]]}, **more}
+        events = [event(7200, label='car', sub_label=['Voisin', 0.9], data={'score': 0.61}), event(3600), event(9000, end_time=None, data={}, top_score=2),
+                  event(100, camera='garage'), event(200, id='../../config'), event(300, id='1.5-ABC'), event(400, label=''), event(500, label=7), event(600, label='x' * 65),
+                  event(-50), event(86400), event(700, start_time='x'), event(800, end_time='x'), event(900, end_time=start + 10), None, 'x']
+        context, _ = self.frigate([{'day': yesterday.isoformat(), 'hours': [{'duration': 60}]}], [], events)
+        with context:
+            status, data = self.get('/api/camera/timeline?camera=entry&day=' + yesterday.isoformat())
+        self.assertEqual(status, 200)
+        self.assertEqual([(e['label'], e['start'] - start, e['end'] - e['start'], e['ongoing'], e['score'], e['sub_label']) for e in data['events'][:2]],
+                         [('person', 900, 0, False, 77, None), ('person', 3600, 12, False, 77, None)])
+        self.assertEqual([(e['label'], e['score'], e['sub_label'], e['ongoing']) for e in data['events'][2:]], [('car', 61, 'Voisin', False), ('person', None, None, True)])
+        self.assertAlmostEqual(data['events'][3]['end'], now, delta=30)
+        self.assertEqual(data['events'][1]['id'], f'{start + 3600:.6f}-abc123')
+        self.assertEqual(set(data['events'][0]), {'id', 'label', 'sub_label', 'start', 'end', 'ongoing', 'score'})
+        for private in ('private-fixture', 'path_data', 'garage', 'config'):
+            self.assertNotIn(private, json.dumps(data['events']))
+        # Au-delà du plafond, la journée reste lisible et l'excédent est signalé.
+        context, _ = self.frigate([], [], [event(3600 + i) | {'id': f'{int(start) + i}.5-abc{i}'} for i in range(4)])
+        with patch.object(playback, 'EVENT_MAX', 3), context:
+            data = playback.timeline(app, 'entry', yesterday.isoformat())
+        self.assertEqual((len(data['events']), data['events_more']), (3, True))
+
+    def test_missing_events_do_not_break_the_timeline(self):
+        self.configure()
+        yesterday = datetime.datetime.now(self.zone).date() - datetime.timedelta(days=1); start = self.midnight(yesterday)
+        segments = [{'start_time': start + 60, 'end_time': start + 120, 'objects': 1}]
+        def failing(path, **kwargs):
+            if path.startswith('/api/events'):
+                raise app.Problem('La vidéo est temporairement indisponible.', 503)
+            return io.BytesIO(json.dumps([] if '/summary' in path else segments).encode())
+        with patch.object(app, 'video_get', side_effect=failing):
+            status, data = self.get('/api/camera/timeline?camera=entry&day=' + yesterday.isoformat())
+        self.assertEqual((status, data['events'], data['events_more'], data['intervals']), (200, None, False, [[start + 60, start + 120]]))
+        for payload in ({'detail': 'private failure'}, 'x', 7):
+            context, _ = self.frigate([], segments, payload)
+            with context:
+                data = playback.timeline(app, 'entry', yesterday.isoformat())
+            self.assertEqual((data['events'], data['detections']), (None, [[start + 60, start + 120]]))
+
+    def test_thumbnail_requires_an_event_of_the_camera(self):
+        self.configure(); ident = '1794482122.153544-ee4mim'
+        with patch.object(app, 'video_get') as video:
+            for bad in ('', '../../config/config.yml', ident + '/snapshot.jpg', ident.upper(), 'abc', ident + '?x=1', '1' * 13 + '-a'):
+                status, data = self.get('/api/camera/event-thumbnail?camera=entry&id=' + bad)
+                self.assertEqual((status, data['error']), (400, 'Identifiant d’événement invalide.'), bad)
+            self.assertEqual(self.get('/api/camera/event-thumbnail?camera=entry')[0], 400)
+            self.assertEqual(self.get('/api/camera/event-thumbnail?camera=absent&id=' + ident)[0], 404)
+            video.assert_not_called()
+        self.assertEqual(self.request('GET', '/api/camera/event-thumbnail?camera=entry&id=' + ident)[0], 401)
+        calls = []
+        def video_get(path, **kwargs):
+            calls.append(path)
+            return io.BytesIO(b'synthetic-jpeg' if path.endswith('.jpg') else json.dumps(owner).encode())
+        with app.database() as db:
+            db.execute("INSERT INTO users(name,salt,hash,role) VALUES('reader','00','unused','viewer')")
+        reader, _ = app.make_session('reader')
+        with patch.object(app, 'video_get', side_effect=video_get):
+            for owner in ({'id': ident, 'camera': 'garage'}, {'id': 'autre', 'camera': 'entry'}, {'success': False}, [], 'x'):
+                status, data = self.get('/api/camera/event-thumbnail?camera=entry&id=' + ident)
+                self.assertEqual((status, data['error']), (404, 'Événement inconnu pour cette caméra.'))
+            self.assertEqual(calls, [f'/api/events/{ident}'] * 5)
+            owner = {'id': ident, 'camera': 'entry', 'thumbnail': 'private-fixture'}; calls.clear()
+            conn = http.client.HTTPConnection('127.0.0.1', self.http.server_port, timeout=4)
+            conn.request('GET', '/api/camera/event-thumbnail?camera=entry&id=' + ident, headers={'Cookie': 'nas_session=' + reader})
+            response = conn.getresponse(); body = response.read(); conn.close()
+            self.assertEqual((response.status, response.getheader('Content-Type'), response.getheader('Cache-Control'), body), (200, 'image/jpeg', 'no-store', b'synthetic-jpeg'))
+            self.assertEqual(calls, [f'/api/events/{ident}', f'/api/events/{ident}/thumbnail.jpg'])
+        with patch.object(app, 'video_get', side_effect=app.Problem('La vidéo est temporairement indisponible.', 503)):
+            self.assertEqual(self.get('/api/camera/event-thumbnail?camera=entry&id=' + ident)[0], 503)
 
     def clip(self, query):
         conn = http.client.HTTPConnection('127.0.0.1', self.http.server_port, timeout=4)

@@ -12,9 +12,13 @@ Les versions futures sont des objectifs sans date promise. Chaque étape demande
 | **1.0 — cible à qualifier** | Version exploitable avec périmètre de support précis | Revue de sécurité, endurance, mises à jour et reprise éprouvées ; aucun défaut critique connu |
 | **Après stabilisation** | Gestion de plusieurs NAS | Identités inter-hôtes, révocation, fonctionnement déconnecté et politiques de groupe spécifiés |
 
+## Événements dans la relecture 0.8.0-alpha.21
+
+Vignettes des événements Frigate du jour, filtre par type d’objet avec repères sur la frise, lecture depuis une vignette. [Guide et limites](RECORDING-PLAYBACK.md). Restent ouverts : recherche sur plusieurs jours, filtre par zone, choix des objets suivis depuis Nacre, export de longues périodes, lecture synchronisée de plusieurs caméras, protection d’un passage et intégrité des fichiers vidéo.
+
 ## Relecture des enregistrements 0.8.0-alpha.20
 
-Frise par jour civil, moments avec présence détectée, lecture enchaînée et extraits téléchargeables pour chaque caméra, en lecture seule de Frigate. [Guide et limites](RECORDING-PLAYBACK.md). Première fonction distribuée par paquet signé sur l’installation de développement. Restent ouverts : vignettes et recherche par objet, export de longues périodes, lecture synchronisée de plusieurs caméras, protection d’un passage et intégrité des fichiers vidéo.
+Frise par jour civil, moments avec présence détectée, lecture enchaînée et extraits téléchargeables pour chaque caméra, en lecture seule de Frigate. [Guide et limites](RECORDING-PLAYBACK.md). Première fonction distribuée par paquet signé sur l’installation de développement. Vignettes et filtre par objet livrés en alpha.21.
 
 ## Mise à jour du logiciel 0.8.0-alpha.19
 

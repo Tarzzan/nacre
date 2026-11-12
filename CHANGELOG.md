@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.21 — Événements en vignettes dans la relecture
+
+La carte **Relecture** d’une caméra présente les événements Frigate du jour choisi sous forme de vignettes : type d’objet, heure, durée et score. Un clic lance la lecture cinq secondes avant l’événement. Quand plusieurs types sont présents, un filtre par type d’objet masque les autres vignettes et repère les événements retenus sur la frise, sans interrompre la lecture en cours. Une vignette dont la vidéo n’est plus conservée reste visible et l’indique. Si le service ne fournit pas les événements, la frise et les moments détectés restent utilisables. Lecture seule de Frigate ; aucun changement de schéma ni de module figé. 285 tests Python et 77 JavaScript. [Guide et limites](docs/RECORDING-PLAYBACK.md).
+
 ## 0.8.0-alpha.20 — Relecture des enregistrements par jour
 
 La fiche d’une caméra présente chaque jour conservé sur une frise de minuit à minuit, dans le fuseau du NAS : plages enregistrées, présence détectée par Frigate, périodes sans enregistrement et heures à venir. Lecture depuis un clic, une heure saisie ou un moment détecté ; extraits de cinq minutes enchaînés, retour de cinq minutes et téléchargement inscrit au journal. Un instant sans enregistrement renvoie à la plage suivante avec une explication. Lecture seule de l’inventaire Frigate, jours de 23 et 25 heures pris en compte, extraits accessibles sur toute la conservation réglable. La liste des derniers segments est remplacée. 282 tests Python et 74 JavaScript. [Guide et limites](docs/RECORDING-PLAYBACK.md).

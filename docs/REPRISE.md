@@ -4,10 +4,10 @@ Point d’entrée pour reprendre le développement sans relire tout l’historiq
 
 ## État livré
 
-- **Version courante : 0.8.0-alpha.20** — [relecture des enregistrements par jour](RECORDING-PLAYBACK.md).
-- Version précédente : 0.8.0-alpha.19 — [mises à jour signées depuis le navigateur](BROWSER-UPDATES.md).
-- Schéma SQLite inchangé depuis alpha.19. Aucun module figé modifié par alpha.20 : la version est distribuable par paquet `.nacre-update`.
-- Installation de développement : alpha.20 installée le 11 novembre 2026 par paquet signé, premier usage réel de ce parcours. Le détail et les mises à jour suivantes sont consignés dans [Déploiements](SPARK-DEPLOYMENT.md) ; vérifier la version réellement installée avant d’agir.
+- **Version courante : 0.8.0-alpha.21** — [événements en vignettes et filtre par type d’objet dans la relecture](RECORDING-PLAYBACK.md).
+- Versions précédentes : 0.8.0-alpha.20 — relecture des enregistrements par jour ; 0.8.0-alpha.19 — [mises à jour signées depuis le navigateur](BROWSER-UPDATES.md).
+- Schéma SQLite inchangé depuis alpha.19. Aucun module figé modifié par alpha.20 ni alpha.21 : ces versions sont distribuables par paquet `.nacre-update`.
+- Installation de développement : mise à jour par paquet signé depuis alpha.20 (11 novembre 2026). Le détail et les mises à jour suivantes sont consignés dans [Déploiements](SPARK-DEPLOYMENT.md) ; vérifier la version réellement installée avant d’agir.
 
 ## Reprendre en cinq minutes
 
@@ -23,7 +23,7 @@ Point d’entrée pour reprendre le développement sans relire tout l’historiq
 - **Clé de signature.** Elle reste hors du dépôt et hors du NAS. Un paquet se construit depuis le commit exact validé par la CI, avec `scripts/build_update.py`.
 - **Interface sans style en ligne.** La politique de sécurité (`style-src 'self'`) bloque les attributs `style`. Les positions calculées passent par des attributs SVG ou des classes. Les liens à comportement natif ne portent pas `data-action` : le gestionnaire global annule l’action par défaut.
 - **Réponses tardives.** Chaque écran vérifie session, page et numéro de requête avant d’écrire dans la page. Les tests JavaScript couvrent ce point pour chaque vue.
-- **Vidéo.** Nacre lit l’API interne de Frigate ; il ne modifie la configuration que par les tâches de caméra. La relecture est en lecture seule. Frigate produit les extraits sans plages d’octets : la frise sert de déplacement.
+- **Vidéo.** Nacre lit l’API interne de Frigate ; il ne modifie la configuration que par les tâches de caméra. La relecture est en lecture seule. Frigate produit les extraits sans plages d’octets : la frise sert de déplacement. Les événements viennent de `/api/events` ; leur absence ne doit jamais casser la frise. Un filtre s’applique sur la page ouverte, sans reconstruire la carte, pour garder la lecture et les vignettes déjà chargées.
 - **Déployer.** Comparer d’abord les modules figés de l’installation à ceux du paquet, répéter la mise à jour sur une console temporaire de la version installée, puis importer le paquet de la release. Relever les empreintes des comptes et configurations avant et après.
 - **Bancs.** Les essais d’interface utilisent une console réelle avec un service vidéo simulé et une mire synthétique. Aucune image de surveillance, session ou secret n’entre dans le dépôt.
 - **Qualification.** Une suite complète par changement suffit. Les campagnes QEMU longues sont réservées aux changements de stockage ou de reprise.
@@ -31,7 +31,7 @@ Point d’entrée pour reprendre le développement sans relire tout l’historiq
 ## Limites ouvertes
 
 - Fuseau : une installation dont les préférences n’ont jamais été enregistrées affiche des heures UTC, relecture comprise.
-- Surveillance : pas de vignettes, de recherche par objet, d’export long ni de lecture multi-caméra synchronisée ; une seule caméra réelle observée.
+- Surveillance : pas de recherche sur plusieurs jours, de filtre par zone, d’export long ni de lecture multi-caméra synchronisée ; une seule caméra réelle observée, qui ne suit que les personnes (le filtre par type n’y apparaît donc pas).
 - Mises à jour : pas de migration de schéma réversible, de rotation de la clé de confiance, de purge des copies locales ni de mise à jour des composants.
 - Stockage : pas de programmation des snapshots natifs ([issue 4](https://github.com/Tarzzan/nacre/issues/4)) ; opérations privilégiées validées en VM seulement.
 - Administration : pas de MFA ; accès à Docker encore large ([issue 2](https://github.com/Tarzzan/nacre/issues/2)).
@@ -40,6 +40,6 @@ Point d’entrée pour reprendre le développement sans relire tout l’historiq
 
 1. **Purge et consultation des copies de mise à jour** depuis le Panneau de configuration. Les copies s’accumulent dans `state/console/updates`. Le moteur étant figé, prévoir une installation accompagnée ou un module séparé qui ne touche pas au superviseur.
 2. **Programmation des snapshots natifs** avec simulation de rétention (issue 4). Modules natifs figés : campagne en VM et installation accompagnée.
-3. **Événements Frigate dans la relecture** : vignettes et filtre par type d’objet, à partir de l’API d’événements. Compatible avec un paquet web.
+3. **Objets suivis par caméra** : choisir depuis la fiche d’une caméra les types que Frigate suit (personnes, véhicules, animaux), par une tâche de caméra existante. Donne son utilité au filtre d’alpha.21 ; demande un rechargement de Frigate, donc une interruption vidéo annoncée.
 
-Le troisième prolonge directement alpha.20 et reste distribuable par le navigateur ; les deux premiers lèvent des limites plus structurantes.
+Le troisième prolonge alpha.21 et reste à vérifier contre les modules figés ; les deux premiers lèvent des limites plus structurantes.

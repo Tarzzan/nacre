@@ -716,6 +716,10 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == '/api/camera/timeline':
                 from playback import timeline
                 return self.reply(200, timeline(sys.modules[__name__], camera_id, query.get('day')))
+            if url.path == '/api/camera/event-thumbnail':
+                from playback import thumbnail, THUMBNAIL_MAX
+                with video_get(thumbnail(sys.modules[__name__], camera_id, query.get('id'))) as response:
+                    return self.reply(200, response.read(THUMBNAIL_MAX), 'image/jpeg')
             if url.path == '/api/camera/clip':
                 from playback import clip
                 upstream, filename = clip(sys.modules[__name__], camera_id, query)

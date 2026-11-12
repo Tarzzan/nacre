@@ -698,3 +698,68 @@ test('late timelines cannot replace the day after another choice, camera or page
   assert.equal(f.run('playbackData.day'),'2026-11-09',leave);
  }
 });
+
+// Événements : deux personnes, une voiture, un type inconnu hostile et un événement hors des plages conservées.
+const eventSamples=[{id:'1794186400.5-aaaa11',label:'person',sub_label:null,start:dayStart+4000,end:dayStart+4013,ongoing:false,score:77},
+ {id:'1794187000.5-bbbb22',label:'car',sub_label:'Voisin <b>',start:dayStart+4600,end:dayStart+4660,ongoing:false,score:null},
+ {id:'1794190000.5-cccc33',label:'person',sub_label:null,start:dayStart+15000,end:dayStart+15020,ongoing:false,score:81},
+ {id:'1794200500.5-dddd44',label:'"><img src=x>',sub_label:null,start:dayStart+18100,end:dayStart+86500,ongoing:true,score:60}];
+function eventFixture(){const f=playbackFixture(async()=>response(200,{}));f.context.eventSamples=eventSamples;f.context.sample.events=JSON.parse(JSON.stringify(eventSamples));f.context.sample.events_more=false;return f;}
+test('events become thumbnails with a type filter, without inline styles or unescaped values',()=>{
+ const f=eventFixture();
+ let html=f.run('playbackData=sample;playbackCard(sample)');
+ assert.doesNotMatch(html,/style=|<img src=x>|<b> ·|Moments avec présence|Événements indisponibles/);
+ assert.equal((html.match(/class="pb-event"/g)||[]).length,4);assert.equal((html.match(/class="pb-chip"/g)||[]).length,4);
+ assert.match(html,/data-label="" aria-pressed="true">Tous<b>4<\/b>/);assert.match(html,/data-label="person" aria-pressed="false">Personne<b>2<\/b>.*data-label="car" aria-pressed="false">Voiture<b>1<\/b>/s);
+ assert.match(html,/id="playback-count" role="status">4 événements</);
+ assert.match(html,new RegExp(`data-label="person" data-start="${dayStart+3995}"><img class="pb-thumb" src="/api/camera/event-thumbnail\\?camera=entry&id=1794186400\\.5-aaaa11" alt="" loading="lazy"`));
+ assert.match(html,/<strong>Personne<\/strong><span>01:06:40 · 13 s · 77 %<\/span><\/button>/);
+ assert.match(html,/<strong>Voiture · Voisin &lt;b&gt;<\/strong><span>01:16:40 · 1 min<\/span>/);
+ assert.match(html,/<strong>&quot;&gt;&lt;img src=x&gt;<\/strong><span>05:01:40 · en cours · 60 %<\/span>/);
+ // L’événement de 04:10 tombe dans un trou : la vignette reste, la lecture est désactivée.
+ assert.match(html,new RegExp(`data-start="${dayStart+14995}" disabled><img[^>]*><strong>Personne</strong><span>04:10:00 · 20 s · 81 %</span><em>Vidéo non conservée</em>`));
+ assert.equal((html.match(/ disabled>/g)||[]).length,1);
+ assert.equal((html.match(/<rect class="pb-evt" data-kind="mark"[^>]*visibility="hidden"/g)||[]).length,4);assert.match(html,/id="playback-mark-legend" hidden>/);
+ html=f.run('playbackLabel="car";playbackCard(sample)');
+ assert.equal((html.match(/class="pb-event"[^>]* hidden>/g)||[]).length,3);assert.match(html,/data-label="car" aria-pressed="true"/);assert.match(html,/data-label="" aria-pressed="false"/);
+ assert.match(html,/<rect class="pb-evt" data-kind="mark" data-label="car" x="76\.7" y="0" width="5\.0" height="11" visibility="visible"/);
+ assert.equal((html.match(/visibility="visible"/g)||[]).length,1);assert.match(html,/id="playback-count" role="status">1 sur 4 · Voiture</);assert.match(html,/id="playback-mark-legend"><i class="pb-evt"><\/i><span>Voiture</);
+ // Un événement au tout début d’une plage part du début de la plage, pas du trou qui la précède.
+ html=f.run('playbackLabel="";sample.events[3].start=sample.start+18002;playbackCard(sample)');
+ assert.match(html,new RegExp(`data-start="${dayStart+18000}"><img[^>]*id=1794200500`));
+ html=f.run('sample.detections=[[sample.start+3601,sample.start+3620]];sample.events=[];playbackCard(sample)');assert.match(html,new RegExp(`data-action="playback-moment" data-start="${dayStart+3600}"`));
+ f.run('sample.events=JSON.parse(JSON.stringify(eventSamples));');
+ // Un type absent ce jour-là ne masque rien ; le choix est gardé pour les autres jours.
+ html=f.run('playbackLabel="dog";playbackCard(sample)');
+ assert.doesNotMatch(html,/class="pb-event"[^>]* hidden>/);assert.match(html,/data-label="" aria-pressed="true"/);assert.equal(f.run('playbackLabel'),'dog');
+ for(const hostile of ['constructor','__proto__','toString']){html=f.run(`sample.events[0].label=${JSON.stringify(hostile)};playbackCard(sample)`);assert.match(html,new RegExp(`<strong>${hostile}</strong>`));}
+});
+test('a single type needs no filter, and days without events keep the detected moments',()=>{
+ const f=eventFixture();
+ let html=f.run('sample.events=sample.events.filter(e=>e.label==="person");sample.events_more=true;playbackData=sample;playbackCard(sample)');
+ assert.doesNotMatch(html,/pb-chip|pb-filter/);assert.match(html,/2 événements · Personne/);assert.match(html,/Seuls les 2 premiers événements de la journée sont affichés/);
+ html=f.run('sample.events=[];playbackCard(sample)');
+ assert.match(html,/Moments avec présence détectée/);assert.doesNotMatch(html,/pb-events|Événements indisponibles|pb-evt" data-kind/);
+ for(const missing of ['null','undefined','"x"','{}']){html=f.run(`sample.events=${missing};playbackCard(sample)`);assert.match(html,/Événements indisponibles/);assert.match(html,/Moments avec présence détectée/);assert.doesNotMatch(html,/pb-events/);}
+});
+test('filter updates the open card in place and an event thumbnail starts playback',async()=>{
+ const f=eventFixture(),player={innerHTML:'',scrolled:0,scrollIntoView(){this.scrolled++;}},count={textContent:''},legend={hidden:true,lastChild:{textContent:''}};
+ f.elements.set('#playback-player',player);f.elements.set('#playback-count',count);f.elements.set('#playback-mark-legend',legend);
+ const node=(kind,label)=>({dataset:{kind,label},hidden:false,attrs:{},setAttribute(k,v){this.attrs[k]=v;}});
+ const nodes=[node('chip',''),node('chip','car'),node('event','person'),node('event','car'),node('mark','person'),node('mark','car')];
+ f.context.document.querySelectorAll=selector=>{assert.equal(selector,'#playback [data-kind]');return nodes;};
+ f.run('playbackData=sample;');
+ const click=async dataset=>{const el={dataset,disabled:false};for(const fn of f.listeners.get('click'))await fn({target:{closest:s=>s.includes('playback-')?el:null},preventDefault(){}});};
+ await click({action:'playback-filter',label:'car'});
+ assert.deepEqual(nodes.map(n=>n.dataset.kind==='event'?n.hidden:n.attrs['aria-pressed']||n.attrs.visibility),['false','true',true,false,'hidden','visible']);
+ assert.equal(count.textContent,'1 sur 4 · Voiture');assert.equal(legend.hidden,false);assert.equal(legend.lastChild.textContent,'Voiture');assert.equal(player.innerHTML,'');
+ await click({action:'playback-filter',label:''});
+ assert.deepEqual(nodes.map(n=>n.dataset.kind==='event'?n.hidden:n.attrs['aria-pressed']||n.attrs.visibility),['true','false',false,false,'hidden','hidden']);
+ assert.equal(count.textContent,'4 événements');assert.equal(legend.hidden,true);
+ await click({action:'playback-event',start:String(dayStart+3995)});
+ assert.match(player.innerHTML,new RegExp(`/api/camera/clip\\?camera=entry&start=${dayStart+3995}&end=${dayStart+4295}"`));assert.equal(player.scrolled,1);
+ // Une vignette que le service ne fournit plus laisse la carte lisible.
+ const classes=[],img={id:'',hidden:false,classList:{contains:c=>c==='pb-thumb'},parentElement:{classList:{add:c=>classes.push(c)}}};
+ for(const fn of f.listeners.get('error'))fn({target:img});
+ assert.equal(img.hidden,true);assert.deepEqual(classes,['pb-nothumb']);assert.match(player.innerHTML,/<video/);
+});
