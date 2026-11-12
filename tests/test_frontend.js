@@ -428,7 +428,7 @@ test('opening view distinguishes unrestricted empty ongoing and repeated local h
 
 function cameraFixture(fetch){
  const f=fixture(fetch);
- for(const name of ['components.js','playback.js','detection.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static',name),'utf8'),f.context);
+ for(const name of ['components.js','playback.js','detection.js','search.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static',name),'utf8'),f.context);
  f.run('user={name:"admin",role:"admin"};shell();page="camera";');return f;
 }
 const cameraSamples=[{id:'entry',name:'Entrée',enabled:true,status:'receiving',online:true,fps:5,observed_at:1700000000,days:3},
@@ -805,4 +805,91 @@ test('detection form proposes the offered types and posts the choice for the ope
  const [url,body]=posts.at(-1);assert.equal(url,'/api/camera/detection');assert.deepEqual(JSON.parse(body),{camera:'entry',enabled:true,track:['person','bicycle']});
  // Un lecteur, une autre page ou un état indisponible n’ouvrent rien.
  for(const setup of ['user.role="viewer"','user.role="admin";page="home"','page="camera";detectionData=null']){f.run('captured=null;'+setup);await click();assert.equal(f.run('captured'),null,setup);}
+});
+
+// Recherche sur plusieurs jours : trois résultats sur deux jours, un type hostile, une vidéo non conservée.
+const searchSample={camera:'entry',timezone:'UTC',from:'2026-11-03',to:'2026-11-09',today:'2026-11-09',label:'',next:dayStart+100,
+ events:[{id:'1794200500.5-dddd44',label:'car',sub_label:'Voisin <b>',start:dayStart+18100,end:dayStart+18130,ongoing:false,score:60,day:'2026-11-08',recorded:true},
+  {id:'1794186400.5-aaaa11',label:'person',sub_label:null,start:dayStart+4000,end:dayStart+4013,ongoing:false,score:77,day:'2026-11-08',recorded:true},
+  {id:'1794000000.5-cccc33',label:'"><img src=x>',sub_label:null,start:dayStart-180000,end:dayStart-179990,ongoing:false,score:null,day:'2026-11-05',recorded:false}],
+ facets:{total:9,matched:9,more:false,types:[{label:'person',count:6},{label:'car',count:2},{label:'"><img src=x>',count:1}],days:[{day:'2026-11-08',count:7},{day:'2026-11-05',count:2}]}};
+function searchFixture(fetch){const f=playbackFixture(fetch);f.context.found=JSON.parse(JSON.stringify(searchSample));f.run('selectedCamera="entry";cameraDetail=true;');return f;}
+test('search card proposes the last seven days and draws results by day without inline styles',()=>{
+ const f=searchFixture(async()=>response(200,{}));
+ f.run('playbackData=sample;');let html=f.run('searchCard()');
+ assert.match(html,/id="search-from" type="date" value="2026-11-03" max="2026-11-09"/);assert.match(html,/id="search-to" type="date" value="2026-11-09" max="2026-11-09"/);
+ assert.match(html,/Choisissez une période/);assert.doesNotMatch(html,/pb-event/);
+ html=f.run('searchData=found;searchCard()');
+ assert.doesNotMatch(html,/style=/);assert.doesNotMatch(html,/<img src=x>|Voisin <b>/);
+ assert.match(html,/9 événements, du mardi 3 novembre au lundi 9 novembre/);
+ assert.equal(html.match(/class="sr-day"/g).length,2);assert.match(html,/dimanche 8 novembre · 7 événements/);assert.match(html,/jeudi 5 novembre · 2 événements/);
+ assert.equal(html.match(/data-action="search-filter"/g).length,4);assert.match(html,/data-label="" aria-pressed="true">Tous<b>9<\/b>/);assert.match(html,/Personne<b>6<\/b>/);
+ assert.match(html,new RegExp(`data-action="search-open" data-day="2026-11-08" data-start="${dayStart+18100}" data-end="${dayStart+18130}"><img class="pb-thumb" src="/api/camera/event-thumbnail\\?camera=entry&id=1794200500.5-dddd44"`));
+ assert.match(html,/data-day="2026-11-05"[^>]* disabled>.*Vidéo non conservée/);assert.match(html,/data-action="search-more"/);
+ // Un type choisi, une seule journée, plus rien à suivre.
+ html=f.run('found.label="car";found.from=found.to="2026-11-08";found.facets.matched=2;found.next=null;found.events.length=1;searchCard()');
+ assert.match(html,/2 sur 9 événements · Voiture, le dimanche 8 novembre/);assert.match(html,/data-label="car" aria-pressed="true"/);assert.doesNotMatch(html,/data-action="search-more"/);
+ // Les résultats d’une autre caméra ne sont jamais réaffichés ; une réponse malformée est refusée.
+ html=f.run('selectedCamera="garage";searchCard()');assert.doesNotMatch(html,/pb-event/);assert.equal(f.run('searchData'),null);
+ for(const bad of ['null','{...found,events:"x"}','{...found,from:"hier"}','{...found,next:"x"}','{...found,events:[{id:"a",label:"car",day:"x",start:1,end:2}]}','{...found,facets:{total:1}}'])assert.equal(f.run(`searchValid(${bad})`),null,bad);
+});
+test('search requests the period, type and following page, and ignores late or malformed replies',async()=>{
+ const calls=[],complete=[],f=searchFixture(url=>{calls.push(url);return new Promise(resolve=>complete.push(resolve));});
+ const box={innerHTML:''},list={added:[],insertAdjacentHTML(where,html){this.added.push([where,html]);}},more={innerHTML:'x'},card={attrs:{},setAttribute(k,v){this.attrs[k]=v;},removeAttribute(k){delete this.attrs[k];}};
+ for(const [key,value] of [['#search-results',box],['#search-events',list],['#search-more',more],['#search',card]])f.elements.set(key,value);
+ let pending=f.run('searchLoad("2026-11-03","2026-11-09","")');
+ assert.deepEqual(calls,['/api/camera/search?camera=entry&from=2026-11-03&to=2026-11-09']);assert.equal(card.attrs['aria-busy'],'true');
+ complete[0](response(200,searchSample));await pending;
+ assert.match(box.innerHTML,/9 événements/);assert.equal(f.run('searchData.events.length'),3);assert.equal(card.attrs['aria-busy'],undefined);
+ // Page suivante : ajoutée en fin de liste, sans titre répété pour le jour déjà entamé.
+ const next={...searchSample,facets:null,next:null,events:[{...searchSample.events[2],id:'1794000001.5-eeee55',start:dayStart-180100,end:dayStart-180090,recorded:true}]};
+ pending=f.run('searchLoad(searchData.from,searchData.to,searchData.label,searchData.next)');
+ assert.equal(calls[1],`/api/camera/search?camera=entry&from=2026-11-03&to=2026-11-09&before=${dayStart+100}`);
+ complete[1](response(200,next));await pending;
+ assert.equal(f.run('searchData.events.length'),4);assert.equal(f.run('searchData.next'),null);assert.equal(more.innerHTML,'');
+ assert.equal(list.added.length,1);assert.equal(list.added[0][0],'beforeend');assert.doesNotMatch(list.added[0][1],/sr-day|<img src=x>/);assert.match(list.added[0][1],/eeee55/);
+ // Type choisi puis réponses croisées : seule la dernière demande s’affiche.
+ const old=f.run('searchLoad("2026-11-03","2026-11-09","car")'),fresh=f.run('searchLoad("2026-11-03","2026-11-09","person")');
+ assert.match(calls[2],/&label=car$/);assert.match(calls[3],/&label=person$/);
+ complete[3](response(200,{...searchSample,label:'person'}));await fresh;complete[2](response(200,{...searchSample,label:'car'}));await old;
+ assert.equal(f.run('searchData.label'),'person');
+ for(const leave of ['selectedCamera="garage"','cameraDetail=false','page="files"','sessionGeneration++']){
+  f.run('selectedCamera="entry";cameraDetail=true;page="camera";');box.innerHTML='intact';
+  const late=f.run('searchLoad("2026-11-01","2026-11-02","")');f.run(leave);
+  complete[complete.length-1](response(200,{...searchSample,from:'2026-11-01'}));await late.catch(error=>assert.equal(error.name,'AbortError'));
+  assert.equal(box.innerHTML,'intact',leave);assert.equal(f.run('searchData.from'),'2026-11-03',leave);
+ }
+ f.run('selectedCamera="entry";cameraDetail=true;page="camera";');
+ for(const body of [{...searchSample,facets:null},{events:'x'}]){
+  const bad=f.run('searchLoad("2026-11-03","2026-11-09","")');complete[complete.length-1](response(200,body));
+  await assert.rejects(bad,/Réponse de recherche illisible/);assert.equal(box.innerHTML,'intact');assert.equal(card.attrs['aria-busy'],undefined);
+ }
+});
+test('a search result opens its day in the playback card, and says when the video is gone',async()=>{
+ const calls=[],f=searchFixture(async url=>{calls.push(url);return response(200,{...playbackSample,day:'2026-11-08'});});
+ const player={innerHTML:'',scrolled:0,scrollIntoView(){this.scrolled++;}},toasts=[];
+ f.elements.set('#playback-player',player);f.elements.set('#playback',{setAttribute(){},removeAttribute(){},set outerHTML(v){}});
+ f.elements.set('#search-from',{value:'2026-11-09'});f.elements.set('#search-to',{value:'2026-11-03'});
+ f.run('playbackData={...sample,day:"2026-11-09"};searchData=found;');f.context.toast=(text,bad)=>toasts.push([text,!!bad]);
+ const click=async dataset=>{const el={dataset,disabled:false};for(const fn of f.listeners.get('click'))await fn({target:{closest:s=>s.includes('search-')?el:null},preventDefault(){}});};
+ await click({action:'search-open',day:'2026-11-08',start:String(dayStart+4000),end:String(dayStart+4013)});
+ assert.deepEqual(calls,['/api/camera/timeline?camera=entry&day=2026-11-08']);assert.equal(f.run('playbackDay'),'2026-11-08');
+ assert.match(player.innerHTML,new RegExp(`/api/camera/clip\\?camera=entry&start=${dayStart+3995}&end=${dayStart+4295}"`));assert.equal(player.scrolled,1);
+ // Même jour déjà ouvert : aucune nouvelle requête ; hors des plages conservées : message, pas de lecture.
+ await click({action:'search-open',day:'2026-11-08',start:String(dayStart+50000),end:String(dayStart+50010)});
+ assert.equal(calls.length,1);assert.doesNotMatch(player.innerHTML,/<video/);assert.match(player.innerHTML,/n’est plus conservée/);assert.equal(player.scrolled,2);
+ // Période à l’envers : refus local, sans requête.
+ await click({action:'search-run'});
+ assert.equal(calls.length,1);assert.deepEqual(toasts,[['Le début de la période suit sa fin.',true]]);
+ f.elements.get('#search-from').value='2026-11-03';f.elements.get('#search-to').value='2026-11-09';f.run('found.label="car"');
+ await click({action:'search-run'});await click({action:'search-filter',label:''});
+ assert.deepEqual(calls.slice(1),['/api/camera/search?camera=entry&from=2026-11-03&to=2026-11-09&label=car','/api/camera/search?camera=entry&from=2026-11-03&to=2026-11-09']);
+});
+test('camera detail shows the search card without searching, and keeps results across refreshes',async()=>{
+ const calls=[],f=searchFixture(async url=>{calls.push(url);return response(200,url==='/api/cameras'?cameraSamples:url.includes('/info')?{features:[]}:url.includes('/settings')?{days:3,enabled:true}:url.includes('/detection')?detectionSample:playbackSample);});
+ await f.run('renderSurveillance()');
+ let html=f.elements.get('#content').innerHTML;assert.match(html,/id="search"/);assert.match(html,/Recherche d’événements/);assert.ok(!calls.some(u=>u.includes('camera/search')));
+ assert.ok(html.indexOf('id="playback"')<html.indexOf('id="search"'));
+ f.run('searchData=found;');await f.run('renderSurveillance()');
+ html=f.elements.get('#content').innerHTML;assert.match(html,/dimanche 8 novembre · 7 événements/);assert.ok(!calls.some(u=>u.includes('camera/search')));
 });

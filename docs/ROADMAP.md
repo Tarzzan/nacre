@@ -12,13 +12,17 @@ Les versions futures sont des objectifs sans date promise. Chaque étape demande
 | **1.0 — cible à qualifier** | Version exploitable avec périmètre de support précis | Revue de sécurité, endurance, mises à jour et reprise éprouvées ; aucun défaut critique connu |
 | **Après stabilisation** | Gestion de plusieurs NAS | Identités inter-hôtes, révocation, fonctionnement déconnecté et politiques de groupe spécifiés |
 
+## Recherche d’événements 0.8.0-alpha.23
+
+Recherche des événements d’une caméra sur une période de jours, par type d’objet, avec ouverture du résultat dans la relecture. [Guide et limites](RECORDING-PLAYBACK.md#rechercher-sur-plusieurs-jours). Restent ouverts : recherche sur plusieurs caméras, par nom reconnu ou tranche horaire, filtre par zone.
+
 ## Détection et objets suivis 0.8.0-alpha.22
 
 Carte Détection par caméra : activation, pause et choix des types suivis, appliqués sans redémarrer le service vidéo. [Guide et limites](CAMERA-DETECTION.md). Restent ouverts : seuils, zones et masques, réglage commun à plusieurs caméras, mesure de la charge avant activation.
 
 ## Événements dans la relecture 0.8.0-alpha.21
 
-Vignettes des événements Frigate du jour, filtre par type d’objet avec repères sur la frise, lecture depuis une vignette. [Guide et limites](RECORDING-PLAYBACK.md). Choix des objets suivis livré en alpha.22. Restent ouverts : recherche sur plusieurs jours, filtre par zone, export de longues périodes, lecture synchronisée de plusieurs caméras, protection d’un passage et intégrité des fichiers vidéo.
+Vignettes des événements Frigate du jour, filtre par type d’objet avec repères sur la frise, lecture depuis une vignette. [Guide et limites](RECORDING-PLAYBACK.md). Choix des objets suivis livré en alpha.22, recherche sur plusieurs jours en alpha.23. Restent ouverts : filtre par zone, export de longues périodes, lecture synchronisée de plusieurs caméras, protection d’un passage et intégrité des fichiers vidéo.
 
 ## Relecture des enregistrements 0.8.0-alpha.20
 
