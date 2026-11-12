@@ -205,7 +205,7 @@ def capture(root,repository,key):
             with tempfile.TemporaryFile() as output:
                 restic(repository,key,'backup','--json','--tag',PENDING,'--tag',token,
                        '--exclude','**/.nacre-repos','--exclude','**/.git','--exclude','**/.tools',
-                       '--exclude',str(root/'state/console/tasks'),'--exclude',str(root/'state/console/restic-cache'),
+                       '--exclude',str(root/'state/console/updates'),'--exclude',str(root/'state/console/tasks'),'--exclude',str(root/'state/console/restic-cache'),
                        *exclusions,str(root),*volumes.values(),stdout=output)
                 output.seek(0);summary=None
                 for line in output:
@@ -261,6 +261,7 @@ def neutralize(root,old_root,manifest):
             db.execute("UPDATE trash SET area='fichiers',original=? WHERE id=?",('reprise-volumes/'+area+'/'+original,identifier))
         db.commit()
     # L’ancien fichier d’accès initial peut être périmé ; les hashes sont conservés.
+    shutil.rmtree(root/'state/console/updates',ignore_errors=True)
     (root/'state/console/acces.txt').unlink(missing_ok=True)
     (root/'state/console/recovery-volumes.json').unlink(missing_ok=True)
     (root/'state/samba/volumes.compose.json').unlink(missing_ok=True)

@@ -10,7 +10,7 @@ import shlex
 import shutil
 import subprocess
 
-PACKAGES = ('ca-certificates', 'dbus-user-session', 'docker.io', 'docker-compose-v2', 'docker-buildx')
+PACKAGES = ('ca-certificates', 'openssl', 'dbus-user-session', 'docker.io', 'docker-compose-v2', 'docker-buildx')
 CONFLICTS = ('docker-ce', 'docker-ce-cli', 'containerd.io', 'podman-docker', 'docker-compose')
 
 

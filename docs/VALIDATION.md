@@ -1,5 +1,11 @@
 # Validation
 
+## Mises à jour signées — 0.8.0-alpha.19
+
+272 tests Python et 67 JavaScript. Dix nouveaux essais Python sur consoles et superviseurs réels en répertoires temporaires : réussite, candidat altérant la base puis échouant, copie interrompue, arrêt brutal du superviseur pendant la vérification, signature et chemins invalides, modification après préparation, tâche active, expiration, espace insuffisant, autorisations et maintenance. Régressions de reprise complète et d’unité portable actualisées. Sept nouveaux essais JavaScript sur navigation, échappement, perte de réponse, refus, reconnexion, retour arrière et expiration.
+
+Parcours navigateur isolé : import signé → confirmation → nouvelle version → recharge ; second paquet avec échec volontaire au démarrage → restauration automatique → console précédente avec session conservée. Copies du code et de la base contrôlées, fichier témoin et clé synthétique préservés. [Guide et captures](BROWSER-UPDATES.md). Aucun arrêt de caméra, disque ou conteneur de production dans ces essais ; pas de simulation de panne électrique matérielle ni de qualification d’endurance.
+
 ## Panneau de configuration — 0.8.0-alpha.18
 
 262 tests Python et 60 JavaScript. Comptes et sessions synthétiques dans des bases temporaires ; conflits de préférences, contrôle des droits, révocation ciblée et session courante préservée. Parcours navigateur sur banc séparé, sans mutation des préférences ni comptes du NAS réel. [Guide et limites](CONTROL-PANEL.md).

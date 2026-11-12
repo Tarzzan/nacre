@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.19 — Mises à jour signées depuis le navigateur
+
+Import et vérification d’un paquet signé, confirmation, suivi après reconnexion et superviseur indépendant. Copie préalable du code et de SQLite ; retour automatique si le contrôle de démarrage échoue, y compris après interruption du superviseur. Code, schéma et modules critiques vérifiés ; accès de maintenance pendant la validation. Paquets de code sans migration, service natif ni remplacement Samba/Frigate. [Parcours, preuves et limites](docs/BROWSER-UPDATES.md).
+
 ## 0.8.0-alpha.18 — Panneau de configuration du NAS
 
 Point d’entrée pour l’administration quotidienne : identité et fuseau de la console, accès regroupés au stockage, aux partages, à la protection et à l’exploitation. Préférences versionnées contre les écrasements entre onglets. Décompte des sessions valides et révocation ciblée avec maintien de la session courante, sans changement des comptes SMB. 262 tests Python et 60 JavaScript. [Guide et parcours illustré](docs/CONTROL-PANEL.md).

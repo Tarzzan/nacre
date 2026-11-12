@@ -39,6 +39,8 @@ class BootstrapTests(unittest.TestCase):
         text=unit_text('/srv/Mon NAS % test',port=8877)
         self.assertIn('WorkingDirectory=/srv/Mon NAS %% test',text)
         self.assertIn('Environment=NAS_PORT=8877',text)
+        self.assertIn('/state/console/updates/runtime.py',text)
+        self.assertNotIn('/console/server.py',text)
         self.assertNotIn('After=default.target',text)
         for port in (0,80,65536,True,'8766'):
             with self.assertRaises(ValueError):unit_text('/srv/nacre',port=port)
@@ -63,7 +65,7 @@ class BootstrapTests(unittest.TestCase):
                 if 'restart' in args:raise subprocess.CalledProcessError(1,args)
                 return SimpleNamespace(returncode=1 if 'is-active' in args or 'is-enabled' in args else 0)
             with socket.socket() as sock:sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
-            with patch('install_service.subprocess.run',side_effect=run):
+            with patch('install_service.subprocess.run',side_effect=run),patch('install_service.provision'):
                 with self.assertRaises(subprocess.CalledProcessError):install(ROOT,port)
             self.assertEqual(unit.read_text(),original)
             self.assertIn(['systemctl','--user','disable','nacre-console.service'],calls)
