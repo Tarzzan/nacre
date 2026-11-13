@@ -1,5 +1,9 @@
 # Validation
 
+## Centre de notifications — 0.8.0-alpha.27
+
+308 tests Python et 103 JavaScript. Détail dans le [guide du Bureau](DESKTOP.md#validation).
+
 ## Le Bureau — 0.8.0-alpha.26
 
 308 tests Python et 98 JavaScript. Le détail des essais et du parcours navigateur est dans le [guide du Bureau](DESKTOP.md#validation).

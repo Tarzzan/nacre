@@ -759,6 +759,72 @@ test('desktop widgets replace the overview, escape what the NAS reports and igno
  await h.run('renderHome()').catch(()=>{});assert.match(String(h.elements.get('#content').innerHTML),/Votre NAS, d’un regard/);
 });
 
+// Centre de notifications : cloche du bureau, alertes à traiter, tâches en cours, faits récents.
+const bellNow=1794182400,bellAlerts={stale:false,attention:1,active:[{id:'a"1',version:3,title:'<b>Caméra</b> muette',page:'camera',first:bellNow-600,acknowledged:null},{id:'b',version:1,title:'Volume plein',page:'<script>',first:bellNow-9000,acknowledged:bellNow-100}],history:[{id:'c',title:'Service <i>vidéo</i>',resolved:bellNow-50},{id:'d',title:'Ancien',resolved:bellNow-200000}]};
+const bellJobsSample=[{id:'j1',kind:'snapshot',status:'running',ts:bellNow-60,progress:'{"percent_done":0.62,"bytes_done":1024,"total_bytes":2048}',result:'{}'},{id:'j2',kind:'backup',status:'done',ts:bellNow-3600,progress:'{}',result:'{}'},{id:'j3',kind:'<img>',status:'failed',ts:bellNow-7200,progress:'{illisible',result:'{}'},{id:'j4',kind:'backup',status:'done',ts:bellNow-200000}];
+function bellFixture(fetch,role='admin'){
+ const f=deskFixture(fetch,role);vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/bell.js'),'utf8'),f.context);
+ f.mount=()=>{for(const id of ['bell','bell-count','bell-tasks','bell-panel'])f.elements.set('#'+id,{hidden:false,textContent:'',innerHTML:'',attrs:{},setAttribute(k,v){this.attrs[k]=v;}});};
+ f.click=(action,data={})=>f.listeners.get('click').at(-2)({target:{closest:()=>({dataset:{action,...data}})}});
+ f.run('shell();');f.mount();f.context.now=bellNow;return f;
+}
+const bellReply=(alerts=bellAlerts,jobs=bellJobsSample)=>async url=>response(200,url.endsWith('/alerts')?alerts:url.endsWith('/jobs')?jobs:overviewSample);
+test('desktop bar carries the bell instead of the alert button, and the classic display is untouched',async()=>{
+ const f=bellFixture(bellReply());
+ assert.match(f.html,/id="bell" data-action="bell-toggle" aria-expanded="false"/);assert.match(f.html,/id="bell-tasks"[^>]*hidden/);assert.match(f.html,/id="bell-panel"[^>]*hidden/);assert.doesNotMatch(f.html,/alert-summary|style=/);
+ await f.click('shell-classic');assert.match(f.html,/id="alert-summary"/);assert.doesNotMatch(f.html,/id="bell"/);
+});
+test('bell counts what needs attention, announces running tasks and escapes everything it lists',async()=>{
+ const calls=[],f=bellFixture(async url=>{calls.push(url);return bellReply()(url);});
+ await f.run('refreshStatus()');
+ assert.deepEqual(calls.sort(),['/api/alerts','/api/jobs']);
+ const bell=f.elements.get('#bell'),count=f.elements.get('#bell-count'),tasks=f.elements.get('#bell-tasks'),panel=f.elements.get('#bell-panel');
+ assert.deepEqual([count.hidden,count.textContent,bell.attrs['aria-label'],tasks.hidden,tasks.textContent,panel.hidden],[false,'1','Notifications : 1 alerte à traiter',false,'1 tâche en cours',true]);
+ const html=f.run('bellPanel(now)');
+ assert.doesNotMatch(html,/<b>|<i>|<img>|<script>|style=/);assert.match(html,/&lt;b&gt;Caméra/);
+ assert.match(html,/data-page="camera">Ouvrir Surveillance/);assert.match(html,/data-action="alert-ack" data-id="a&quot;1" data-version="3"/);assert.equal((html.match(/alert-ack/g)||[]).length,1);
+ // Page inconnue annoncée par le serveur : renvoi vers les alertes, jamais vers une valeur reçue.
+ assert.match(html,/data-page="alerts">Ouvrir Alertes/);
+ assert.match(html,/Snapshot de fichiers<\/strong><small>62 % · 1 Kio sur 2 Kio<\/small><progress max="1" value="0.62">/);
+ assert.match(html,/Archive de fichiers : terminée/);assert.match(html,/À vérifier<\/span> &lt;img&gt; : échec/);assert.match(html,/Retour à la normale : Service &lt;i&gt;vidéo/);
+ assert.doesNotMatch(html,/Ancien/);assert.equal((html.match(/Archive de fichiers/g)||[]).length,1);
+ // Contrôle en retard sans incident : un repère sur la cloche, et l'explication dans le panneau.
+ f.run('bellData={alerts:{stale:true,attention:0,active:[],history:[]},jobs:[]};drawBell();');
+ assert.deepEqual([count.hidden,count.textContent,bell.attrs['aria-label'],tasks.hidden],[false,'!','Notifications : contrôle des alertes à vérifier',true]);
+ assert.match(f.run('bellPanel(now)'),/n’est pas à jour/);assert.match(f.run('bellPanel(now)'),/Aucune tâche en cours/);assert.match(f.run('bellPanel(now)'),/Rien à signaler/);
+});
+test('a read-only account gets tasks without asking for alerts',async()=>{
+ const calls=[],f=bellFixture(async url=>{calls.push(url);return bellReply()(url);},'viewer');
+ await f.run('refreshStatus()');assert.deepEqual(calls,['/api/jobs']);
+ const html=f.run('bellPanel(now)');assert.doesNotMatch(html,/À traiter|Toutes les alertes|alert-ack/);assert.match(html,/Snapshot de fichiers/);assert.match(html,/data-page="events">Journal/);
+ assert.equal(f.elements.get('#bell-count').hidden,true);assert.equal(f.elements.get('#bell-tasks').textContent,'1 tâche en cours');
+});
+test('a task seen running is announced when it ends, and a failed read keeps the last known state',async()=>{
+ let jobs=bellJobsSample,fail=false;const f=bellFixture(async url=>fail?response(500,{error:'Base occupée.'}):bellReply(bellAlerts,jobs)(url));
+ const toast=f.elements.get('#toast');
+ await f.run('refreshBell()');assert.equal(toast.textContent,'');
+ fail=true;await f.run('refreshBell()');assert.equal(f.elements.get('#bell-tasks').textContent,'1 tâche en cours');assert.equal(f.run('bellData.alerts.attention'),1);
+ fail=false;jobs=[{...bellJobsSample[0],status:'failed'},...bellJobsSample.slice(1)];await f.run('refreshBell()');
+ assert.equal(toast.textContent,'Snapshot de fichiers : échec');assert.match(toast.className,/error/);assert.equal(f.elements.get('#bell-tasks').hidden,true);
+ toast.textContent='';await f.run('refreshBell()');assert.equal(toast.textContent,'');
+ // Session expirée ou remplacée pendant la lecture : rien n'est écrit.
+ let release;const g=bellFixture(()=>new Promise(resolve=>{release=()=>resolve(response(200,bellJobsSample));}));
+ const pending=g.run('refreshBell()');g.run('login();');release();await pending.catch(()=>{});assert.equal(g.run('user'),null);assert.equal(g.run('bellData.jobs.length'),0);
+ const h=bellFixture(async()=>response(401,{error:'Session expirée.'}));await h.run('refreshBell()').catch(()=>{});assert.equal(h.elements.get('#login-error').textContent,'Session expirée.');
+});
+test('the panel opens on the bell, stays open while acknowledging and closes on navigation, outside clicks and Escape',async()=>{
+ const f=bellFixture(bellReply());await f.run('refreshBell()');const panel=f.elements.get('#bell-panel'),bell=f.elements.get('#bell');
+ const click=hit=>f.listeners.get('click').at(-1)({target:{closest:selector=>hit.some(part=>selector.includes(part))?{dataset:{}}:null}});
+ click(['bell-toggle']);assert.deepEqual([panel.hidden,bell.attrs['aria-expanded']],[false,'true']);assert.match(panel.innerHTML,/À traiter/);
+ click(['#bell-panel']);assert.equal(panel.hidden,false);
+ click(['#bell-panel','data-page']);assert.equal(panel.hidden,true);
+ click(['bell-toggle']);click([]);assert.equal(panel.hidden,true);
+ click(['bell-toggle']);f.listeners.get('keydown').at(-1)({key:'a'});assert.equal(panel.hidden,false);f.listeners.get('keydown').at(-1)({key:'Escape'});assert.deepEqual([panel.hidden,bell.attrs['aria-expanded']],[true,'false']);
+ click(['bell-toggle']);click(['bell-toggle']);assert.equal(panel.hidden,true);
+ // Sans la coquille du bureau (affichage classique), le dessin ne touche à rien.
+ for(const id of ['bell','bell-count','bell-tasks','bell-panel'])f.elements.delete('#'+id);f.run('drawBell()');
+});
+
 function updateFixture(fetch){
  const f=fixture(fetch);vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/updates.js'),'utf8'),f.context);
  f.run('user={name:"admin",role:"admin",csrf:"synthetic"};page="updates";shell();');return f;

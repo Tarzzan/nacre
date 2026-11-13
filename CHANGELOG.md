@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.27 — Centre de notifications
+
+La barre du bureau porte une **cloche** : le nombre d’alertes à traiter, et à côté le nombre de tâches en cours. Elle ouvre un panneau unique, depuis n’importe quelle application : alertes avec leur bouton « Prendre en compte » et un accès direct à la page concernée, tâches en cours avec leur progression, puis les faits des dernières vingt-quatre heures (tâches terminées, échecs, retours à la normale). Une tâche vue en cours est annoncée quand elle se termine, où que l’on soit dans la console. Un compte en lecture seule voit les tâches, pas les alertes. L’affichage classique garde son bouton d’alertes. Aucun changement côté serveur, de schéma ni de module figé. 308 tests Python et 103 JavaScript. [Guide et limites](docs/DESKTOP.md#centre-de-notifications).
+
 ## 0.8.0-alpha.26 — Le Bureau
 
 La console s’ouvre désormais sur un **bureau** : sept applications nommées par usage (Fichiers, Surveillance, Stockage, Protection, Partages et comptes, Réglages, Activité) à la place des treize rubriques du menu, un dock, et des widgets qui reprennent la vue d’ensemble. Une application s’ouvre dans une fenêtre que l’on déplace, agrandit, réduit ou ferme ; ses pages en sont les onglets, sans leur grand en-tête. Sur téléphone, l’application occupe l’écran et le dock devient la barre du bas. Les pages elles-mêmes ne changent pas. Le bouton **Classique** de la barre supérieure rend l’ancien menu, et **Bureau** y ramène ; le choix est mémorisé par navigateur. Aucun changement côté serveur, de schéma ni de module figé. 308 tests Python et 98 JavaScript. [Guide et limites](docs/DESKTOP.md).

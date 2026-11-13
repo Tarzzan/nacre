@@ -33,10 +33,11 @@ function deskLaunch(cls){return deskApps().map(a=>`<button type="button" class="
 
 function deskShell(){
  const control=(action,label,d)=>`<button type="button" class="dk-wbtn" data-action="${action}" aria-label="${label}" title="${label}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg></button>`;
- $('#app').innerHTML=`<div class="dk"><header class="dk-bar"><button type="button" class="dk-brand" data-page="home" title="Afficher le bureau">nacre</button><strong id="side-host">${esc(user.nas_name||'NAS')}</strong><small id="side-version">Nacre ${esc(user.app_version||'version non identifiée')}</small><span class="dk-grow"></span>${user.role==='admin'?'<button data-page="alerts" class="small" id="alert-summary">Alertes</button>':''}<time id="topclock">${date(Date.now()/1000)}</time><div class="account"><div class="avatar">${esc(user.name.slice(0,1).toUpperCase())}</div><span>${esc(user.name)}</span><button type="button" class="dk-switch" data-action="shell-classic" title="Revenir à l’affichage classique, avec le menu à gauche">Classique</button><button data-action="logout" aria-label="Se déconnecter">${icon('logout')}</button></div></header>`+
+ $('#app').innerHTML=`<div class="dk"><header class="dk-bar"><button type="button" class="dk-brand" data-page="home" title="Afficher le bureau">nacre</button><strong id="side-host">${esc(user.nas_name||'NAS')}</strong><small id="side-version">Nacre ${esc(user.app_version||'version non identifiée')}</small><span class="dk-grow"></span>${typeof bellButtons==='function'?bellButtons():user.role==='admin'?'<button data-page="alerts" class="small" id="alert-summary">Alertes</button>':''}<time id="topclock">${date(Date.now()/1000)}</time><div class="account"><div class="avatar">${esc(user.name.slice(0,1).toUpperCase())}</div><span>${esc(user.name)}</span><button type="button" class="dk-switch" data-action="shell-classic" title="Revenir à l’affichage classique, avec le menu à gauche">Classique</button><button data-action="logout" aria-label="Se déconnecter">${icon('logout')}</button></div></header>`+
  `<div class="dk-desk"><div id="zone-prompt">${typeof zonePrompt==='function'?zonePrompt():''}</div><div class="dk-stage" id="dk-stage"><nav class="dk-icons" aria-label="Applications">${deskLaunch('dk-app')}</nav><aside class="dk-widgets" id="dk-widgets" aria-label="État du NAS"></aside>`+
  `<section class="dk-win" id="dk-win" hidden aria-labelledby="dk-name"><div class="dk-title" id="dk-title"><span id="dk-tile"></span><strong id="dk-name"></strong><span class="dk-sr" id="crumb"></span><span class="dk-grow"></span>${control('desk-min','Réduire','M6 18h12')}${control('desk-max','Agrandir ou rétablir','M6 6h12v12H6z')}${control('desk-close','Fermer','M6 6l12 12M18 6L6 18')}</div><div class="dk-tabs" id="dk-tabs" role="tablist" hidden></div><main class="content" id="content"></main></section></div></div>`+
- `<nav class="dk-dock" id="dk-dock" aria-label="Applications ouvertes et raccourcis">${deskLaunch('dk-dockapp')}</nav></div>`;
+ `<nav class="dk-dock" id="dk-dock" aria-label="Applications ouvertes et raccourcis">${deskLaunch('dk-dockapp')}</nav>${typeof bellButtons==='function'?'<section class="dk-panel" id="bell-panel" aria-label="Centre de notifications" hidden></section>':''}</div>`;
+ if(typeof drawBell==='function')drawBell();
  deskSync();
 }
 
@@ -88,7 +89,7 @@ document.addEventListener('click',async e=>{
   if(action==='desk-min')return await go('home');
   if(action==='desk-close'){deskOpen=null;return await go('home');}
   if(action==='desk-max'){deskMax=!deskMax;return deskSync();}
-  if(action==='shell-classic'||action==='shell-desk'){deskChoose(action==='shell-desk'?'desk':'classic');shell();return await go(page);}
+  if(action==='shell-classic'||action==='shell-desk'){deskChoose(action==='shell-desk'?'desk':'classic');shell();refreshStatus().catch(()=>{});return await go(page);}
  }catch(error){if(error.name!=='AbortError')toast(error.message,true);}
 });
 // Déplacement par la barre de titre, borné à la scène ; sans effet en plein écran ou sur téléphone.
