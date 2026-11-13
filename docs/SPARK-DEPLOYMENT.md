@@ -1,5 +1,17 @@
 # Déploiements de la console sur Spark
 
+## 13 novembre 2026 — alpha.36, filtres de la recherche de fichiers
+
+L’installation alpha.35 a reçu le paquet `nacre-0.8.0-alpha.36.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.36), construit depuis le commit [`afab96e`](https://github.com/Tarzzan/nacre/commit/afab96e0b21c838858206af4b76d43eaf85c3b62) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
+
+Avant l’import : neuf modules figés identiques, aucune tâche active, répétition isolée alpha.35 → alpha.36 réussie. Fichier importé téléchargé depuis la release, empreinte contrôlée ; session administrateur temporaire refermée ; installation confirmée depuis la fenêtre Réglages du bureau et suivie jusqu’à **Mise à jour réussie**, session conservée.
+
+Validation enregistrée à 18 h 43 min 58 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Constaté dans le navigateur, sur les fichiers réels et en lecture seule, pour une même recherche par nom et ses [filtres](DESKTOP.md#affiner-les-résultats) : le type Images ne garde rien après un parcours entier de 11 611 éléments ; le type Vidéos garde 200 résultats, tous de cette famille et sans dossier ; avec « depuis 24 heures », 200 résultats tous modifiés dans ce délai, trouvés en allant plus loin dans le parcours (3 131 éléments vus au lieu de 1 472) ; avec « plus de 1 Mio », aucun résultat plus petit ; un type inconnu est refusé. Chaque réponse en moins de 0,1 seconde.
+
+Limites de ce contrôle : seuls des nombres ont été relevés, aucun nom de fichier réel n’a été affiché ni conservé ; les listes de l’interface n’ont été manipulées que sur le banc, la recherche du serveur étant interrogée directement ici. Le fuseau de la console n’est toujours pas choisi.
+
 ## 13 novembre 2026 — alpha.35, période et tranche horaire dans l’onglet Événements
 
 L’installation alpha.34 a reçu le paquet `nacre-0.8.0-alpha.35.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.35), construit depuis le commit [`5911dfd`](https://github.com/Tarzzan/nacre/commit/5911dfd2959fed339ae1acb4e5731e4250cc963a) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
