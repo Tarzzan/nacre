@@ -4,9 +4,9 @@ Point d’entrée pour reprendre le développement sans relire tout l’historiq
 
 ## État livré
 
-- **Version courante : 0.8.0-alpha.33** — [recherche de fichiers par nom](DESKTOP.md#rechercher-un-fichier-par-son-nom), depuis Fichiers et depuis Ctrl+K. Première suite du cap Bureau.
-- Versions précédentes : 0.8.0-alpha.32 — [bureau personnalisable](DESKTOP.md#personnaliser-le-bureau), dernier des sept lots du Bureau ; 0.8.0-alpha.31 — [plusieurs fenêtres](DESKTOP.md#plusieurs-fenêtres) ; 0.8.0-alpha.30 — [gestionnaire de fichiers](DESKTOP.md#fichiers) ; 0.8.0-alpha.29 — [Surveillance en application](DESKTOP.md#surveillance), après la coquille, la cloche et la recherche (alpha.26 à alpha.28).
-- Schéma SQLite inchangé depuis alpha.19. Aucun module figé modifié d’alpha.20 à alpha.33 : ces versions sont distribuables par paquet `.nacre-update`.
+- **Version courante : 0.8.0-alpha.34** — [recherche d’événements par tranche horaire](RECORDING-PLAYBACK.md#ne-garder-quune-tranche-horaire) dans la carte Recherche d’événements d’une caméra.
+- Versions précédentes : 0.8.0-alpha.33 — [recherche de fichiers par nom](DESKTOP.md#rechercher-un-fichier-par-son-nom), depuis Fichiers et depuis Ctrl+K ; 0.8.0-alpha.32 — [bureau personnalisable](DESKTOP.md#personnaliser-le-bureau), dernier des sept lots du Bureau ; 0.8.0-alpha.31 — [plusieurs fenêtres](DESKTOP.md#plusieurs-fenêtres) ; 0.8.0-alpha.30 — [gestionnaire de fichiers](DESKTOP.md#fichiers) ; 0.8.0-alpha.29 — [Surveillance en application](DESKTOP.md#surveillance), après la coquille, la cloche et la recherche (alpha.26 à alpha.28).
+- Schéma SQLite inchangé depuis alpha.19. Aucun module figé modifié d’alpha.20 à alpha.34 : ces versions sont distribuables par paquet `.nacre-update`.
 - Installation de développement : alpha.33 installée le 13 novembre 2026 par paquet signé (la recherche par nom y parcourt 11 408 éléments en 0,15 seconde), après alpha.29 à alpha.32 le même jour ; le Bureau y est l’affichage par défaut. Le bandeau du fuseau y attend toujours le choix de l’administrateur. Auparavant : alpha.25 le même jour, alpha.24 le 12 novembre au soir, après alpha.21 à alpha.23 le même jour et alpha.20 la veille. La purge s’y est appliquée seule : trois copies de retour arrière restent sur cinq. La recherche y a lu les 532 événements réels de la caméra en neuf pages et ouvert un résultat ancien dans la relecture. La carte Détection y a été éprouvée (ajout puis retrait d’un type, sans redémarrage) ; les types suivis y sont revenus aux seules personnes. Le détail et les mises à jour suivantes sont consignés dans [Déploiements](SPARK-DEPLOYMENT.md) ; vérifier la version réellement installée avant d’agir.
 
 ## Reprendre en cinq minutes
@@ -40,7 +40,7 @@ Point d’entrée pour reprendre le développement sans relire tout l’historiq
 ## Limites ouvertes
 
 - Fuseau : noms IANA non traduits ; un seul fuseau pour toute la console, pas de fuseau par compte.
-- Surveillance : recherche limitée à une caméra et au type d’objet (ni nom reconnu, ni tranche horaire) ; pas de filtre par zone, d’export long ni de lecture multi-caméra synchronisée ; une seule caméra réelle observée ; pas de réglage des seuils, zones et masques de détection.
+- Surveillance : recherche limitée à une caméra, au type d’objet et à une tranche horaire appliquée par Nacre (`slot()` dans `playback.py`, jamais transmise à Frigate) ; pas de nom reconnu ; l’onglet Événements du bureau n’a pas la tranche horaire ; pas de filtre par zone, d’export long ni de lecture multi-caméra synchronisée ; une seule caméra réelle observée ; pas de réglage des seuils, zones et masques de détection.
 - Mises à jour : pas de migration de schéma réversible, de rotation de la clé de confiance ni de mise à jour des composants ; nombre de copies conservées fixe (trois), pas de retour à une copie depuis le navigateur après validation.
 - Stockage : pas de programmation des snapshots natifs ([issue 4](https://github.com/Tarzzan/nacre/issues/4)) ; opérations privilégiées validées en VM seulement.
 - Administration : pas de MFA ; accès à Docker encore large ([issue 2](https://github.com/Tarzzan/nacre/issues/2)).
@@ -55,7 +55,7 @@ Point d’entrée pour reprendre le développement sans relire tout l’historiq
 Cap validé le 13 novembre 2026 : faire de l’interface un **bureau dans le navigateur**, en sept lots livrables par paquet, une release par lot. Les sept lots sont faits, d’alpha.26 à alpha.32 : coquille, centre de notifications, recherche globale, Surveillance, gestionnaire de fichiers, plusieurs fenêtres, bureau personnalisable. Le cap est atteint, et la recherche de fichiers par nom l’a prolongé en alpha.33 ; la suite se choisit parmi les étapes ci-dessous et les limites ouvertes. Chaque choix d’apparence passe par une maquette validée avant le code. Les étapes ci-dessous restent valables et s’y insèrent.
 
 1. **Programmation des snapshots natifs** avec simulation de rétention (issue 4). Modules natifs figés : campagne en VM et installation accompagnée.
-2. **Vue d’ensemble des événements récents de toutes les caméras** sur la page Surveillance : réutilise la recherche d’alpha.23, lecture seule de Frigate, distribuable par paquet. Utile surtout à partir de deux caméras.
-3. **Recherche par tranche horaire** dans la carte Recherche d’événements (par exemple la nuit seulement) : complète alpha.23 sans nouvelle dépendance, distribuable par paquet.
+2. **Tranche horaire et période dans l’onglet Événements du bureau** (toutes les caméras) : la recherche serveur les accepte déjà, il reste l’interface ; distribuable par paquet. Utile surtout à partir de deux caméras.
+3. **Filtres de la recherche de fichiers** (type, date, taille) : complète alpha.33 sans index, distribuable par paquet.
 
 Le premier lève une limite structurante mais demande une installation accompagnée ; les deux autres restent livrables par le navigateur.

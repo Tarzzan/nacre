@@ -12,6 +12,7 @@ from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 DAY = re.compile(r'\d{4}-\d{2}-\d{2}\Z')
+CLOCK = re.compile(r'([01]\d|2[0-3]):[0-5]\d\Z')
 # Deux segments séparés de moins de trois secondes forment une même plage.
 JOIN = 3
 CLIP_MAX = 300
@@ -70,6 +71,24 @@ def bounds(app, day, tz, now):
     if value > today or (today - value).days > HISTORY_DAYS:
         raise app.Problem('Date hors de la période consultable.')
     return value, today
+
+
+def slot(app, query):
+    """Tranche horaire demandée, en minutes depuis minuit : (début, fin, libellés), ou None pour toute la journée.
+
+    Une fin antérieure au début enjambe minuit : de 22:00 à 06:00, c'est la nuit.
+    """
+    first, last = query.get('time_from') or None, query.get('time_to') or None
+    if first is None and last is None:
+        return None
+    values = []
+    for text in (first, last):
+        if not isinstance(text, str) or not CLOCK.fullmatch(text):
+            raise app.Problem('Tranche horaire invalide. Indiquer un début et une fin au format HH:MM.')
+        values.append(int(text[:2]) * 60 + int(text[3:]))
+    if values[0] == values[1]:
+        raise app.Problem('Tranche horaire invalide : le début et la fin sont identiques.')
+    return values[0], values[1], {'from': first, 'to': last}
 
 
 def midnight(day, tz):
@@ -169,6 +188,7 @@ def search(app, camera, query, now=None):
     label = query.get('label') or ''
     if label and not LABEL.fullmatch(label):
         raise app.Problem('Type d’objet invalide.')
+    span = slot(app, query)
     start, end = midnight(first, tz), min(midnight(last + datetime.timedelta(days=1), tz), now)
     cursor = query.get('before')
     if cursor is not None:
@@ -202,11 +222,21 @@ def search(app, camera, query, now=None):
     def civil(e):
         return datetime.datetime.fromtimestamp(e['start'], tz)
 
+    def wanted_hour(e):
+        # L'heure civile du début de l'événement décide : un passage commencé à 05:59 appartient à la nuit.
+        if span is None:
+            return True
+        moment = civil(e)
+        minute = moment.hour * 60 + moment.minute
+        return span[0] <= minute < span[1] if span[0] < span[1] else minute >= span[0] or minute < span[1]
+
     facets = following = None
     if end <= start:
         page, facets = [], {'total': 0, 'matched': 0, 'more': False, 'types': [], 'days': []}
     elif cursor is None:
-        counted, more = listing(end, SEARCH_COUNTED)
+        read, more = listing(end, SEARCH_COUNTED)
+        # Frigate ne filtre pas par heure civile dans le fuseau de Nacre : la tranche s'applique ici, avant tout compte.
+        counted = [e for e in read if wanted_hour(e)]
         chosen = [e for e in counted if not label or e['label'] == label]
         types, days = Counter(e['label'] for e in counted), Counter(civil(e).date().isoformat() for e in chosen)
         facets = {'total': len(counted), 'matched': len(chosen), 'more': more,
@@ -214,7 +244,12 @@ def search(app, camera, query, now=None):
                   'days': [{'day': day, 'count': count} for day, count in sorted(days.items(), reverse=True)]}
         page, further = cut(chosen, SEARCH_PAGE)
         # Au-delà des événements comptés, la suite se lit directement dans Frigate.
-        following = page[-1]['start'] if further else counted[-1]['start'] if more and counted else None
+        following = page[-1]['start'] if further else read[-1]['start'] if more and read else None
+    elif span is not None:
+        # Une page de Frigate peut ne rien contenir de la tranche : la suite se lit par grands lots, filtrés ici.
+        read, more = listing(cursor, SEARCH_COUNTED, label)
+        page, further = cut([e for e in read if wanted_hour(e)], SEARCH_PAGE)
+        following = page[-1]['start'] if further else read[-1]['start'] if more and read else None
     else:
         page, more = listing(cursor, SEARCH_PAGE, label)
         following = page[-1]['start'] if more and page else None
@@ -225,7 +260,7 @@ def search(app, camera, query, now=None):
         # Indice seulement : la relecture du jour dit précisément ce qui est conservé.
         e['recorded'] = hours is None or (e['day'], moment.strftime('%H')) in hours
     return {'camera': camera, 'timezone': tz_name, 'from': first.isoformat(), 'to': last.isoformat(), 'today': today.isoformat(),
-            'label': label, 'events': page, 'next': following, 'facets': facets}
+            'label': label, 'hours': span[2] if span else None, 'events': page, 'next': following, 'facets': facets}
 
 
 def thumbnail(app, camera, ident):

@@ -1307,6 +1307,37 @@ test('a search result opens its day in the playback card, and says when the vide
  await click({action:'search-run'});await click({action:'search-filter',label:''});
  assert.deepEqual(calls.slice(1),['/api/camera/search?camera=entry&from=2026-11-03&to=2026-11-09&label=car','/api/camera/search?camera=entry&from=2026-11-03&to=2026-11-09']);
 });
+test('search card takes an optional time slot, keeps it across type and following pages, and refuses a half or empty slot',async()=>{
+ // Copie propre à chaque réponse : la carte complète sa liste en place, et l'exemple commun ne doit pas en hériter.
+ const calls=[],toasts=[],f=searchFixture(async url=>{calls.push(url);return response(200,{...JSON.parse(JSON.stringify(searchSample)),next:dayStart+100,hours:url.includes('time_from')?{from:'22:00',to:'06:00'}:null,label:url.includes('label=car')?'car':''});});
+ f.run('playbackData=sample;');let html=f.run('searchCard()');
+ // Champs d'heure vides par défaut, expliqués par une note reliée aux deux champs.
+ assert.match(html,/<label for="search-after">entre<\/label><input id="search-after" type="time" value="" aria-describedby="search-hours">/);assert.match(html,/<label for="search-before">et<\/label><input id="search-before" type="time" value="" aria-describedby="search-hours">/);
+ assert.match(html,/id="search-hours">Heures facultatives/);assert.doesNotMatch(html,/style=/);
+ // Résultats d'une tranche : champs repris, tranche dite dans le résumé et dans le message d'absence.
+ html=f.run('found.hours={from:"22:00",to:"06:00"};searchData=found;searchCard()');
+ assert.match(html,/id="search-after" type="time" value="22:00"/);assert.match(html,/id="search-before" type="time" value="06:00"/);assert.match(html,/9 événements, du mardi 3 novembre au lundi 9 novembre, entre 22:00 et 06:00/);
+ html=f.run('found.events=[];found.next=null;searchCard()');assert.match(html,/Aucun événement dans cette tranche horaire sur cette période\./);
+ for(const bad of ['{from:"22:00"}','{from:"22:00",to:"6h"}','{from:"24:00",to:"06:00"}','"nuit"','{from:"<b>",to:"06:00"}'])assert.equal(f.run(`searchValid({...found,hours:${bad}})`),null,bad);
+ assert.notEqual(f.run('searchValid({...found,hours:null})'),null);assert.notEqual(f.run('searchValid({...found,hours:undefined})'),null);
+ // Bouton Rechercher : la tranche part avec la période ; à moitié remplie, identique ou illisible, rien ne part.
+ const fields={from:{value:'2026-11-03'},to:{value:'2026-11-09'},after:{value:''},before:{value:''}};
+ for(const [key,el] of Object.entries(fields))f.elements.set('#search-'+key,el);f.elements.set('#search-results',{innerHTML:''});
+ f.context.toast=(text,bad)=>toasts.push([text,!!bad]);f.run('searchData=null;');
+ const click=async dataset=>{const el={dataset,disabled:false};for(const fn of f.listeners.get('click'))await fn({target:{closest:s=>s.includes('search-')?el:null},preventDefault(){}});};
+ for(const [after,before,message] of [['22:00','',/début et la fin de la tranche/],['','06:00',/début et la fin de la tranche/],['22:00','22:00',/identiques/],['22h','06:00',/illisible/]]){
+  fields.after.value=after;fields.before.value=before;await click({action:'search-run'});assert.equal(calls.length,0,after+'-'+before);assert.match(toasts.at(-1)[0],message);assert.equal(toasts.at(-1)[1],true);
+ }
+ fields.after.value='22:00';fields.before.value='06:00';await click({action:'search-run'});
+ assert.deepEqual(calls,['/api/camera/search?camera=entry&from=2026-11-03&to=2026-11-09&time_from=22%3A00&time_to=06%3A00']);assert.deepEqual(JSON.parse(JSON.stringify(f.run('searchData.hours'))),{from:'22:00',to:'06:00'});
+ // Type puis page suivante : la tranche suit, avant la position de la suite.
+ await click({action:'search-filter',label:'car'});assert.equal(calls[1],'/api/camera/search?camera=entry&from=2026-11-03&to=2026-11-09&label=car&time_from=22%3A00&time_to=06%3A00');
+ f.elements.set('#search-events',{insertAdjacentHTML(){}});f.elements.set('#search-more',{innerHTML:'x'});
+ await click({action:'search-more'});assert.equal(calls[2],`/api/camera/search?camera=entry&from=2026-11-03&to=2026-11-09&label=car&time_from=22%3A00&time_to=06%3A00&before=${dayStart+100}`);
+ // Même période et même tranche : le type choisi est gardé ; tranche changée ou retirée : il est remis à zéro.
+ await click({action:'search-run'});assert.match(calls[3],/&label=car&time_from=22%3A00&time_to=06%3A00$/);
+ fields.after.value='';fields.before.value='';await click({action:'search-run'});assert.equal(calls[4],'/api/camera/search?camera=entry&from=2026-11-03&to=2026-11-09');assert.equal(f.run('searchData.hours'),null);
+});
 test('camera detail shows the search card without searching, and keeps results across refreshes',async()=>{
  const calls=[],f=searchFixture(async url=>{calls.push(url);return response(200,url==='/api/cameras'?cameraSamples:url.includes('/info')?{features:[]}:url.includes('/settings')?{days:3,enabled:true}:url.includes('/detection')?detectionSample:playbackSample);});
  await f.run('renderSurveillance()');

@@ -1,5 +1,9 @@
 # Validation
 
+## Recherche d’événements par tranche horaire — 0.8.0-alpha.34
+
+320 tests Python et 126 JavaScript. Détail dans le [guide de la relecture](RECORDING-PLAYBACK.md#validation).
+
 ## Recherche de fichiers par nom — 0.8.0-alpha.33
 
 318 tests Python et 125 JavaScript. Détail dans le [guide du Bureau](DESKTOP.md#validation).
