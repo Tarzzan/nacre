@@ -121,8 +121,10 @@ class ControlPanelTests(unittest.TestCase):
         for name in ('America/Cayenne','Europe/Paris','America/Argentina/Buenos_Aires'):self.assertIn(name,zones)
         for name in zones[1:]:
             self.assertIn('/',name);self.assertFalse(name.startswith(('Etc/','posix/','right/','SystemV/')),name)
-        code,raw=self.request('GET','/api/setup',token=self.token)
-        self.assertEqual(json.loads(raw)['timezones'],zones)
+        # La détection de l'assistant interroge Docker : neutralisée ici, elle n'est pas l'objet de l'essai.
+        with patch.object(onboarding.shutil,'which',return_value=None),patch.object(onboarding.os.path,'exists',return_value=False):
+            code,raw=self.request('GET','/api/setup',token=self.token)
+        self.assertEqual(code,200,raw);self.assertEqual(json.loads(raw)['timezones'],zones)
         before=onboarding.read(app)
         for name in ('localtime','posixrules','Factory','posix/Europe/Paris','right/Europe/Paris','SystemV/AST4',' UTC','UTC\n',''):
             for route,body in (('/api/control-panel/configure',{'name':'Atelier','timezone':name,'revision':0}),('/api/setup/finish',{'name':'Atelier','timezone':name})):
