@@ -721,7 +721,12 @@ test('navigation opens the application window with its tabs and the desktop hide
  const tabs=f.elements.get('#dk-tabs');assert.equal(tabs.hidden,false);
  assert.deepEqual([...tabs.innerHTML.matchAll(/data-page="(\w+)" aria-selected="(\w+)">([^<]+)</g)].map(m=>m.slice(1)),[['backups','false','Sauvegardes'],['snapshots','true','Points de restauration'],['retention','false','Conservation']]);
  assert.equal(f.elements.get('#crumb').textContent,'Snapshots');
- await f.run('go("camera")');assert.equal(f.elements.get('#dk-name').textContent,'Surveillance');assert.equal(tabs.hidden,true);assert.equal(tabs.innerHTML,'');
+ await f.run('go("camera")');assert.equal(f.elements.get('#dk-name').textContent,'Surveillance');
+ // Application à page unique : ses onglets sont des vues, la première sélectionnée.
+ assert.equal(tabs.hidden,false);assert.deepEqual([...tabs.innerHTML.matchAll(/data-action="desk-view" data-app="cam" data-view="(\w+)" aria-selected="(\w+)">([^<]+)</g)].map(m=>m.slice(1)),[['wall','true','Mur'],['events','false','Événements'],['replay','false','Relecture'],['settings','false','Réglages']]);
+ await f.click('desk-view',{app:'cam',view:'replay'});assert.equal(f.run('deskViewOf("cam")'),'replay');assert.match(tabs.innerHTML,/data-view="replay" aria-selected="true"/);assert.equal(f.run('page'),'camera');
+ await f.click('desk-view',{app:'cam',view:'nowhere'});await f.click('desk-view',{app:'files',view:'replay'});assert.equal(f.run('deskViewOf("cam")'),'replay');assert.equal(f.run('deskViewOf("files")'),'');
+ await f.run('go("users")');assert.match(tabs.innerHTML,/data-page="users" aria-selected="true"/);await f.run('go("camera")');
  await f.run('go("home")');assert.equal(win().hidden,true);assert.equal(f.run('deskOpen'),'cam');
  // Page hors application (fin de l'assistant) : fenêtre simple, titrée par la page.
  f.run('page="setup";deskSync();');assert.equal(win().hidden,false);assert.equal(f.elements.get('#dk-name').textContent,'Première configuration');assert.equal(tabs.hidden,true);
@@ -757,6 +762,137 @@ test('desktop widgets replace the overview, escape what the NAS reports and igno
  // Affichage classique : la vue d'ensemble d'origine est conservée.
  const h=deskFixture(async()=>response(200,{...overviewSample,uptime:10}));h.store['nacre-shell']='classic';h.run('shell();');h.elements.set('#side-host',{textContent:''});
  await h.run('renderHome()').catch(()=>{});assert.match(String(h.elements.get('#content').innerHTML),/Votre NAS, d’un regard/);
+});
+
+// Centre de notifications : cloche du bureau, alertes à traiter, tâches en cours, faits récents.
+const bellNow=1794182400,bellAlerts={stale:false,attention:1,active:[{id:'a"1',version:3,title:'<b>Caméra</b> muette',page:'camera',first:bellNow-600,acknowledged:null},{id:'b',version:1,title:'Volume plein',page:'<script>',first:bellNow-9000,acknowledged:bellNow-100}],history:[{id:'c',title:'Service <i>vidéo</i>',resolved:bellNow-50},{id:'d',title:'Ancien',resolved:bellNow-200000}]};
+const bellJobsSample=[{id:'j1',kind:'snapshot',status:'running',ts:bellNow-60,progress:'{"percent_done":0.62,"bytes_done":1024,"total_bytes":2048}',result:'{}'},{id:'j2',kind:'backup',status:'done',ts:bellNow-3600,progress:'{}',result:'{}'},{id:'j3',kind:'<img>',status:'failed',ts:bellNow-7200,progress:'{illisible',result:'{}'},{id:'j4',kind:'backup',status:'done',ts:bellNow-200000}];
+function bellFixture(fetch,role='admin'){
+ const f=deskFixture(fetch,role);vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/bell.js'),'utf8'),f.context);
+ f.mount=()=>{for(const id of ['bell','bell-count','bell-tasks','bell-panel'])f.elements.set('#'+id,{hidden:false,textContent:'',innerHTML:'',attrs:{},setAttribute(k,v){this.attrs[k]=v;}});};
+ f.click=(action,data={})=>f.listeners.get('click').at(-2)({target:{closest:()=>({dataset:{action,...data}})}});
+ f.run('shell();');f.mount();f.context.now=bellNow;return f;
+}
+const bellReply=(alerts=bellAlerts,jobs=bellJobsSample)=>async url=>response(200,url.endsWith('/alerts')?alerts:url.endsWith('/jobs')?jobs:overviewSample);
+test('desktop bar carries the bell instead of the alert button, and the classic display is untouched',async()=>{
+ const f=bellFixture(bellReply());
+ assert.match(f.html,/id="bell" data-action="bell-toggle" aria-expanded="false"/);assert.match(f.html,/id="bell-tasks"[^>]*hidden/);assert.match(f.html,/id="bell-panel"[^>]*hidden/);assert.doesNotMatch(f.html,/alert-summary|style=/);
+ await f.click('shell-classic');assert.match(f.html,/id="alert-summary"/);assert.doesNotMatch(f.html,/id="bell"/);
+});
+test('bell counts what needs attention, announces running tasks and escapes everything it lists',async()=>{
+ const calls=[],f=bellFixture(async url=>{calls.push(url);return bellReply()(url);});
+ await f.run('refreshStatus()');
+ assert.deepEqual(calls.sort(),['/api/alerts','/api/jobs']);
+ const bell=f.elements.get('#bell'),count=f.elements.get('#bell-count'),tasks=f.elements.get('#bell-tasks'),panel=f.elements.get('#bell-panel');
+ assert.deepEqual([count.hidden,count.textContent,bell.attrs['aria-label'],tasks.hidden,tasks.textContent,panel.hidden],[false,'1','Notifications : 1 alerte à traiter',false,'1 tâche en cours',true]);
+ const html=f.run('bellPanel(now)');
+ assert.doesNotMatch(html,/<b>|<i>|<img>|<script>|style=/);assert.match(html,/&lt;b&gt;Caméra/);
+ assert.match(html,/data-page="camera">Ouvrir Surveillance/);assert.match(html,/data-action="alert-ack" data-id="a&quot;1" data-version="3"/);assert.equal((html.match(/alert-ack/g)||[]).length,1);
+ // Page inconnue annoncée par le serveur : renvoi vers les alertes, jamais vers une valeur reçue.
+ assert.match(html,/data-page="alerts">Ouvrir Alertes/);
+ assert.match(html,/Snapshot de fichiers<\/strong><small>62 % · 1 Kio sur 2 Kio<\/small><progress max="1" value="0.62">/);
+ assert.match(html,/Archive de fichiers : terminée/);assert.match(html,/À vérifier<\/span> &lt;img&gt; : échec/);assert.match(html,/Retour à la normale : Service &lt;i&gt;vidéo/);
+ assert.doesNotMatch(html,/Ancien/);assert.equal((html.match(/Archive de fichiers/g)||[]).length,1);
+ // Contrôle en retard sans incident : un repère sur la cloche, et l'explication dans le panneau.
+ f.run('bellData={alerts:{stale:true,attention:0,active:[],history:[]},jobs:[]};drawBell();');
+ assert.deepEqual([count.hidden,count.textContent,bell.attrs['aria-label'],tasks.hidden],[false,'!','Notifications : contrôle des alertes à vérifier',true]);
+ assert.match(f.run('bellPanel(now)'),/n’est pas à jour/);assert.match(f.run('bellPanel(now)'),/Aucune tâche en cours/);assert.match(f.run('bellPanel(now)'),/Rien à signaler/);
+});
+test('a read-only account gets tasks without asking for alerts',async()=>{
+ const calls=[],f=bellFixture(async url=>{calls.push(url);return bellReply()(url);},'viewer');
+ await f.run('refreshStatus()');assert.deepEqual(calls,['/api/jobs']);
+ const html=f.run('bellPanel(now)');assert.doesNotMatch(html,/À traiter|Toutes les alertes|alert-ack/);assert.match(html,/Snapshot de fichiers/);assert.match(html,/data-page="events">Journal/);
+ assert.equal(f.elements.get('#bell-count').hidden,true);assert.equal(f.elements.get('#bell-tasks').textContent,'1 tâche en cours');
+});
+test('a task seen running is announced when it ends, and a failed read keeps the last known state',async()=>{
+ let jobs=bellJobsSample,fail=false;const f=bellFixture(async url=>fail?response(500,{error:'Base occupée.'}):bellReply(bellAlerts,jobs)(url));
+ const toast=f.elements.get('#toast');
+ await f.run('refreshBell()');assert.equal(toast.textContent,'');
+ fail=true;await f.run('refreshBell()');assert.equal(f.elements.get('#bell-tasks').textContent,'1 tâche en cours');assert.equal(f.run('bellData.alerts.attention'),1);
+ fail=false;jobs=[{...bellJobsSample[0],status:'failed'},...bellJobsSample.slice(1)];await f.run('refreshBell()');
+ assert.equal(toast.textContent,'Snapshot de fichiers : échec');assert.match(toast.className,/error/);assert.equal(f.elements.get('#bell-tasks').hidden,true);
+ toast.textContent='';await f.run('refreshBell()');assert.equal(toast.textContent,'');
+ // Session expirée ou remplacée pendant la lecture : rien n'est écrit.
+ let release;const g=bellFixture(()=>new Promise(resolve=>{release=()=>resolve(response(200,bellJobsSample));}));
+ const pending=g.run('refreshBell()');g.run('login();');release();await pending.catch(()=>{});assert.equal(g.run('user'),null);assert.equal(g.run('bellData.jobs.length'),0);
+ const h=bellFixture(async()=>response(401,{error:'Session expirée.'}));await h.run('refreshBell()').catch(()=>{});assert.equal(h.elements.get('#login-error').textContent,'Session expirée.');
+});
+test('the panel opens on the bell, stays open while acknowledging and closes on navigation, outside clicks and Escape',async()=>{
+ const f=bellFixture(bellReply());await f.run('refreshBell()');const panel=f.elements.get('#bell-panel'),bell=f.elements.get('#bell');
+ const click=hit=>f.listeners.get('click').at(-1)({target:{closest:selector=>hit.some(part=>selector.includes(part))?{dataset:{}}:null}});
+ click(['bell-toggle']);assert.deepEqual([panel.hidden,bell.attrs['aria-expanded']],[false,'true']);assert.match(panel.innerHTML,/À traiter/);
+ click(['#bell-panel']);assert.equal(panel.hidden,false);
+ click(['#bell-panel','data-page']);assert.equal(panel.hidden,true);
+ click(['bell-toggle']);click([]);assert.equal(panel.hidden,true);
+ click(['bell-toggle']);f.listeners.get('keydown').at(-1)({key:'a'});assert.equal(panel.hidden,false);f.listeners.get('keydown').at(-1)({key:'Escape'});assert.deepEqual([panel.hidden,bell.attrs['aria-expanded']],[true,'false']);
+ click(['bell-toggle']);click(['bell-toggle']);assert.equal(panel.hidden,true);
+ // Sans la coquille du bureau (affichage classique), le dessin ne touche à rien.
+ for(const id of ['bell','bell-count','bell-tasks','bell-panel'])f.elements.delete('#'+id);f.run('drawBell()');
+});
+
+// Recherche globale : palette Ctrl+K du bureau.
+const paletteReply=async url=>response(200,url.endsWith('/cameras')?[{id:'garage',name:'Garage <b>nord</b>'},{id:'',name:'sans identifiant'},null]:url.endsWith('/areas')?[{id:'fichiers',name:'Fichiers partagés'}]:overviewSample);
+function paletteFixture(fetch=paletteReply,role='admin'){
+ const f=deskFixture(fetch,role);vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/palette.js'),'utf8'),f.context);
+ f.focused=[];f.mount=()=>{for(const id of ['palette','palette-results','palette-open','palette-q'])f.elements.set('#'+id,{hidden:true,value:'',innerHTML:'',attrs:{},setAttribute(k,v){this.attrs[k]=v;},focus(){f.focused.push(id);}});};
+ f.run('shell();');f.mount();f.key=(key,extra={})=>f.listeners.get('keydown').at(-1)({key,preventDefault(){},...extra});
+ f.type=text=>{f.elements.get('#palette-q').value=text;f.listeners.get('input').at(-1)({target:{id:'palette-q',value:text}});};
+ f.labels=()=>JSON.parse(JSON.stringify(f.run('paletteFound.map(e=>e.label)')));return f;
+}
+test('search sits in the desktop bar and only indexes what the account can open',()=>{
+ const f=paletteFixture();
+ assert.match(f.html,/id="palette-open" data-action="palette-open"/);assert.match(f.html,/<section class="dk-palette" id="palette"[^>]*hidden>/);assert.match(f.html,/id="palette-q" type="search"/);assert.doesNotMatch(f.html,/style=/);
+ const pages=f.run('DESK_APPS.flatMap(a=>a.pages.map(p=>p[0]))');
+ for(const [label,target] of f.run('PALETTE_TOPICS'))assert.ok(pages.includes(target),label);
+ const admin=f.run('paletteIndex()'),hints=new Set(admin.map(e=>e.hint));
+ assert.ok(hints.has('Réglages · Général'));assert.ok(hints.has('Application'));assert.equal(admin.filter(e=>e.hint==='Application').length,7);
+ const viewer=paletteFixture(paletteReply,'viewer').run('paletteIndex()');
+ for(const entry of viewer)assert.ok(!['settings','updates','notifications','alerts','retention'].includes(entry.page),entry.label);
+ assert.ok(viewer.some(e=>e.label==='Nouveau partage'));assert.ok(!viewer.some(e=>e.label==='Fuseau horaire'));
+ f.store['nacre-shell']='classic';f.run('shell();');assert.doesNotMatch(f.html,/palette/);
+});
+test('typed words match the start of words, ignore accents and put the closest label first',async()=>{
+ const f=paletteFixture();const q=text=>JSON.parse(JSON.stringify(f.run('paletteSearch')(text).map(e=>e.label)));
+ assert.deepEqual(q(''),['Fichiers','Surveillance','Stockage','Protection','Partages et comptes','Réglages','Activité']);
+ assert.deepEqual(q('fuseau'),['Fuseau horaire']);assert.deepEqual(q('HEURE'),['Fuseau horaire']);assert.deepEqual(q('mot de passe'),['Changer un mot de passe']);
+ assert.deepEqual(q('reglages').slice(0,5),['Réglages','Réglages','Général','Services','Mises à jour']);assert.equal(q('reglages').length,8);
+ assert.deepEqual(JSON.parse(JSON.stringify(f.run('paletteSearch')('mur').map(e=>[e.label,e.hint,e.view])))[0],['Mur','Surveillance',['cam','wall']]);assert.deepEqual(JSON.parse(JSON.stringify(f.run('paletteSearch')('relecture').map(e=>e.view))),[['cam','replay'],['cam','replay']]);assert.equal(q('sauv')[0],'Sauvegardes');
+ assert.ok(!q('gar').includes('Sauvegardes'));assert.deepEqual(q('zzz'),[]);assert.ok(q('a').length<=8);
+ assert.deepEqual(q('classique'),['Affichage classique']);
+ // Caméras et espaces lus à l'ouverture : noms échappés à l'affichage, entrées sans identifiant écartées.
+ f.key('k',{ctrlKey:true});await new Promise(resolve=>setImmediate(resolve));
+ assert.deepEqual(JSON.parse(JSON.stringify(f.run('paletteExtra.map(e=>[e.label,e.hint])'))),[['Garage <b>nord</b>','Caméra'],['Fichiers partagés','Espace de fichiers']]);
+ f.type('garage');assert.deepEqual(f.labels(),['Garage <b>nord</b>']);
+ const html=f.elements.get('#palette-results').innerHTML;assert.match(html,/Garage &lt;b&gt;nord&lt;\/b&gt;<small>Caméra<\/small>/);assert.doesNotMatch(html,/<b>nord/);assert.match(html,/role="option" class="dk-note on" aria-selected="true" data-action="palette-run" data-index="0"/);
+ f.type('zzz');assert.match(f.elements.get('#palette-results').innerHTML,/Aucun résultat/);
+});
+test('keyboard opens, moves, runs and closes the search without acting behind a dialog',async()=>{
+ const f=paletteFixture();const panel=f.elements.get('#palette');
+ f.elements.get('#modal').open=true;f.key('k',{ctrlKey:true});assert.equal(panel.hidden,true);f.elements.get('#modal').open=false;
+ f.key('k',{ctrlKey:true,altKey:true});assert.equal(panel.hidden,true);
+ f.key('K',{metaKey:true});assert.deepEqual([panel.hidden,f.focused.at(-1),f.elements.get('#palette-open').attrs['aria-expanded']],[false,'palette-q','true']);
+ assert.equal(f.labels().length,7);f.key('ArrowUp');assert.equal(f.run('palettePick'),6);f.key('ArrowDown');assert.equal(f.run('palettePick'),0);f.key('ArrowDown');assert.equal(f.run('palettePick'),1);
+ f.key('Enter');await new Promise(resolve=>setImmediate(resolve));assert.deepEqual([f.run('page'),panel.hidden],['camera',true]);
+ f.key('k',{ctrlKey:true});f.type('fuseau');f.key('Enter');await new Promise(resolve=>setImmediate(resolve));assert.equal(f.run('page'),'settings');
+ f.key('k',{ctrlKey:true});f.key('Escape');assert.deepEqual([panel.hidden,f.focused.at(-1)],[true,'palette-open']);
+ f.key('k',{ctrlKey:true});f.key('k',{ctrlKey:true});assert.equal(panel.hidden,true);
+ // Fermée, la recherche ignore les touches ; un clic ailleurs la referme.
+ const before=f.run('rendered.length');f.key('Enter');f.key('ArrowDown');assert.equal(f.run('rendered.length'),before);
+ const click=hit=>f.listeners.get('click').at(-1)({target:{closest:selector=>hit.some(part=>selector.includes(part))?{dataset:{index:'0'}}:null}});
+ click(['palette-open']);assert.equal(panel.hidden,false);click(['#palette']);assert.equal(panel.hidden,false);click([]);assert.equal(panel.hidden,true);
+ click(['palette-open']);f.type('journal');click(['palette-run']);await new Promise(resolve=>setImmediate(resolve));assert.deepEqual([f.run('page'),panel.hidden],['events',true]);
+});
+test('a result opens its camera, file area or display, and nothing the account cannot reach',async()=>{
+ const f=paletteFixture();vm.runInContext('var cameraCatalog=[],selectedCamera="",cameraDetail=false;',f.context);
+ await f.run('runPalette({camera:"garage"})');assert.deepEqual([f.run('page'),f.run('selectedCamera'),f.run('cameraDetail')],['camera','garage',true]);
+ f.run('currentPath="ancien/dossier";');await f.run('runPalette({area:"fichiers"})');assert.deepEqual([f.run('page'),f.run('area'),f.run('currentPath')],['files','fichiers','']);
+ const before=f.run('rendered.length');await f.run('runPalette({page:"nowhere"})');await f.run('runPalette(undefined)');assert.equal(f.run('rendered.length'),before);
+ f.run('user.role="viewer"');await f.run('runPalette({page:"settings"})');assert.equal(f.run('page'),'files');f.run('user.role="admin"');
+ await f.run('runPalette({shell:"classic"})');assert.equal(f.store['nacre-shell'],'classic');assert.match(f.html,/class="sidebar"/);
+ // Lectures en échec ou tardives : les entrées dynamiques restent absentes, sans erreur ni écriture après déconnexion.
+ const g=paletteFixture(async()=>response(500,{error:'Indisponible.'}));await g.run('loadPaletteExtra()');assert.equal(g.run('paletteExtra.length'),0);
+ let release;const h=paletteFixture(()=>new Promise(resolve=>{release=()=>resolve(response(200,[{id:'x',name:'Tardive'}]));}));
+ const pending=h.run('loadPaletteExtra()');h.run('login();');release();await pending.catch(()=>{});assert.equal(h.run('paletteExtra.length'),0);
 });
 
 function updateFixture(fetch){
@@ -1113,4 +1249,94 @@ test('camera detail shows the search card without searching, and keeps results a
  assert.ok(html.indexOf('id="playback"')<html.indexOf('id="search"'));
  f.run('searchData=found;');await f.run('renderSurveillance()');
  html=f.elements.get('#content').innerHTML;assert.match(html,/dimanche 8 novembre · 7 événements/);assert.ok(!calls.some(u=>u.includes('camera/search')));
+});
+
+// Application Surveillance du bureau : mur, événements de toutes les caméras, relecture à frise commune, réglages.
+const survCameras=[...cameraSamples.slice(0,3),{id:'yard',name:'Cour <b>nord</b>',enabled:true,status:'receiving',online:true,fps:5,observed_at:1700000000,days:2}];
+function survFixture(fetch,role='admin'){
+ const f=deskFixture(fetch,role);
+ for(const name of ['components.js','playback.js','detection.js','search.js','palette.js','surveillance.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static',name),'utf8'),f.context);
+ f.run('shell();page="camera";deskSync();played=[];playbackPlay=t=>{played.push(["play",t]);};playbackOpen=async(day,start,end)=>{played.push(["open",day,start,end]);};');
+ f.content=()=>String(f.elements.get('#content').innerHTML);f.act=(action,data={},extra={})=>f.listeners.get('click').at(-1)({target:{closest:()=>({dataset:{action,...data},...extra})},clientX:extra.x??0});return f;
+}
+const survReply=calls=>async url=>{calls.push(url);
+ if(url==='/api/cameras')return response(200,survCameras);
+ if(url.startsWith('/api/camera/search'))return url.includes('camera=garage')?response(500,{error:'Indisponible.'}):response(200,url.includes('camera=entry')?searchSample:{...searchSample,camera:'x',events:[],facets:undefined});
+ if(url.startsWith('/api/camera/timeline'))return response(200,{...playbackSample,camera:new URL('http://x'+url).searchParams.get('camera')});
+ if(url.startsWith('/api/camera/detection'))return response(200,detectionSample);
+ if(url.startsWith('/api/camera/settings'))return response(200,{days:3});
+ if(url.startsWith('/api/camera/info'))return response(200,{features:['pt'],presets:[]});
+ return response(200,overviewSample);};
+test('surveillance opens on a wall of still images in the desktop and keeps its page in the classic display',async()=>{
+ const calls=[],f=survFixture(survReply(calls));
+ await f.run('renderCamera()');let html=f.content();
+ assert.deepEqual(calls,['/api/cameras']);assert.equal((html.match(/class="card sv-tile"/g)||[]).length,4);
+ assert.deepEqual([...html.matchAll(/<img class="sv-still" src="\/api\/camera\/snapshot\?camera=(\w+)&t=\d+" data-camera="(\w+)"/g)].map(m=>m[1]),['entry','yard']);
+ assert.doesNotMatch(html,/camera\/live|<b>nord|style=/);assert.match(html,/Cour &lt;b&gt;nord/);assert.match(html,/2 sur 4 reçues/);assert.match(html,/data-action="camera-add"/);
+ assert.deepEqual([f.run('cameraDetail'),f.run('survFocus'),f.run('survView()')],[false,false,'wall']);
+ f.store['nacre-shell']='classic';await f.run('renderCamera()');assert.match(f.content(),/Votre surveillance, d’un regard/);assert.doesNotMatch(f.content(),/sv-tile/);
+ // Aucune caméra : même accueil que l'affichage classique ; lecture seule : pas d'ajout.
+ const g=survFixture(async()=>response(200,[]),'viewer');await g.run('renderCamera()');assert.match(g.content(),/Votre surveillance commence ici/);assert.doesNotMatch(g.content(),/camera-add/);
+});
+test('enlarging a camera opens its live view alone, and unknown cameras or late answers change nothing',async()=>{
+ const calls=[],f=survFixture(survReply(calls));await f.run('renderCamera()');
+ await f.act('surv-focus',{camera:'nowhere'});assert.equal(f.run('survFocus'),false);
+ await f.act('surv-focus',{camera:'entry'});const html=f.content();
+ assert.deepEqual(calls.slice(-3).sort(),['/api/camera/info?camera=entry','/api/camera/settings?camera=entry','/api/cameras']);
+ assert.equal((html.match(/src="\/api\/camera\/live\?camera=entry"/g)||[]).length,1);assert.match(html,/class="ptz-pad"/);assert.match(html,/data-action="surv-wall"/);
+ assert.deepEqual([...html.matchAll(/class="sv-still"[^>]*data-camera="(\w+)"/g)].map(m=>m[1]),['yard']);assert.equal((html.match(/class="card sv-tile"/g)||[]).length,3);
+ assert.deepEqual([f.run('cameraDetail'),f.run('selectedCamera')],[true,'entry']);
+ await f.act('surv-wall');assert.doesNotMatch(f.content(),/camera\/live/);assert.equal(f.run('cameraDetail'),false);
+ // Réponse arrivée après un changement d'onglet : le mur agrandi n'est pas dessiné.
+ const waiting=[],release=()=>waiting.splice(0).forEach(done=>done(response(200,{features:[]})));const g=survFixture(url=>url==='/api/cameras'?Promise.resolve(response(200,survCameras)):new Promise(resolve=>{waiting.push(resolve);}));
+ g.run('selectedCamera="entry";survFocus=true;');const pending=g.run('renderCamera()');await new Promise(resolve=>setImmediate(resolve));g.run('deskSetView("cam","events");$("#content").innerHTML="autre vue";');release();await pending;
+ assert.equal(g.content(),'autre vue');
+});
+test('events of every camera merge newest first, filter in place and open the replay at the event',async()=>{
+ const calls=[],f=survFixture(survReply(calls));f.run('deskSetView("cam","events");');await f.run('renderCamera()');
+ assert.deepEqual(calls.filter(u=>u.startsWith('/api/camera/search')).sort(),['entry','garage','pause','yard'].map(id=>'/api/camera/search?camera='+id));
+ assert.deepEqual(JSON.parse(JSON.stringify(f.run('survEvents.items.map(e=>[e.camera,e.start])'))),searchSample.events.map(e=>['entry',e.start]).sort((a,b)=>b[1]-a[1]));
+ assert.deepEqual(JSON.parse(JSON.stringify(f.run('survEvents.failed'))),['Garage']);
+ let html=f.run('survEventsHtml()');
+ assert.match(html,/Événements indisponibles pour Garage/);assert.doesNotMatch(html,/<img src=x>|Voisin <b>|style=/);assert.match(html,/Voisin &lt;b&gt;/);
+ const total=searchSample.events.length;assert.equal((html.match(/data-action="surv-open"/g)||[]).length,total);assert.equal((html.match(/ disabled>/g)||[]).length,searchSample.events.filter(e=>e.recorded===false).length);assert.match(html,new RegExp(`data-kind="camera" data-value="entry" aria-pressed="false">Entrée<b>${total}</b>`));
+ assert.match(html,/event-thumbnail\?camera=entry&id=1794186400\.5-aaaa11/);
+ const before=calls.length;f.elements.set('#surv-events',{innerHTML:''});
+ await f.act('surv-filter',{kind:'label',value:'person'});html=f.elements.get('#surv-events').innerHTML;
+ assert.equal(calls.length,before);assert.equal((html.match(/data-action="surv-open"/g)||[]).length,searchSample.events.filter(e=>e.label==='person').length);assert.match(html,/data-value="person" aria-pressed="true"/);
+ await f.act('surv-filter',{kind:'camera',value:'yard'});assert.match(f.elements.get('#surv-events').innerHTML,/Aucun événement pour ces filtres/);
+ await f.act('surv-open',{camera:'nowhere',day:'2026-11-08',start:'1',end:'2'});assert.equal(f.run('survView()'),'events');
+ await f.act('surv-open',{camera:'entry',day:'2026-11-08',start:String(dayStart+4000),end:String(dayStart+4013)});
+ assert.deepEqual([f.run('survView()'),f.run('selectedCamera'),f.run('cameraDetail')],['replay','entry',true]);
+ assert.ok(calls.includes('/api/camera/timeline?camera=entry&day=2026-11-08'));assert.deepEqual(JSON.parse(JSON.stringify(f.run('played'))),[['open','2026-11-08',dayStart+4000,dayStart+4013]]);
+ assert.match(f.content(),/id="playback"/);assert.match(f.content(),/id="surv-rows"/);assert.match(f.content(),/id="camera-select"/);
+});
+test('replay draws one row per camera for the day and a click on a row plays that camera at that time',async()=>{
+ const calls=[],f=survFixture(survReply(calls));f.run('deskSetView("cam","replay");selectedCamera="entry";');await f.run('renderCamera()');
+ const rows={innerHTML:'',attrs:{},setAttribute(k,v){this.attrs[k]=v;},removeAttribute(k){delete this.attrs[k];}};f.elements.set('#surv-rows',rows);
+ const before=calls.length;await f.run('survRows(cameraCatalog,"2026-11-08",()=>true)');
+ assert.deepEqual(calls.slice(before).sort(),['entry','garage','pause','yard'].map(id=>`/api/camera/timeline?camera=${id}&day=2026-11-08`));
+ assert.equal((rows.innerHTML.match(/class="sv-row /g)||[]).length,4);assert.equal((rows.innerHTML.match(/class="sv-row sel"/g)||[]).length,1);
+ assert.match(rows.innerHTML,/data-action="surv-seek" data-camera="yard" data-day="2026-11-08" data-start="\d+" data-end="\d+"/);assert.doesNotMatch(rows.innerHTML,/<b>nord|style=/);
+ assert.equal((rows.innerHTML.match(/<rect class="pb-rec"/g)||[]).length,4*playbackSample.intervals.length);assert.equal(rows.attrs['aria-busy'],undefined);
+ assert.match(f.run('survRow({id:"x",name:"Sans <i>"},null)'),/Sans &lt;i&gt;<\/span><p class="muted">Enregistrements indisponibles/);
+ const box={getBoundingClientRect:()=>({left:100,width:400})},data={day:'2026-11-08',start:String(dayStart),end:String(dayStart+86400)};
+ await f.act('surv-seek',{camera:'entry',...data},{...box,x:200});assert.deepEqual(JSON.parse(JSON.stringify(f.run('played'))),[['play',dayStart+21600]]);
+ await f.act('surv-seek',{camera:'yard',...data},{...box,x:9999});
+ assert.deepEqual([f.run('selectedCamera'),JSON.parse(JSON.stringify(f.run('played.at(-1)')))],['yard',['play',dayStart+86400]]);
+ const count=f.run('played.length');await f.act('surv-seek',{camera:'nowhere',...data},{...box,x:200});await f.act('surv-seek',{camera:'entry',...data},{getBoundingClientRect:()=>({left:0,width:0}),x:5});assert.equal(f.run('played.length'),count);
+ // Un rendu remplacé entre-temps ne reçoit pas les lignes.
+ rows.innerHTML='ancien';const late=f.run('survRows(cameraCatalog,"2026-11-08",()=>false)');await late;assert.equal(rows.innerHTML,'ancien');
+});
+test('settings gather detection, retention and connection for the chosen camera, without buttons for a reader',async()=>{
+ const calls=[],f=survFixture(survReply(calls));f.run('deskSetView("cam","settings");selectedCamera="yard";');await f.run('renderCamera()');
+ let html=f.content();
+ assert.deepEqual(calls.slice(-2).sort(),['/api/camera/detection?camera=yard','/api/camera/settings?camera=yard']);
+ assert.match(html,/id="camera-select"/);assert.match(html,/<option value="yard" selected>/);assert.match(html,/Conservation continue : <strong>3 jour\(s\)<\/strong>/);
+ assert.match(html,/data-action="camera-settings"/);assert.match(html,/data-action="camera-edit"/);assert.doesNotMatch(html,/camera\/live|style=/);assert.equal(f.run('cameraDetail'),true);
+ const g=survFixture(survReply([]),'viewer');g.run('deskSetView("cam","settings");');await g.run('renderCamera()');
+ assert.doesNotMatch(g.content(),/camera-settings|camera-edit|camera-add/);assert.match(g.content(),/réservés aux administrateurs/);
+ // La recherche globale ouvre une caméra agrandie sur le mur, et une vue par son nom.
+ f.run('user.role="admin";');await f.run('runPalette({camera:"entry"})');assert.deepEqual([f.run('survView()'),f.run('survFocus'),f.run('selectedCamera')],['wall',true,'entry']);
+ await f.run('runPalette({page:"camera",view:["cam","events"]})');assert.equal(f.run('survView()'),'events');
 });

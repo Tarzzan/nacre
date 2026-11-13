@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.8.0-alpha.29 — Surveillance en application
+
+Dans le bureau, Surveillance devient une application à quatre onglets au lieu d’une page longue. **Mur** : toutes les caméras côte à côte, en images fixes rafraîchies toutes les dix secondes ; un clic agrandit une caméra, ouvre son direct et son pilotage, les autres restant en images fixes. **Événements** : ceux de toutes les caméras sur sept jours, du plus récent au plus ancien, filtrables par caméra et par type ; un clic ouvre la relecture sur la bonne caméra, au bon moment. **Relecture** : la carte existante, complétée d’une frise commune avec une ligne par caméra pour le jour relu ; un clic sur une ligne lit cette caméra à cette heure. **Réglages** : détection, conservation et connexion de la caméra choisie. Les cartes de lecture, de recherche et de détection sont celles des versions précédentes, rangées autrement ; l’affichage classique garde sa page. Aucun changement côté serveur, de schéma ni de module figé. 308 tests Python et 112 JavaScript. [Guide et limites](docs/DESKTOP.md#surveillance).
+
+## 0.8.0-alpha.28 — Recherche globale
+
+La barre du bureau porte une **recherche**, ouverte aussi par Ctrl+K : quelques lettres suffisent pour ouvrir une application, un onglet, une caméra ou un espace de fichiers. Une vingtaine de réglages y sont nommés comme on les cherche (« fuseau horaire », « changer un mot de passe », « restaurer des fichiers »). Flèches et Entrée au clavier, Échap pour fermer. La recherche ne propose que ce que le compte peut ouvrir, ne modifie rien et ne cherche pas dans le contenu ni les noms des fichiers. Aucun changement côté serveur, de schéma ni de module figé. 308 tests Python et 107 JavaScript. [Guide et limites](docs/DESKTOP.md#recherche-globale).
+
+## 0.8.0-alpha.27 — Centre de notifications
+
+La barre du bureau porte une **cloche** : le nombre d’alertes à traiter, et à côté le nombre de tâches en cours. Elle ouvre un panneau unique, depuis n’importe quelle application : alertes avec leur bouton « Prendre en compte » et un accès direct à la page concernée, tâches en cours avec leur progression, puis les faits des dernières vingt-quatre heures (tâches terminées, échecs, retours à la normale). Une tâche vue en cours est annoncée quand elle se termine, où que l’on soit dans la console. Un compte en lecture seule voit les tâches, pas les alertes. L’affichage classique garde son bouton d’alertes. Aucun changement côté serveur, de schéma ni de module figé. 308 tests Python et 103 JavaScript. [Guide et limites](docs/DESKTOP.md#centre-de-notifications).
+
 ## 0.8.0-alpha.26 — Le Bureau
 
 La console s’ouvre désormais sur un **bureau** : sept applications nommées par usage (Fichiers, Surveillance, Stockage, Protection, Partages et comptes, Réglages, Activité) à la place des treize rubriques du menu, un dock, et des widgets qui reprennent la vue d’ensemble. Une application s’ouvre dans une fenêtre que l’on déplace, agrandit, réduit ou ferme ; ses pages en sont les onglets, sans leur grand en-tête. Sur téléphone, l’application occupe l’écran et le dock devient la barre du bas. Les pages elles-mêmes ne changent pas. Le bouton **Classique** de la barre supérieure rend l’ancien menu, et **Bureau** y ramène ; le choix est mémorisé par navigateur. Aucun changement côté serveur, de schéma ni de module figé. 308 tests Python et 98 JavaScript. [Guide et limites](docs/DESKTOP.md).

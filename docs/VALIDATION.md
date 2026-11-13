@@ -1,5 +1,17 @@
 # Validation
 
+## Surveillance en application — 0.8.0-alpha.29
+
+308 tests Python et 112 JavaScript. Détail dans le [guide du Bureau](DESKTOP.md#validation).
+
+## Recherche globale — 0.8.0-alpha.28
+
+308 tests Python et 107 JavaScript. Détail dans le [guide du Bureau](DESKTOP.md#validation).
+
+## Centre de notifications — 0.8.0-alpha.27
+
+308 tests Python et 103 JavaScript. Détail dans le [guide du Bureau](DESKTOP.md#validation).
+
 ## Le Bureau — 0.8.0-alpha.26
 
 308 tests Python et 98 JavaScript. Le détail des essais et du parcours navigateur est dans le [guide du Bureau](DESKTOP.md#validation).

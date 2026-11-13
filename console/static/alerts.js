@@ -1,5 +1,6 @@
 'use strict';
 async function refreshAlertBadge(){
+ if(typeof refreshBell==='function'&&typeof deskMode==='function'&&deskMode())return refreshBell();
  const generation=sessionGeneration;
  const d=await api('alerts');
  if(generation!==sessionGeneration||!user)return;
