@@ -1,5 +1,9 @@
 # Validation
 
+## Recherche globale — 0.8.0-alpha.28
+
+308 tests Python et 107 JavaScript. Détail dans le [guide du Bureau](DESKTOP.md#validation).
+
 ## Centre de notifications — 0.8.0-alpha.27
 
 308 tests Python et 103 JavaScript. Détail dans le [guide du Bureau](DESKTOP.md#validation).

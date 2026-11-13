@@ -825,6 +825,70 @@ test('the panel opens on the bell, stays open while acknowledging and closes on 
  for(const id of ['bell','bell-count','bell-tasks','bell-panel'])f.elements.delete('#'+id);f.run('drawBell()');
 });
 
+// Recherche globale : palette Ctrl+K du bureau.
+const paletteReply=async url=>response(200,url.endsWith('/cameras')?[{id:'garage',name:'Garage <b>nord</b>'},{id:'',name:'sans identifiant'},null]:url.endsWith('/areas')?[{id:'fichiers',name:'Fichiers partagés'}]:overviewSample);
+function paletteFixture(fetch=paletteReply,role='admin'){
+ const f=deskFixture(fetch,role);vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/palette.js'),'utf8'),f.context);
+ f.focused=[];f.mount=()=>{for(const id of ['palette','palette-results','palette-open','palette-q'])f.elements.set('#'+id,{hidden:true,value:'',innerHTML:'',attrs:{},setAttribute(k,v){this.attrs[k]=v;},focus(){f.focused.push(id);}});};
+ f.run('shell();');f.mount();f.key=(key,extra={})=>f.listeners.get('keydown').at(-1)({key,preventDefault(){},...extra});
+ f.type=text=>{f.elements.get('#palette-q').value=text;f.listeners.get('input').at(-1)({target:{id:'palette-q',value:text}});};
+ f.labels=()=>JSON.parse(JSON.stringify(f.run('paletteFound.map(e=>e.label)')));return f;
+}
+test('search sits in the desktop bar and only indexes what the account can open',()=>{
+ const f=paletteFixture();
+ assert.match(f.html,/id="palette-open" data-action="palette-open"/);assert.match(f.html,/<section class="dk-palette" id="palette"[^>]*hidden>/);assert.match(f.html,/id="palette-q" type="search"/);assert.doesNotMatch(f.html,/style=/);
+ const pages=f.run('DESK_APPS.flatMap(a=>a.pages.map(p=>p[0]))');
+ for(const [label,target] of f.run('PALETTE_TOPICS'))assert.ok(pages.includes(target),label);
+ const admin=f.run('paletteIndex()'),hints=new Set(admin.map(e=>e.hint));
+ assert.ok(hints.has('Réglages · Général'));assert.ok(hints.has('Application'));assert.equal(admin.filter(e=>e.hint==='Application').length,7);
+ const viewer=paletteFixture(paletteReply,'viewer').run('paletteIndex()');
+ for(const entry of viewer)assert.ok(!['settings','updates','notifications','alerts','retention'].includes(entry.page),entry.label);
+ assert.ok(viewer.some(e=>e.label==='Nouveau partage'));assert.ok(!viewer.some(e=>e.label==='Fuseau horaire'));
+ f.store['nacre-shell']='classic';f.run('shell();');assert.doesNotMatch(f.html,/palette/);
+});
+test('typed words match the start of words, ignore accents and put the closest label first',async()=>{
+ const f=paletteFixture();const q=text=>JSON.parse(JSON.stringify(f.run('paletteSearch')(text).map(e=>e.label)));
+ assert.deepEqual(q(''),['Fichiers','Surveillance','Stockage','Protection','Partages et comptes','Réglages','Activité']);
+ assert.deepEqual(q('fuseau'),['Fuseau horaire']);assert.deepEqual(q('HEURE'),['Fuseau horaire']);assert.deepEqual(q('mot de passe'),['Changer un mot de passe']);
+ assert.deepEqual(q('reglages').slice(0,5),['Réglages','Général','Services','Mises à jour','Notifications']);assert.equal(q('reglages').length,8);assert.equal(q('sauv')[0],'Sauvegardes');
+ assert.ok(!q('gar').includes('Sauvegardes'));assert.deepEqual(q('zzz'),[]);assert.ok(q('a').length<=8);
+ assert.deepEqual(q('classique'),['Affichage classique']);
+ // Caméras et espaces lus à l'ouverture : noms échappés à l'affichage, entrées sans identifiant écartées.
+ f.key('k',{ctrlKey:true});await new Promise(resolve=>setImmediate(resolve));
+ assert.deepEqual(JSON.parse(JSON.stringify(f.run('paletteExtra.map(e=>[e.label,e.hint])'))),[['Garage <b>nord</b>','Caméra'],['Fichiers partagés','Espace de fichiers']]);
+ f.type('garage');assert.deepEqual(f.labels(),['Garage <b>nord</b>']);
+ const html=f.elements.get('#palette-results').innerHTML;assert.match(html,/Garage &lt;b&gt;nord&lt;\/b&gt;<small>Caméra<\/small>/);assert.doesNotMatch(html,/<b>nord/);assert.match(html,/role="option" class="dk-note on" aria-selected="true" data-action="palette-run" data-index="0"/);
+ f.type('zzz');assert.match(f.elements.get('#palette-results').innerHTML,/Aucun résultat/);
+});
+test('keyboard opens, moves, runs and closes the search without acting behind a dialog',async()=>{
+ const f=paletteFixture();const panel=f.elements.get('#palette');
+ f.elements.get('#modal').open=true;f.key('k',{ctrlKey:true});assert.equal(panel.hidden,true);f.elements.get('#modal').open=false;
+ f.key('k',{ctrlKey:true,altKey:true});assert.equal(panel.hidden,true);
+ f.key('K',{metaKey:true});assert.deepEqual([panel.hidden,f.focused.at(-1),f.elements.get('#palette-open').attrs['aria-expanded']],[false,'palette-q','true']);
+ assert.equal(f.labels().length,7);f.key('ArrowUp');assert.equal(f.run('palettePick'),6);f.key('ArrowDown');assert.equal(f.run('palettePick'),0);f.key('ArrowDown');assert.equal(f.run('palettePick'),1);
+ f.key('Enter');await new Promise(resolve=>setImmediate(resolve));assert.deepEqual([f.run('page'),panel.hidden],['camera',true]);
+ f.key('k',{ctrlKey:true});f.type('fuseau');f.key('Enter');await new Promise(resolve=>setImmediate(resolve));assert.equal(f.run('page'),'settings');
+ f.key('k',{ctrlKey:true});f.key('Escape');assert.deepEqual([panel.hidden,f.focused.at(-1)],[true,'palette-open']);
+ f.key('k',{ctrlKey:true});f.key('k',{ctrlKey:true});assert.equal(panel.hidden,true);
+ // Fermée, la recherche ignore les touches ; un clic ailleurs la referme.
+ const before=f.run('rendered.length');f.key('Enter');f.key('ArrowDown');assert.equal(f.run('rendered.length'),before);
+ const click=hit=>f.listeners.get('click').at(-1)({target:{closest:selector=>hit.some(part=>selector.includes(part))?{dataset:{index:'0'}}:null}});
+ click(['palette-open']);assert.equal(panel.hidden,false);click(['#palette']);assert.equal(panel.hidden,false);click([]);assert.equal(panel.hidden,true);
+ click(['palette-open']);f.type('journal');click(['palette-run']);await new Promise(resolve=>setImmediate(resolve));assert.deepEqual([f.run('page'),panel.hidden],['events',true]);
+});
+test('a result opens its camera, file area or display, and nothing the account cannot reach',async()=>{
+ const f=paletteFixture();vm.runInContext('var cameraCatalog=[],selectedCamera="",cameraDetail=false;',f.context);
+ await f.run('runPalette({camera:"garage"})');assert.deepEqual([f.run('page'),f.run('selectedCamera'),f.run('cameraDetail')],['camera','garage',true]);
+ f.run('currentPath="ancien/dossier";');await f.run('runPalette({area:"fichiers"})');assert.deepEqual([f.run('page'),f.run('area'),f.run('currentPath')],['files','fichiers','']);
+ const before=f.run('rendered.length');await f.run('runPalette({page:"nowhere"})');await f.run('runPalette(undefined)');assert.equal(f.run('rendered.length'),before);
+ f.run('user.role="viewer"');await f.run('runPalette({page:"settings"})');assert.equal(f.run('page'),'files');f.run('user.role="admin"');
+ await f.run('runPalette({shell:"classic"})');assert.equal(f.store['nacre-shell'],'classic');assert.match(f.html,/class="sidebar"/);
+ // Lectures en échec ou tardives : les entrées dynamiques restent absentes, sans erreur ni écriture après déconnexion.
+ const g=paletteFixture(async()=>response(500,{error:'Indisponible.'}));await g.run('loadPaletteExtra()');assert.equal(g.run('paletteExtra.length'),0);
+ let release;const h=paletteFixture(()=>new Promise(resolve=>{release=()=>resolve(response(200,[{id:'x',name:'Tardive'}]));}));
+ const pending=h.run('loadPaletteExtra()');h.run('login();');release();await pending.catch(()=>{});assert.equal(h.run('paletteExtra.length'),0);
+});
+
 function updateFixture(fetch){
  const f=fixture(fetch);vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/updates.js'),'utf8'),f.context);
  f.run('user={name:"admin",role:"admin",csrf:"synthetic"};page="updates";shell();');return f;
