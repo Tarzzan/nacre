@@ -1,4 +1,4 @@
-"""Recherche d'un fichier ou d'un dossier par son nom, dans un dossier, un espace ou tous les espaces.
+"""Recherche de fichiers et de dossiers par leur nom, par des critères ou les deux, dans un dossier, un espace ou tous les espaces.
 
 Parcours direct, sans index : rien à tenir à jour, rien d'écrit sur le NAS. En contrepartie le parcours est borné
 (éléments visités, durée, résultats) et dit quand il s'arrête avant la fin. Il ne suit aucun lien, ignore les noms
@@ -6,7 +6,12 @@ cachés et ne lit jamais le contenu des fichiers.
 
 Trois filtres facultatifs resserrent les résultats : famille de type (d'après l'extension), modification récente, taille
 minimale. Ils s'appliquent après le nom : seuls les éléments dont le nom correspond sont examinés.
+
+Sans nom, la recherche se fait par critères seuls et répond à « qu'est-ce qui prend de la place ? ». Elle est alors
+classée : les plus gros fichiers d'abord, ou les modifications les plus récentes. Un classement lit tout ce qu'il peut
+dans ses bornes de parcours et ne garde que les meilleurs résultats ; la mémoire reste bornée.
 """
+import heapq
 import os
 import threading
 import time
@@ -19,6 +24,7 @@ DEPTH = 64
 QUERY = 80
 DAYS = 36500
 SIZE = 1 << 50
+SORTS = ('size', 'recent')
 # Familles de types, d'après l'extension seulement : le contenu n'est jamais lu.
 KINDS = {
     'image': ('.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic', '.bmp', '.tif', '.tiff', '.svg'),
@@ -57,8 +63,24 @@ def whole(app, text, most, message):
     return int(text)
 
 
+def _keep(state, item, info):
+    state['matched'] += 1
+    if state['sort'] is None:
+        state['items'].append(item)
+        if len(state['items']) >= RESULTS:
+            raise _Stop('results')
+        return
+    # Classement : seuls les meilleurs restent ; à égalité, le premier rencontré est gardé.
+    entry = (info.st_size if state['sort'] == 'size' else info.st_mtime, -state['matched'], item)
+    if len(state['items']) < RESULTS:
+        heapq.heappush(state['items'], entry)
+    elif entry > state['items'][0]:
+        heapq.heapreplace(state['items'], entry)
+
+
 def _walk(fd, base, state):
     folders = []
+    tokens, since, size = state['tokens'], state['since'], state['size']
     with os.scandir(fd) as entries:
         for entry in entries:
             name = entry.name
@@ -73,16 +95,12 @@ def _walk(fd, base, state):
                 link = entry.is_symlink()
                 directory = not link and entry.is_dir(follow_symlinks=False)
                 plain = norm(name)
-                if all(token in plain for token in state['tokens']) and wanted_kind(state['kind'], plain, directory, link):
+                if all(token in plain for token in tokens) and wanted_kind(state['kind'], plain, directory, link):
                     info = entry.stat(follow_symlinks=False)
-                    if (state['since'] is not None and info.st_mtime < state['since']) or (state['size'] is not None and (directory or link or info.st_size < state['size'])):
-                        if directory:
-                            folders.append(name)
-                        continue
-                    state['items'].append({'area': state['area'], 'path': '/'.join(base), 'name': name, 'directory': directory, 'link': link,
-                                           'size': info.st_size, 'modified': info.st_mtime, 'rank': 0 if plain.startswith(state['tokens'][0]) else 1})
-                    if len(state['items']) >= RESULTS:
-                        raise _Stop('results')
+                    # Une taille ne se compare que pour un vrai fichier : ni dossier ni lien.
+                    if (since is None or info.st_mtime >= since) and not (state['sized'] and (directory or link)) and (size is None or info.st_size >= size):
+                        _keep(state, {'area': state['area'], 'path': '/'.join(base), 'name': name, 'directory': directory, 'link': link,
+                                      'size': info.st_size, 'modified': info.st_mtime, 'rank': 0 if tokens and plain.startswith(tokens[0]) else 1}, info)
             except OSError:
                 continue
             if directory:
@@ -102,14 +120,20 @@ def _walk(fd, base, state):
 
 def search(app, query, session):
     text, area, path = query.get('q', ''), query.get('area'), query.get('path', '')
-    tokens = norm(text).split() if isinstance(text, str) and len(text) <= QUERY else []
-    if sum(len(token) for token in tokens) < 2:
-        raise app.Problem('Saisir au moins deux caractères du nom recherché.')
+    tokens = norm(text).split() if isinstance(text, str) and len(text) <= QUERY else None
     kind = query.get('kind') or None
     if kind is not None and kind != 'folder' and kind not in KINDS:
         raise app.Problem('Type de fichier inconnu.')
     days = whole(app, query.get('days'), DAYS, 'Ancienneté invalide : un nombre de jours est attendu.')
     size = whole(app, query.get('min_size'), SIZE, 'Taille minimale invalide : un nombre d’octets est attendu.')
+    sort = query.get('sort') or None
+    if sort is not None and sort not in SORTS:
+        raise app.Problem('Classement inconnu.')
+    if tokens == [] and (sort or kind or days or size):
+        # Par critères seuls : toujours classé, par taille sauf pour des dossiers, qui n'en ont pas en propre.
+        sort = sort or ('recent' if kind == 'folder' else 'size')
+    elif sum(len(token) for token in tokens or []) < 2:
+        raise app.Problem('Saisir au moins deux caractères du nom recherché.')
     admin = session['role'] == 'admin'
     if area is None:
         if path:
@@ -123,8 +147,8 @@ def search(app, query, session):
         spaces = [area]
     if not _slots.acquire(blocking=False):
         raise app.Problem('Deux recherches sont déjà en cours. Réessayer dans un instant.', 429)
-    state = {'tokens': tokens, 'items': [], 'visited': 0, 'deadline': time.monotonic() + SECONDS, 'area': '',
-             'kind': kind, 'since': None if days is None else time.time() - days * 86400, 'size': size}
+    state = {'tokens': tokens, 'items': [], 'visited': 0, 'matched': 0, 'deadline': time.monotonic() + SECONDS, 'area': '', 'kind': kind, 'sort': sort,
+             'since': None if days is None else time.time() - days * 86400, 'size': size, 'sized': size is not None or sort == 'size'}
     partial, skipped = None, []
     try:
         for space in spaces:
@@ -142,7 +166,13 @@ def search(app, query, session):
                 skipped.append(space)
     finally:
         _slots.release()
-    order = {space: index for index, space in enumerate(spaces)}
-    items = sorted(state['items'], key=lambda item: (item.pop('rank'), order[item['area']], item['path'].count('/') + bool(item['path']), item['name'].casefold()))
-    return {'query': text, 'items': items, 'partial': partial, 'visited': state['visited'], 'skipped': skipped, 'limit': RESULTS,
-            'filters': {'kind': kind, 'days': days, 'min_size': size}}
+    if sort is None:
+        order = {space: index for index, space in enumerate(spaces)}
+        items = sorted(state['items'], key=lambda item: (item['rank'], order[item['area']], item['path'].count('/') + bool(item['path']), item['name'].casefold()))
+    else:
+        items = [entry[2] for entry in sorted(state['items'], reverse=True)]
+    for item in items:
+        del item['rank']
+    # « matched » compte les correspondances rencontrées : au-delà de « limit », un classement n'en montre que les meilleures.
+    return {'query': text, 'items': items, 'partial': partial, 'visited': state['visited'], 'matched': state['matched'], 'skipped': skipped, 'limit': RESULTS,
+            'sort': sort, 'filters': {'kind': kind, 'days': days, 'min_size': size}}

@@ -62,13 +62,14 @@ function deskChildShell(){
  deskApply(deskParent('deskIntent')||{});
  window.deskReady=true;
 }
-// Intention transmise par le bureau à une fenêtre : vue, caméra à agrandir, espace de fichiers.
+// Intention transmise par le bureau à une fenêtre : vue, caméra à agrandir, espace de fichiers, recherche à lancer.
 function deskApply(intent){
  if(!intent||typeof intent!=='object')return;
  if(intent.view)for(const app of DESK_APPS)if(app.views?.some(v=>v[0]===intent.view)&&(!intent.app||intent.app===app.id))deskViews[app.id]=intent.view;
  if(intent.camera&&typeof survOpenCamera==='function'){selectedCamera=String(intent.camera);survFocus=true;deskViews.cam='wall';}
  if(intent.area){area=String(intent.area);currentPath='';}
  if(intent.find&&typeof fmQueue==='function')fmQueue(intent.find);
+ else if(intent.big&&typeof fmQueue==='function')fmQueue('',true);
 }
 function deskTabs(win){
  const app=DESK_APPS.find(a=>a.id===win.app),pages=deskPages(app),views=app.views&&pages.length===1?app.views:null;

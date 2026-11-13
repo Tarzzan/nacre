@@ -1690,6 +1690,47 @@ test('search results can be narrowed by kind, date and size without changing the
  await pick('kind','image');f.type('ét');assert.equal(f.run('fmFound'),null);const idle=f.searches().length;await pick('kind','video');assert.equal(f.searches().length,idle);
  f.type('été');await f.at('[data-action]',{action:'fm-find',scope:'all'});assert.equal(f.searches().at(-1),'/api/files/search?q=%C3%A9t%C3%A9');assert.deepEqual(filters(),{});
 });
+test('a search by criteria alone needs no name: it ranks the biggest or the latest, here first, then in the whole NAS',async()=>{
+ const f=findFixture();await f.run('renderFiles()');f.mount();const box={value:'été'};f.elements.set('#fm-filter',box);f.type('été');
+ const pick=(key,value,id='fm-ref-'+key)=>f.listeners.get('change').at(-2)({target:{dataset:{refine:key},value,id}});
+ const filters=()=>JSON.parse(JSON.stringify(f.run('fmFound&&fmFound.filters')));
+ // Le bouton de la barre d'outils lance, sans nom, les plus gros fichiers du dossier ouvert ; le champ est vidé.
+ assert.match(String(f.elements.get('#content').innerHTML),/data-action="fm-criteria" title="Chercher sans nom[^"]*"><span>Par critères</);
+ await f.at('[data-action]',{action:'fm-criteria'});
+ assert.equal(f.searches().at(-1),'/api/files/search?q=&area=fichiers&path=&sort=size');assert.deepEqual([f.run('fmFilter'),box.value,filters()],['','',{sort:'size'}]);
+ assert.match(f.list(),/<strong>4 éléments<\/strong> dans Fichiers &lt;b&gt;partagés&lt;\/b&gt;, les plus gros d’abord/);assert.match(f.list(),/data-action="fm-find-wide"[^>]*><span>Étendre à tout le NAS</);
+ // L'ordre se choisit ; sans nom, pas de « pertinence » ; un classement n'est pas un filtre à retirer.
+ assert.match(f.list(),/id="fm-ref-sort" data-refine="sort"><option value="size" selected>Les plus gros<\/option><option value="recent">Les plus récents<\/option><\/select>/);assert.doesNotMatch(f.list(),/Par pertinence|fm-refine-clear|style=/);
+ await pick('sort','recent');assert.match(f.searches().at(-1),/\?q=&area=fichiers&path=&sort=recent$/);assert.match(f.list(),/les plus récents d’abord/);
+ const count=f.searches().length;await pick('sort','');await pick('sort','name');assert.equal(f.searches().length,count);
+ // Des dossiers n'ont pas de taille propre : l'ordre par taille n'est plus proposé et le classement passe à la date.
+ await pick('sort','size');await pick('kind','folder');assert.match(f.searches().at(-1),/&kind=folder&sort=recent$/);assert.doesNotMatch(f.list(),/Les plus gros/);
+ const still=f.searches().length;await pick('sort','size');assert.equal(f.searches().length,still);
+ await pick('kind','image');await pick('min_size','1048576');assert.match(f.searches().at(-1),/&kind=image&min_size=1048576&sort=recent$/);
+ await f.at('[data-action]',{action:'fm-refine-clear'});assert.match(f.searches().at(-1),/\?q=&area=fichiers&path=&sort=recent$/);assert.deepEqual(filters(),{sort:'recent'});
+ // Étendre garde critères et ordre, et quitte le dossier ; le bouton disparaît une fois partout.
+ await pick('kind','video');await f.at('[data-action]',{action:'fm-find-wide'});
+ assert.equal(f.searches().at(-1),'/api/files/search?q=&kind=video&sort=recent');assert.match(f.list(),/dans tout le NAS, les plus récents d’abord/);assert.doesNotMatch(f.list(),/fm-find-wide/);
+ const wide=f.searches().length;await f.at('[data-action]',{action:'fm-find-wide'});assert.equal(f.searches().length,wide);
+ // Plus de correspondances que de lignes, ou parcours écourté : c'est dit ; rien trouvé sans filtre : rien à classer.
+ f.state.answer={items:fmHits,partial:null,visited:5000,matched:1234,skipped:[],limit:200};await pick('kind','');assert.match(f.list(),/Seuls les 4 plus récents sont affichés, sur 1.234 correspondances\./);
+ f.state.answer={items:fmHits,partial:'time',visited:5000,matched:4,skipped:[],limit:200};await pick('sort','size');assert.match(f.list(),/Recherche arrêtée après 5.000 éléments parcourus : le classement ne porte que sur ce qui a été vu\./);assert.doesNotMatch(f.list(),/correspondances/);
+ f.state.answer={items:[],partial:null,visited:3,matched:0,skipped:[],limit:200};await pick('sort','recent');assert.match(f.list(),/<strong>0 élément<\/strong>/);assert.match(f.list(),/Rien à classer ici\./);
+ // Retoucher le champ quitte les résultats ; un refus ramène au dossier et s'annonce.
+ f.type('é');assert.equal(f.run('fmFound'),null);
+ f.state.status=429;await assert.rejects(f.run('fmCriteria("here")'));assert.equal(f.run('fmFound'),null);f.state.status=0;
+ // Avec un nom, l'ordre s'ajoute à la recherche et « Par pertinence » le retire ; une recherche étendue garde le nom.
+ f.state.answer={items:fmHits,partial:null,visited:9,matched:4,skipped:[],limit:200};f.type('été');await f.at('[data-action]',{action:'fm-find',scope:'here'});
+ assert.match(f.list(),/<option value="" selected>Par pertinence<\/option><option value="size">Les plus gros<\/option>/);assert.match(f.list(),/<strong>4 résultats<\/strong> pour « été »/);
+ await pick('sort','size');assert.equal(f.searches().at(-1),'/api/files/search?q=%C3%A9t%C3%A9&area=fichiers&path=&sort=size');
+ await f.at('[data-action]',{action:'fm-find-wide'});assert.equal(f.searches().at(-1),'/api/files/search?q=%C3%A9t%C3%A9&sort=size');
+ await pick('sort','');assert.equal(f.searches().at(-1),'/api/files/search?q=%C3%A9t%C3%A9');assert.deepEqual(filters(),{});
+ // Depuis la recherche globale : les plus gros fichiers de tout le NAS, à l'ouverture de Fichiers ; un nom l'emporte.
+ f.run('deskApply({big:true});');await f.run('renderFiles()');f.mount();await f.settle();
+ assert.equal(f.searches().at(-1),'/api/files/search?q=&sort=size');assert.match(f.list(),/dans tout le NAS, les plus gros d’abord/);
+ const once=f.searches().length;await f.run('renderFiles()');f.mount();await f.settle();assert.equal(f.searches().length,once);
+ f.run('fmQueue(" bilan ",true);');assert.deepEqual([f.run('fmPending'),f.run('fmPendingBig')],['bilan',false]);
+});
 test('global search offers to look a name up in the files from two characters, and hands it to the Files application',async()=>{
  const f=paletteFixture();f.key('k',{ctrlKey:true});await new Promise(resolve=>setImmediate(resolve));
  // Sans le gestionnaire de fichiers chargé, rien n'est proposé.
@@ -1698,12 +1739,17 @@ test('global search offers to look a name up in the files from two characters, a
  f.type('f');assert.doesNotMatch(f.labels().join('|'),/Chercher/);
  f.type('  facture <b>2026</b> ');assert.deepEqual(f.labels(),['Chercher « facture <b>2026</b> » dans les fichiers']);
  assert.match(f.elements.get('#palette-results').innerHTML,/Chercher « facture &lt;b&gt;2026&lt;\/b&gt; » dans les fichiers<small>Fichiers · par nom, dans tout le NAS<\/small>/);
+ f.type('place');assert.deepEqual(f.labels(),['Les plus gros fichiers','Chercher « place » dans les fichiers']);
  // Elle vient après les résultats habituels et ne lance rien tant qu'elle n'est pas choisie.
  f.type('sauv');assert.deepEqual([f.labels()[0],f.labels().at(-1)],['Sauvegardes','Chercher « sauv » dans les fichiers']);assert.deepEqual(f.context.asked,[]);
  await f.run('runPalette(paletteFound.at(-1))');assert.deepEqual([f.context.asked,f.run('page'),f.elements.get('#palette').hidden],[['sauv'],'files',true]);
  // Dans le bureau, la demande part vers la fenêtre de Fichiers.
  const opened=[];f.context.deskOpenPage=(...args)=>opened.push(args);f.elements.set('#dk-wins',{});
  await f.run('runPalette({find:"rapport"})');assert.deepEqual(JSON.parse(JSON.stringify(opened)),[['files',{find:'rapport'}]]);
+ // « Qu'est-ce qui prend de la place ? » : une entrée fixe, trouvée par ses mots, qui lance les plus gros fichiers.
+ await f.run('runPalette({big:true})');assert.deepEqual(JSON.parse(JSON.stringify(opened.at(-1))),['files',{big:true}]);
+ f.elements.delete('#dk-wins');f.context.asked=[];f.context.fmQueue=(...args)=>f.context.asked.push(args);
+ await f.run('runPalette({big:true})');assert.deepEqual([JSON.parse(JSON.stringify(f.context.asked)),f.run('page')],[[['',true]],'files']);
 });
 
 // Bureau personnalisable : widgets et fond par compte, fenêtres mémorisées par navigateur.

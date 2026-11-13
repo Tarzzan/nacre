@@ -217,18 +217,39 @@ Les filtres se combinent ; **Retirer les filtres** les enlève tous, et une nouv
 
 - **Le type vient de l’extension**, pas du contenu : un fichier renommé change de famille. Un lien symbolique n’appartient à aucune famille.
 - **La date d’un dossier est la sienne** : un dossier ancien est écarté par « Modifié », mais son contenu reste parcouru.
-- **Il faut toujours un nom** : les filtres resserrent une recherche, ils ne la remplacent pas. Chercher « tous les gros fichiers » sans nom n’est pas possible.
+- **Sans nom**, les mêmes listes servent de critères : voir ci-dessous.
+
+#### Chercher sans nom, par critères
+
+Depuis la version 0.8.0-alpha.37, le bouton **Par critères**, à côté du champ, lance une recherche sans nom dans le dossier ouvert et ses sous-dossiers (ou dans l’espace entier, depuis sa racine). Elle montre d’abord **les plus gros fichiers** : c’est la réponse à « qu’est-ce qui prend de la place ici ? ».
+
+![Les plus gros fichiers du NAS, sur le banc de démonstration](images/file-search-criteria.jpg)
+
+Les trois listes resserrent ensuite le résultat, par exemple « Vidéos » et « Plus de 1 Gio ». Une quatrième liste, **Ordre**, choisit le classement :
+
+| Ordre | Ce qui vient en premier |
+| --- | --- |
+| **Les plus gros** | Les fichiers les plus volumineux. Dossiers et liens n’y figurent pas. |
+| **Les plus récents** | Les dernières modifications, dossiers compris. |
+| **Par pertinence** | Avec un nom seulement : l’ordre habituel de la recherche par nom. |
+
+**Étendre à tout le NAS** relance la même recherche, critères et ordre gardés, dans tous les espaces du compte ; le bouton existe aussi pour une recherche par nom. Dans la recherche globale (Ctrl+K), **Les plus gros fichiers** ouvre directement ce classement pour tout le NAS ; « place », « taille » ou « espace » le trouvent.
+
+- **Un classement lit tout, puis garde les 200 premiers.** Quand il y a plus de correspondances, leur nombre est indiqué. Les bornes de parcours restent celles de la recherche par nom : au-delà de quatre secondes ou de 200 000 éléments, le classement ne porte que sur ce qui a été vu, et c’est dit.
+- **La taille est celle de chaque fichier**, pas celle d’un dossier avec son contenu : la recherche ne dit pas « quel dossier pèse le plus ». Avec le type « Dossiers », l’ordre par taille n’est pas proposé.
+- **Sans nom, chaque élément est examiné** : sur un très grand volume, la recherche est plus lente qu’avec un nom. La lancer depuis un dossier la raccourcit.
+- **Restaurations et snapshots** ne sont classés que depuis leur espace, comme pour la recherche par nom.
 
 Ce qu’il faut savoir :
 
 - **Le nom seulement**, jamais le contenu. Accents et majuscules ne comptent pas ; chaque mot saisi doit figurer dans le nom, dans n’importe quel ordre. « .pdf » trouve les PDF.
 - **Pas d’index** : le NAS est parcouru au moment de la demande. Rien n’est écrit ni tenu à jour, et un fichier déposé à l’instant est trouvé ; en contrepartie, une recherche sur des disques en veille les réveille.
-- **Une recherche est bornée** : quatre secondes, 200 000 éléments parcourus, 200 résultats. Arrêtée avant la fin, elle le dit, et chercher depuis un dossier permet d’aller plus loin. Deux recherches à la fois au plus pour tout le NAS.
+- **Une recherche est bornée** : quatre secondes, 200 000 éléments parcourus, 200 résultats affichés. Arrêtée avant la fin, elle le dit, et chercher depuis un dossier permet d’aller plus loin. Deux recherches à la fois au plus pour tout le NAS.
 - **« Tout le NAS » = les espaces que le compte peut ouvrir**, Fichiers partagés d’abord, puis les volumes, les vidéos et les sauvegardes. Les restaurations et snapshots ne sont parcourus que si l’on cherche depuis leur espace : ils répéteraient chaque fichier.
 - **Liens symboliques jamais suivis, fichiers cachés ignorés** : un lien peut être nommé parmi les résultats, ce qu’il désigne n’est pas parcouru.
 - **Un espace indisponible** n’empêche pas la recherche ; il est signalé au-dessus des résultats.
 
-Limites de cette étape : pas de recherche dans le contenu, pas de recherche par filtres seuls sans nom, pas de dates ni de tailles libres, pas de copie, pas de liens de partage, pas d’envoi de dossiers entiers par glisser-déposer, pas d’avance rapide dans l’aperçu vidéo. L’arborescence montre les dossiers déjà ouverts, pas tout le disque d’avance.
+Limites de cette étape : pas de recherche dans le contenu, pas de taille cumulée par dossier, pas de dates ni de tailles libres, pas de copie, pas de liens de partage, pas d’envoi de dossiers entiers par glisser-déposer, pas d’avance rapide dans l’aperçu vidéo. L’arborescence montre les dossiers déjà ouverts, pas tout le disque d’avance.
 
 ## Revenir à l’affichage classique
 
@@ -250,6 +271,8 @@ Recherche globale (alpha.28), quatre essais JavaScript : index limité aux pages
 Événements par période et tranche horaire (alpha.35), un essai JavaScript : aucune période envoyée par défaut, formulaire prérempli par la réponse, total additionné sur les caméras lues ; période à l’envers, tranche incomplète ou identique refusées sans requête ; période et tranche envoyées à chaque caméra et reprises dans le résumé ; refus du serveur expliqué une fois sans accuser les caméras ; retour aux sept derniers jours. Sur le banc à deux caméras simulées : 50 événements par défaut, 7 entre 22:00 et 06:00, refus d’une tranche à moitié remplie et d’une date trop ancienne.
 
 Surveillance (alpha.29), cinq essais JavaScript : mur en images fixes sans aucun direct, noms échappés, page classique conservée ; caméra agrandie seule à recevoir le direct, caméras inconnues et réponses tardives sans effet ; événements fusionnés du plus récent au plus ancien, caméra en échec nommée, filtres sans nouvelle requête, ouverture de la relecture au bon événement ; une ligne de frise par caméra et lecture à l’heure cliquée ; réglages sans boutons pour la lecture seule. Sur le banc à deux caméras simulées : mur, agrandissement avec direct et pilotage, 48 événements synthétiques filtrés, ouverture d’un événement dans la relecture avec lecture de l’extrait, clic sur la ligne de l’autre caméra, onglet Réglages.
+
+Recherche par critères, sans nom (alpha.37). Un essai Python sur espace temporaire : plus gros fichiers d’abord tous espaces confondus, sans dossier, lien, fichier caché ni restauration ; un critère seul suffit ; dossiers classés par date ; plus récents d’abord ; portée et droits de la recherche par nom ; classement d’une recherche par nom ; au-delà de la limite, seuls les meilleurs sont gardés et le total est donné ; borne de parcours signalée ; sept demandes sans nom ni critère ou mal formées refusées. Un essai JavaScript : bouton de la barre d’outils, champ vidé, liste Ordre sans « pertinence », dossiers sans ordre par taille, retrait des filtres qui garde l’ordre, extension à tout le NAS, messages de classement partiel, ordre ajouté à une recherche par nom, ouverture depuis la recherche globale. Sur le banc, avec le vrai serveur : 8 fichiers classés par taille dans Fichiers partagés, 11 éléments par date, 3 dossiers, 2 images, puis les mêmes dans tout le NAS ; « place » dans Ctrl+K ouvre le classement.
 
 Filtres de la recherche de fichiers (alpha.36). Un essai Python sur espace temporaire : famille de type d’après l’extension, dossiers à part, liens dans aucune famille ; modification récente, dossier ancien écarté mais parcouru ; taille minimale sans dossier ni lien ; filtres combinés entre eux et avec la portée ; douze demandes mal formées refusées. Un essai JavaScript : trois listes sous le titre, choix ajoutés à la même recherche, valeur non proposée ignorée, listes inactives pendant la recherche, affinage refusé sans perdre les résultats, retrait des filtres, nouvelle recherche sans filtre. Sur le banc, avec le vrai serveur : « mire » donne 3 résultats, 2 images et 1 vidéo ; « 2026 » donne 1 dossier, 1 document, aucun fichier de plus de 1 Mio.
 
