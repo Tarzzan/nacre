@@ -691,7 +691,7 @@ function deskFixture(fetch=async()=>response(200,overviewSample),role='admin'){
 }
 test('desktop shell replaces the sidebar, keeps the anchors pages rely on and escapes the NAS name',()=>{
  const f=deskFixture();
- assert.match(f.html,/^<div class="dk">/);assert.doesNotMatch(f.html,/class="sidebar"|<b>Atelier|style=|<iframe/);assert.match(f.html,/&lt;b&gt;Atelier/);
+ assert.match(f.html,/^<div class="dk dk-bg-nacre" id="dk-root">/);assert.doesNotMatch(f.html,/class="sidebar"|<b>Atelier|style=|<iframe/);assert.match(f.html,/&lt;b&gt;Atelier/);
  for(const id of ['content','crumb','topclock','side-host','side-version','alert-summary','zone-prompt','dk-stage','dk-wins','dk-widgets'])assert.match(f.html,new RegExp(`id="${id}"`),id);
  assert.match(f.html,/<main class="content dk-solo" id="content" hidden>/);assert.match(f.html,/class="dk-brand" data-action="desk-home"/);
  assert.equal((f.html.match(/class="dk-dockapp"/g)||[]).length,7);assert.equal((f.html.match(/class="dk-app"/g)||[]).length,7);
@@ -708,11 +708,11 @@ test('classic display stays one click away and the first-run assistant never use
  const f=deskFixture();await f.run('go("users")');
  await f.click('shell-classic');
  assert.equal(f.store['nacre-shell'],'classic');assert.match(f.html,/class="sidebar"/);assert.match(f.html,/data-action="shell-desk"/);assert.equal(f.run('page'),'users');assert.equal(f.run('deskMode()'),false);
- await f.click('shell-desk');assert.equal(f.store['nacre-shell'],'desk');assert.match(f.html,/^<div class="dk">/);assert.equal(f.run('page'),'users');
+ await f.click('shell-desk');assert.equal(f.store['nacre-shell'],'desk');assert.match(f.html,/^<div class="dk dk-bg-nacre" id="dk-root">/);assert.equal(f.run('page'),'users');
  f.run('user.setup_required=true;shell();');assert.match(f.html,/class="sidebar"/);assert.doesNotMatch(f.html,/shell-desk/);assert.equal(f.run('deskMode()'),false);
  // Stockage du navigateur indisponible : le bureau reste l'affichage par défaut et le choix ne casse rien.
  const g=deskFixture();g.context.localStorage={getItem(){throw new Error('bloqué');},setItem(){throw new Error('bloqué');}};
- assert.equal(g.run('deskMode()'),true);await g.click('shell-classic');assert.match(g.html,/^<div class="dk">/);
+ assert.equal(g.run('deskMode()'),true);await g.click('shell-classic');assert.match(g.html,/^<div class="dk dk-bg-nacre" id="dk-root">/);
 });
 // Gestionnaire de fenêtres : une fenêtre par application, chacune dans un cadre de même origine.
 function winFixture(fetch,role='admin'){
@@ -1506,4 +1506,76 @@ test('moving, trashing and sending act on the selection only, refuse a folder in
  assert.deepEqual(JSON.parse(JSON.stringify(f.run('sent'))),[['x.txt',''],['a.txt',''],['b.txt','']]);assert.match(f.elements.get('#toast').textContent,/^2 fichiers déposés\. Non envoyé : x\.txt : Ce nom existe déjà\. ; envoi arrêté/);assert.equal(f.run('fmBusy'),false);
  const g=fmFixture(null,'viewer');await g.run('renderFiles()');g.run('sent=[];uploadFile=async file=>{sent.push(file.name);};');await g.run('fmSend([{name:"a.txt"}])');await g.run('fmMove(["notes.txt"],"x")');g.run('fmSel=new Set(["notes.txt"]);fmAskTrash();fmAskMove();');
  assert.deepEqual([g.run('sent.length'),g.calls.filter(c=>c[1]).length],[0,0]);
+});
+
+// Bureau personnalisable : widgets et fond par compte, fenêtres mémorisées par navigateur.
+function prefFixture(fetch,role='admin'){
+ const posts=[],f=winFixture(fetch||(async(url,options)=>{if(options?.body)posts.push([url,JSON.parse(options.body)]);return response(200,url.endsWith('/desk')?{widgets:['tasks','storage','<x>',7,'tasks'],background:'lagon'}:url.endsWith('/alerts')?{stale:false,attention:2,active:[{},{}],history:[]}:url.endsWith('/jobs')?[{id:'j',kind:'backup',status:'running',ts:1,progress:'{}'}]:overviewSample);}),role);
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/desk-prefs.js'),'utf8'),f.context);
+ f.posts=posts;f.run('shell();');f.arm();
+ f.root={classes:{},classList:{toggle:(name,on)=>{f.root.classes[name]=on;}}};f.elements.set('#dk-root',f.root);
+ f.panel={hidden:true,innerHTML:''};f.elements.set('#desk-prefs',f.panel);f.elements.set('#desk-prefs-open',{attrs:{},setAttribute(k,v){this.attrs[k]=v;}});
+ f.pref=(action,data={},inside=true)=>f.listeners.get('click').at(-1)({target:{closest:selector=>selector==='[data-action]'?(action?{dataset:{action,...data}}:null):inside?{}:null}});return f;
+}
+test('desktop widgets follow the order chosen for the account, and the panel edits and saves it',async()=>{
+ const f=prefFixture();f.run('currentOverview=JSON.parse(JSON.stringify(overview));',f.context.overview=overviewSample);
+ assert.match(f.html,/class="dk dk-bg-nacre" id="dk-root"/);assert.match(f.html,/id="desk-prefs-open" data-action="desk-prefs-toggle"/);assert.match(f.html,/<section class="dk-panel" id="desk-prefs"[^>]*hidden>/);
+ const labels=()=>[...f.run('deskWidgets(currentOverview)').matchAll(/class="dk-wg"[^>]*><small>([^<]+)</g)].map(m=>m[1]);
+ assert.deepEqual(labels(),['Stockage libre','Services','Surveillance','Activité récente','Mémoire']);
+ // Réponse du NAS assainie : identifiants inconnus et doublons écartés, fond appliqué.
+ await f.run('loadDeskPrefs()');assert.deepEqual(JSON.parse(JSON.stringify(f.run('deskPrefs'))),{widgets:['tasks','storage'],background:'lagon'});
+ assert.deepEqual([f.root.classes['dk-bg-lagon'],f.root.classes['dk-bg-nacre']],[true,false]);assert.deepEqual(labels(),['Tâches en cours','Stockage libre']);
+ assert.equal(JSON.parse(JSON.stringify(f.run('deskPrefsValid({background:"<b>",widgets:"x"})'))).background,'nacre');
+ await f.run('refreshBell()');f.run('deskPrefs.widgets=["alerts","tasks"];');
+ assert.match(f.run('deskWidgets(currentOverview)'),/<small>Alertes<\/small><b>2 à traiter<\/b><small>2 incident\(s\) actif\(s\)<\/small>/);assert.match(f.run('deskWidgets(currentOverview)'),/<b>1 en cours<\/b>/);
+ f.run('deskPrefs.widgets=[];');assert.match(f.run('deskWidgets(currentOverview)'),/Aucun widget affiché/);
+ f.run('user.role="viewer";deskPrefs.widgets=["alerts","memory"];');assert.deepEqual(labels(),['Mémoire']);f.run('user.role="admin";deskPrefs.widgets=["tasks","storage"];');
+ // Panneau : affichés d'abord et dans l'ordre, flèches bornées, fond choisi marqué.
+ await f.pref('desk-prefs-toggle');assert.equal(f.panel.hidden,false);const html=f.panel.innerHTML;
+ assert.deepEqual([...html.matchAll(/data-action="desk-widget" data-id="(\w+)" (checked)?/g)].map(m=>[m[1],!!m[2]]),[['tasks',true],['storage',true],['services',false],['camera',false],['activity',false],['memory',false],['alerts',false]]);
+ assert.match(html,/data-id="tasks" data-step="-1" aria-label="Monter Tâches en cours" disabled/);assert.match(html,/data-id="storage" data-step="1" aria-label="Descendre Stockage libre" disabled/);
+ assert.match(html,/data-action="desk-background" data-id="lagon" aria-pressed="true"/);assert.doesNotMatch(html,/style=/);
+ const last=()=>f.posts.at(-1);
+ await f.pref('desk-widget',{id:'memory'});assert.deepEqual(last(),['/api/desk',{widgets:['tasks','storage','memory'],background:'lagon'}]);
+ await f.pref('desk-widget-move',{id:'memory',step:'-1'});assert.deepEqual(last()[1].widgets,['tasks','memory','storage']);
+ await f.pref('desk-widget',{id:'tasks'});assert.deepEqual(last()[1].widgets,['memory','storage']);
+ await f.pref('desk-background',{id:'sable'});assert.deepEqual([last()[1].background,f.root.classes['dk-bg-sable'],f.root.classes['dk-bg-lagon']],['sable',true,false]);
+ const count=f.posts.length;
+ await f.pref('desk-widget',{id:'nowhere'});await f.pref('desk-widget-move',{id:'memory',step:'-1'});await f.pref('desk-widget-move',{id:'storage',step:'1'});await f.pref('desk-widget-move',{id:'absent',step:'1'});await f.pref('desk-background',{id:'rose'});await f.pref('desk-background',{id:'sable'});
+ assert.equal(f.posts.length,count);
+ await f.pref('desk-prefs-reset');assert.deepEqual(last(),['/api/desk',{widgets:['storage','services','camera','activity','memory'],background:'nacre'}]);
+ // Fermeture : clic ailleurs ou Échap ; panneau fermé, plus aucune modification.
+ await f.pref('',{},false);assert.equal(f.panel.hidden,true);await f.pref('desk-widget',{id:'tasks'});assert.equal(f.posts.length,count+1);
+ await f.pref('desk-prefs-toggle');f.listeners.get('keydown').at(-1)({key:'Escape'});assert.equal(f.panel.hidden,true);
+});
+test('a refused or late answer never changes the desktop of another session, and a failed save says so',async()=>{
+ let mode='fail';const f=prefFixture(async(url,options)=>mode==='fail'&&options?.body?response(500,{error:'Base occupée.'}):response(200,url.endsWith('/desk')?{widgets:['memory'],background:'sable'}:overviewSample));
+ await f.pref('desk-prefs-toggle');await f.pref('desk-background',{id:'ardoise'});assert.match(f.elements.get('#toast').textContent,/non enregistrées : Base occupée/);assert.equal(f.root.classes['dk-bg-ardoise'],true);
+ let release;const g=prefFixture(url=>url.endsWith('/desk')?new Promise(resolve=>{release=()=>resolve(response(200,{widgets:['memory'],background:'sable'}));}):Promise.resolve(response(200,overviewSample)));
+ const pending=g.run('loadDeskPrefs()');g.run('login();');release();await pending.catch(()=>{});assert.deepEqual(JSON.parse(JSON.stringify(g.run('deskPrefs.widgets'))),['storage','services','camera','activity','memory']);
+ const h=prefFixture(async url=>url.endsWith('/desk')?response(500,{error:'Indisponible.'}):response(200,overviewSample));await h.run('loadDeskPrefs()');assert.equal(h.run('deskPrefs.background'),'nacre');
+});
+test('open windows, their place and size come back after a reload, without touching the requested address',async()=>{
+ const f=prefFixture();
+ // Tant qu'aucune fenêtre n'a été ouverte, rien n'est écrit.
+ f.run('deskSync()');assert.equal(f.store['nacre-windows:admin'],undefined);
+ await f.run('go("files")');await f.run('go("camera")');await f.desk('desk-view',{app:'cam',view:'replay'});await f.desk('desk-max',{app:'cam'});
+ f.run('Object.assign(deskWindow("files"),{left:300,top:40,width:600,height:380,min:true});deskSync();');
+ const saved=JSON.parse(f.store['nacre-windows:admin']);
+ assert.deepEqual(saved.wins.map(w=>[w.app,w.page,w.view,w.left,w.top,w.width,w.height,w.max,w.min]),[['files','files','',300,40,600,380,false,true],['cam','camera','replay',266,48,0,0,true,false]]);
+ await f.desk('desk-close',{app:'files'});assert.deepEqual(JSON.parse(f.store['nacre-windows:admin']).wins.map(w=>w.app),['cam']);
+ // Rechargement : le bureau se reconstruit depuis la mémoire, sans réécrire l'adresse ni la mémoire pendant qu'il le fait.
+ f.store['nacre-windows:admin']=JSON.stringify(saved);f.run('location.hash="events";shell();');f.arm();f.elements.get('#dk-stage').getBoundingClientRect=()=>({width:800,height:500});
+ const before=f.store['nacre-windows:admin'];assert.equal(f.run('deskRestore()'),2);
+ assert.deepEqual(f.wins(),[['files','files',true,false],['cam','camera',false,true]]);assert.equal(f.run('deskWindow("cam").view'),'replay');
+ assert.deepEqual(JSON.parse(JSON.stringify(f.run('["left","top","width","height"].map(k=>deskWindow("files")[k])'))),[300,40,600,380]);
+ assert.deepEqual([f.run('location.hash'),f.store['nacre-windows:admin']],['events',before]);assert.match(f.frames.cam.src,/#camera$/);
+ // Valeurs hors de l'écran ou abîmées : ramenées dans la scène, ou oubliées.
+ f.store['nacre-windows:admin']=JSON.stringify({wins:[{app:'files',page:'files',left:9000,top:-50,width:20,height:99999},{app:'files',page:'trash'},{app:'cam',page:'files'},{app:'x',page:'nowhere'},null,{app:'settings',page:'settings',left:'12',min:'oui'}]});
+ f.run('shell();');f.arm();f.elements.get('#dk-stage').getBoundingClientRect=()=>({width:800,height:500});assert.equal(f.run('deskRestore()'),2);
+ assert.deepEqual(JSON.parse(JSON.stringify(f.run('deskWins.map(w=>[w.app,w.left,w.top,w.width,w.height,w.min])'))),[['files',680,0,420,500,false],['settings',266,48,0,0,false]]);
+ for(const bad of ['{illisible','null','{"wins":"x"}']){f.store['nacre-windows:admin']=bad;f.run('shell();');f.arm();assert.equal(f.run('deskRestore()'),0);}
+ // Un compte en lecture seule ne retrouve pas une fenêtre qu'il ne peut plus ouvrir, et chaque compte a sa mémoire.
+ const g=prefFixture(undefined,'viewer');g.run('user.name="reader";');g.store['nacre-windows:reader']=JSON.stringify({wins:[{app:'settings',page:'settings'},{app:'activity',page:'events'}]});g.store['nacre-windows:admin']=JSON.stringify({wins:[{app:'files',page:'files'}]});
+ g.run('shell();');g.arm();assert.equal(g.run('deskRestore()'),1);assert.deepEqual(g.wins().map(w=>w[0]),['activity']);
 });

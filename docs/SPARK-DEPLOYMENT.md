@@ -1,5 +1,17 @@
 # Déploiements de la console sur Spark
 
+## 13 novembre 2026 — alpha.31, plusieurs fenêtres
+
+L’installation alpha.30 a reçu le paquet `nacre-0.8.0-alpha.31.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.31), construit depuis le commit [`754d574`](https://github.com/Tarzzan/nacre/commit/754d574f9ecb8d53eab80119f84ae4431df5b20a) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
+
+Avant l’import : neuf modules figés identiques, aucune tâche active, répétition isolée alpha.30 → alpha.31 réussie. Fichier importé téléchargé depuis la release, empreinte contrôlée ; session administrateur temporaire refermée ; installation confirmée et suivie dans le navigateur, session conservée.
+
+Préparation enregistrée à 14 h 08 min 57 s, validation à 14 h 09 min 22 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Constaté dans le navigateur : [deux applications ouvertes ensemble](DESKTOP.md#plusieurs-fenêtres), Fichiers et Activité, chacune dans sa fenêtre avec ses données réelles ; la console annonce qu’elle n’accepte d’être encadrée que par elle-même (`frame-ancestors 'self'`, `SAMEORIGIN`).
+
+Limites de ce contrôle : aucun réglage ni fichier n’a été modifié ; le déplacement et le redimensionnement des fenêtres n’ont été exercés que sur le banc.
+
 ## 13 novembre 2026 — alpha.30, gestionnaire de fichiers
 
 L’installation alpha.29 a reçu le paquet `nacre-0.8.0-alpha.30.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.30), construit depuis le commit [`9674a31`](https://github.com/Tarzzan/nacre/commit/9674a312894f0a90703272760853b3a7a29901ff) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).

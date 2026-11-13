@@ -151,6 +151,8 @@ class ControlPanelTests(unittest.TestCase):
         self.assertEqual(code,200);self.assertIn('renderSurveillanceApp',raw if isinstance(raw,str) else raw.decode())
         code,raw=self.request('GET','/files.js')
         self.assertEqual(code,200);self.assertIn('renderFileManager',raw if isinstance(raw,str) else raw.decode())
+        code,raw=self.request('GET','/desk-prefs.js')
+        self.assertEqual(code,200);self.assertIn('deskRestore',raw if isinstance(raw,str) else raw.decode())
 
     def test_console_can_be_framed_by_itself_only(self):
         # Les fenêtres du bureau encadrent la console elle-même ; aucune autre origine ne le peut.
