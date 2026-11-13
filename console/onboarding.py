@@ -7,7 +7,12 @@ import shutil
 import subprocess
 import sys
 import time
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from functools import lru_cache
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError, available_timezones
+
+# Fichiers techniques de la base des fuseaux : lisibles par le serveur, inconnus des navigateurs.
+PSEUDO_ZONES = ('localtime', 'posixrules', 'Factory')
+ZONE_FAMILIES = ('posix/', 'right/', 'SystemV/')
 
 
 def read(app, db=None):
@@ -21,6 +26,21 @@ def read(app, db=None):
 
 def write(db, value):
     db.execute("INSERT INTO settings(key,value) VALUES('onboarding',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (json.dumps(value),))
+
+
+def unset(state):
+    """Le fuseau n'a jamais été choisi : installation antérieure à l'assistant, encore sur l'UTC d'origine."""
+    return state['phase'] == 'complete' and state.get('timezone') == 'UTC' and not state.get('preferences_revision', 0)
+
+
+@lru_cache(maxsize=1)
+def zones():
+    """Fuseaux proposés au choix : UTC et les noms géographiques connus de ce système."""
+    try:
+        names = available_timezones()
+    except OSError:
+        names = set()
+    return ['UTC'] + sorted(z for z in names if '/' in z and not z.startswith(('Etc/',) + ZONE_FAMILIES))
 
 
 def account(app, body, session):
@@ -59,8 +79,10 @@ def preferences(app, body):
     if not isinstance(timezone, str) or len(timezone) > 100:
         raise app.Problem('Choisissez un fuseau horaire valide.')
     try:
+        if timezone in PSEUDO_ZONES or timezone.startswith(ZONE_FAMILIES):
+            raise ValueError(timezone)
         ZoneInfo(timezone)
-    except (ValueError, ZoneInfoNotFoundError):
+    except (ValueError, OSError, ZoneInfoNotFoundError):
         raise app.Problem('Fuseau horaire inconnu sur ce système.') from None
     return name.strip(), timezone
 
@@ -97,7 +119,7 @@ def status(app):
     with app.database() as db:
         repositories = db.execute('SELECT count(*) FROM repositories').fetchone()[0]
         plans = db.execute('SELECT count(*) FROM plans WHERE enabled=1').fetchone()[0]
-    return {**state, 'system': {'os': platform.system(), 'architecture': platform.machine(),
+    return {**state, 'timezones': zones(), 'system': {'os': platform.system(), 'architecture': platform.machine(),
             'python': platform.python_version(), 'cpus': os.cpu_count(), 'free': capacity.free,
             'supported': platform.system() == 'Linux' and platform.machine() in ('x86_64', 'amd64', 'aarch64', 'arm64') and sys.version_info >= (3, 11),
             'non_root': os.getuid() != 0},

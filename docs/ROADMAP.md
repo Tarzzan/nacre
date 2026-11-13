@@ -12,6 +12,10 @@ Les versions futures sont des objectifs sans date promise. Chaque étape demande
 | **1.0 — cible à qualifier** | Version exploitable avec périmètre de support précis | Revue de sécurité, endurance, mises à jour et reprise éprouvées ; aucun défaut critique connu |
 | **Après stabilisation** | Gestion de plusieurs NAS | Identités inter-hôtes, révocation, fonctionnement déconnecté et politiques de groupe spécifiés |
 
+## Fuseau horaire 0.8.0-alpha.25
+
+Proposition du fuseau aux administrateurs tant qu’il n’a jamais été choisi, champ à liste avec aperçu de l’heure, repli sur UTC pour un nom que le navigateur ignore. [Guide et limites](CONTROL-PANEL.md#fuseau-horaire-au-premier-accès). Restent ouverts : libellés de fuseaux en français, fuseau par compte.
+
 ## Copies de mise à jour 0.8.0-alpha.24
 
 Liste des copies de retour arrière dans la page Mises à jour, conservation automatique des trois plus récentes, suppression manuelle des autres. [Guide et limites](BROWSER-UPDATES.md#copies-de-retour-arrière). Restent ouverts : nombre de copies réglable, retour à une copie depuis le navigateur après validation.

@@ -582,7 +582,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise Problem('Ce lien de connexion a expiré ou a déjà été utilisé.', 401)
                 session_token, _ = make_session('admin')
                 return self.reply(303, b'', extra={'Location': '/', 'Set-Cookie': f'nas_session={session_token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800'})
-            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/updates.js', '/components.js', '/playback.js', '/detection.js', '/search.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
+            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/timezone.js', '/updates.js', '/components.js', '/playback.js', '/detection.js', '/search.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
                 path = STATIC / ('index.html' if url.path == '/' else url.path[1:])
                 return self.reply(200, path.read_bytes(), mimetypes.guess_type(path)[0] or 'text/plain')
             if post and url.path == '/api/login':
@@ -619,9 +619,9 @@ class Handler(BaseHTTPRequestHandler):
                 result = self.mutate(url.path, self.body(), session)
                 return self.reply(200, result or {'ok': True})
             if url.path == '/api/me':
-                from onboarding import read
+                from onboarding import read, unset
                 setup = read(sys.modules[__name__])
-                return self.reply(200, {**{key: session[key] for key in ('name', 'csrf', 'role')}, 'setup_required': session['role'] == 'admin' and setup['phase'] != 'complete', 'timezone': setup['timezone'], 'nas_name': setup['name'], 'app_version': release_version()})
+                return self.reply(200, {**{key: session[key] for key in ('name', 'csrf', 'role')}, 'setup_required': session['role'] == 'admin' and setup['phase'] != 'complete', 'timezone': setup['timezone'], 'timezone_unset': session['role'] == 'admin' and unset(setup), 'nas_name': setup['name'], 'app_version': release_version()})
             if url.path == '/api/updates':
                 if session['role'] != 'admin':raise Problem('Accès réservé aux administrateurs.',403)
                 from updates import status

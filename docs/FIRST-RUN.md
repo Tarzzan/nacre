@@ -12,7 +12,7 @@ Dans un second terminal, `python3 lab.py acces` affiche le compte provisoire. Ou
 
 1. **Votre compte.** Se connecter avec le compte provisoire `admin`, puis choisir et confirmer un mot de passe de 12 à 128 caractères, différent du provisoire. Les autres sessions et tickets sont révoqués ; le jeton CSRF de la session courante est renouvelé. Le mot de passe choisi est haché, jamais enregistré en clair dans le fichier d’accès. Le nom initial `admin` reste fixe ; les autres comptes se gèrent ensuite dans Utilisateurs. Les identités Samba et caméra restent distinctes.
 2. **Votre système.** Consulter l’architecture, Python, le nombre de processeurs et l’espace disponible pour l’installation. Fichiers, accès Docker/Compose, moteur de sauvegarde et présence du service natif sont distingués. La présence du socket natif ne prouve pas ses permissions ni la disponibilité des volumes : l’assistant indique « À vérifier ». Les sondes de commande sont bornées et aucune opération de disque n’est lancée.
-3. **Vos usages.** Enregistrer le nom affiché et un fuseau IANA disponible sur le système. Le nom réseau Linux ne change pas. Le fuseau règle les dates de la console ; les plans de sauvegarde existants conservent leur propre fuseau. Les raccourcis conduisent ensuite au stockage, aux sauvegardes et à la surveillance.
+3. **Vos usages.** Enregistrer le nom affiché et un fuseau IANA disponible sur le système ; le champ propose la liste des fuseaux du serveur et part de celui du navigateur. Le nom réseau Linux ne change pas. Le fuseau règle les dates de la console ; les plans de sauvegarde existants conservent leur propre fuseau. Les raccourcis conduisent ensuite au stockage, aux sauvegardes et à la surveillance.
 
 Une actualisation ou une déconnexion reprend après le mot de passe déjà enregistré ; les champs de la dernière étape ne sont persistés qu’à sa validation. L’assistant reste accessible dans le menu **Première configuration**.
 
@@ -30,7 +30,7 @@ L’assistant ne télécharge aucun paquet, ne formate aucun disque, ne démarre
 
 ## Installation existante et migration
 
-La base passe au schéma 2 avec une copie préalable vérifiée. La table `settings` contient l’état de l’assistant et ses préférences. Une base existante sans cet état est considérée comme déjà configurée ; aucun compte ni mot de passe n’est remplacé. L’assistant peut ensuite être ouvert volontairement. Le nom par défaut est Nacre et le fuseau UTC tant qu’aucune préférence n’a été enregistrée.
+La base passe au schéma 2 avec une copie préalable vérifiée. La table `settings` contient l’état de l’assistant et ses préférences. Une base existante sans cet état est considérée comme déjà configurée ; aucun compte ni mot de passe n’est remplacé. L’assistant peut ensuite être ouvert volontairement. Le nom par défaut est Nacre et le fuseau UTC tant qu’aucune préférence n’a été enregistrée ; la console [propose alors de choisir le fuseau](CONTROL-PANEL.md#fuseau-horaire-au-premier-accès) aux administrateurs.
 
 Les modifications de mot de passe, révocations et progression sont enregistrées dans une même transaction SQLite. L’API de configuration exige une session administrateur ; les modifications exigent aussi le contrôle d’origine et le jeton CSRF. Aucun point de création de compte anonyme n’est ajouté. L’assistant est une aide au parcours : les API existantes restent accessibles aux administrateurs authentifiés.
 

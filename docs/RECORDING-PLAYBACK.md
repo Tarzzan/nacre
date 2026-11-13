@@ -47,7 +47,7 @@ Les résultats sont gardés tant que la caméra reste ouverte, y compris après 
 | **Présence détectée** | Segments pour lesquels le suivi d’objets de Frigate compte au moins un objet actif. Ce n’est ni une alarme ni une liste exhaustive ; rien n’apparaît si la détection est désactivée. |
 | **Rien de conservé** | Aucun segment dans l’inventaire. Nacre ne dit pas pourquoi : caméra coupée, service arrêté ou segment supprimé par la conservation. |
 | **Sans enregistrement** | Les trois premières périodes vides entre deux plages, puis leur nombre. |
-| **Heures du NAS** | Le fuseau réglé dans le Panneau de configuration. Les jours de 23 ou 25 heures suivent le changement d’heure ; une heure répétée désigne sa première occurrence. |
+| **Heures du NAS** | Le fuseau réglé dans le Panneau de configuration, [proposé au premier accès](CONTROL-PANEL.md#fuseau-horaire-au-premier-accès) tant qu’il n’a jamais été choisi. Les jours de 23 ou 25 heures suivent le changement d’heure ; une heure répétée désigne sa première occurrence. |
 
 Au-delà de la durée de conservation continue, Frigate ne garde que certains passages. Un jour ancien affiche donc normalement quelques plages courtes, et non une journée interrompue par des pannes.
 

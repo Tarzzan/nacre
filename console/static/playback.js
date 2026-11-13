@@ -6,7 +6,7 @@ const PB_WIDTH=1440,PB_ROWS=300;
 // Noms français des types d’objets courants de Frigate ; un type inconnu est affiché tel quel.
 const PB_LABELS=new Map(Object.entries({person:'Personne',car:'Voiture',truck:'Camion',bus:'Bus',motorcycle:'Moto',bicycle:'Vélo',train:'Train',boat:'Bateau',airplane:'Avion',dog:'Chien',cat:'Chat',bird:'Oiseau',horse:'Cheval',sheep:'Mouton',cow:'Vache',bear:'Ours',deer:'Cerf',fox:'Renard',rabbit:'Lapin',raccoon:'Raton laveur',squirrel:'Écureuil',package:'Colis',backpack:'Sac à dos',handbag:'Sac à main',suitcase:'Valise',umbrella:'Parapluie',face:'Visage',license_plate:'Plaque d’immatriculation',on_demand:'Enregistrement manuel'}));
 function pbLabel(label){return PB_LABELS.get(label)||label;}
-function pbZone(){return playbackData?.timezone||user?.timezone||'UTC';}
+function pbZone(){const zone=playbackData?.timezone||user?.timezone;return zoneKnown(zone)?zone:'UTC';}
 function pbClock(t){return new Date(t*1000).toLocaleTimeString('fr-FR',{timeZone:pbZone(),hour:'2-digit',minute:'2-digit',second:'2-digit'});}
 function pbDay(day,long=true){
  const [y,m,d]=day.split('-').map(Number);

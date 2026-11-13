@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.25 — Fuseau horaire proposé au premier accès
+
+Une installation dont le fuseau n’a jamais été choisi affichait toutes ses heures en UTC sans le dire. Tant que c’est le cas, un bandeau le signale aux administrateurs en haut de chaque page, avec l’heure de Nacre et celle du navigateur. Un clic adopte le fuseau du navigateur, ouvre le Panneau de configuration pour en choisir un autre, ou confirme UTC ; le choix est enregistré, inscrit au journal, et le bandeau ne revient pas. Le champ de fuseau du Panneau de configuration et de l’assistant propose la liste des fuseaux connus du serveur et affiche l’heure correspondante pendant la saisie. Un nom que le navigateur ne sait pas afficher est refusé avant l’enregistrement, et s’il est déjà en place l’affichage retombe sur UTC au lieu d’échouer. Aucun changement de schéma ni de module figé. 308 tests Python et 93 JavaScript. [Guide et limites](docs/CONTROL-PANEL.md#fuseau-horaire-au-premier-accès).
+
 ## 0.8.0-alpha.24 — Purge des copies de mise à jour
 
 La page **Mises à jour** liste les **copies de retour arrière** : version copiée, date, version installée ensuite, taille, et place totale occupée sur le NAS. Nacre conserve les trois copies les plus récentes et supprime les plus anciennes au démarrage de la console, donc après chaque mise à jour réussie ; un paquet vérifié puis remplacé et un import interrompu sont effacés de la même façon. Un administrateur peut supprimer une copie ancienne après confirmation ; celle de la dernière mise à jour reste protégée. Rien n’est modifié pendant qu’une mise à jour est engagée, et les suppressions sont inscrites au journal. Module séparé du superviseur : aucun changement de schéma ni de module figé. 305 tests Python et 86 JavaScript. [Guide et limites](docs/BROWSER-UPDATES.md#copies-de-retour-arrière).
