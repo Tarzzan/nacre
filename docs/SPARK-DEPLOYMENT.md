@@ -1,5 +1,17 @@
 # Déploiements de la console sur Spark
 
+## 13 novembre 2026 — alpha.35, période et tranche horaire dans l’onglet Événements
+
+L’installation alpha.34 a reçu le paquet `nacre-0.8.0-alpha.35.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.35), construit depuis le commit [`5911dfd`](https://github.com/Tarzzan/nacre/commit/5911dfd2959fed339ae1acb4e5731e4250cc963a) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
+
+Avant l’import : neuf modules figés identiques, aucune tâche active, répétition isolée alpha.34 → alpha.35 réussie. Fichier importé téléchargé depuis la release, empreinte contrôlée ; session administrateur temporaire refermée ; installation confirmée depuis la fenêtre Réglages du bureau et suivie jusqu’à **Mise à jour réussie**, session conservée.
+
+Validation enregistrée à 18 h 21 min 05 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Constaté dans le navigateur, dans l’[onglet Événements](DESKTOP.md#surveillance), sur les événements réels et en lecture seule : 752 événements sur sept jours par défaut ; 66 entre 22:00 et 06:00, les soixante listés ayant tous leur heure de début dans la tranche ; **Sept derniers jours** ramène aux 752.
+
+Limites de ce contrôle : seuls des nombres et des heures ont été relevés, aucune capture d’écran n’a été prise et aucun événement n’a été ouvert. Une seule caméra réelle : l’addition sur plusieurs caméras n’a été vérifiée que sur le banc. Le fuseau de la console n’étant toujours pas choisi, les heures de cette installation restent en UTC.
+
 ## 13 novembre 2026 — alpha.34, recherche d’événements par tranche horaire
 
 L’installation alpha.33 a reçu le paquet `nacre-0.8.0-alpha.34.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.34), construit depuis le commit [`2040ec2`](https://github.com/Tarzzan/nacre/commit/2040ec23219be36a9b869eea0213d55316509795) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
