@@ -1,5 +1,17 @@
 # Déploiements de la console sur Spark
 
+## 13 novembre 2026 — alpha.33, recherche de fichiers par nom
+
+L’installation alpha.32 a reçu le paquet `nacre-0.8.0-alpha.33.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.33), construit depuis le commit [`de7e615`](https://github.com/Tarzzan/nacre/commit/de7e615c98dc8cd1aa6ee5a406a4f78e51455c82) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
+
+Avant l’import : neuf modules figés identiques, aucune tâche active, répétition isolée alpha.32 → alpha.33 réussie. Fichier importé téléchargé depuis la release, empreinte contrôlée ; session administrateur temporaire refermée ; installation confirmée depuis la fenêtre Réglages du bureau et suivie jusqu’à **Mise à jour réussie**, session conservée.
+
+Validation enregistrée à 17 h 23 min 36 s, heure de Guyane ; la copie de retour arrière la plus ancienne a été purgée au démarrage. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Constaté dans le navigateur, sur les données réelles et en lecture seule : une [recherche par nom](DESKTOP.md#rechercher-un-fichier-par-son-nom) dans tout le NAS a parcouru 11 408 éléments en 0,15 seconde, en entier, sans espace écarté ; une recherche large s’est arrêtée à 200 résultats en l’annonçant ; le champ de Fichiers porte la recherche.
+
+Limites de ce contrôle : seuls des nombres ont été relevés, aucun nom de fichier réel n’a été affiché ni conservé ; aucun résultat n’a été ouvert, prévisualisé ni téléchargé. Les bornes de durée et de volume n’ont été atteintes que sur le banc et dans les essais : cette installation est trop petite pour les approcher. Le fuseau de la console n’est toujours pas choisi.
+
 ## 13 novembre 2026 — alpha.32, bureau personnalisable
 
 L’installation alpha.31 a reçu le paquet `nacre-0.8.0-alpha.32.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.32), construit depuis le commit [`46e4c40`](https://github.com/Tarzzan/nacre/commit/46e4c402b9122a8100e4316d216c9d9e8110282f) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
