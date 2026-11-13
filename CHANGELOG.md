@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.26 — Le Bureau
+
+La console s’ouvre désormais sur un **bureau** : sept applications nommées par usage (Fichiers, Surveillance, Stockage, Protection, Partages et comptes, Réglages, Activité) à la place des treize rubriques du menu, un dock, et des widgets qui reprennent la vue d’ensemble. Une application s’ouvre dans une fenêtre que l’on déplace, agrandit, réduit ou ferme ; ses pages en sont les onglets, sans leur grand en-tête. Sur téléphone, l’application occupe l’écran et le dock devient la barre du bas. Les pages elles-mêmes ne changent pas. Le bouton **Classique** de la barre supérieure rend l’ancien menu, et **Bureau** y ramène ; le choix est mémorisé par navigateur. Aucun changement côté serveur, de schéma ni de module figé. 308 tests Python et 98 JavaScript. [Guide et limites](docs/DESKTOP.md).
+
 ## 0.8.0-alpha.25 — Fuseau horaire proposé au premier accès
 
 Une installation dont le fuseau n’a jamais été choisi affichait toutes ses heures en UTC sans le dire. Tant que c’est le cas, un bandeau le signale aux administrateurs en haut de chaque page, avec l’heure de Nacre et celle du navigateur. Un clic adopte le fuseau du navigateur, ouvre le Panneau de configuration pour en choisir un autre, ou confirme UTC ; le choix est enregistré, inscrit au journal, et le bandeau ne revient pas. Le champ de fuseau du Panneau de configuration et de l’assistant propose la liste des fuseaux connus du serveur et affiche l’heure correspondante pendant la saisie. Un nom que le navigateur ne sait pas afficher est refusé avant l’enregistrement, et s’il est déjà en place l’affichage retombe sur UTC au lieu d’échouer. Aucun changement de schéma ni de module figé. 308 tests Python et 93 JavaScript. [Guide et limites](docs/CONTROL-PANEL.md#fuseau-horaire-au-premier-accès).
