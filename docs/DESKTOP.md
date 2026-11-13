@@ -49,10 +49,36 @@ Ce qu’il faut savoir :
 
 - **Une fenêtre par application.** Deux dossiers côte à côte dans deux fenêtres Fichiers, ce n’est pas possible.
 - **Chaque fenêtre est une console à part entière**, chargée dans un cadre : elle garde son état, ses rafraîchissements et ses boîtes de dialogue, qui restent à l’intérieur de sa fenêtre. Une application réduite continue de tourner, direct de caméra compris ; fermez-la pour l’arrêter.
-- **Position et taille ne sont pas mémorisées** : au rechargement de la page, seule l’application de devant est rouverte.
+- **Position et taille sont mémorisées par navigateur** depuis alpha.32 ; voir [Personnaliser le bureau](#personnaliser-le-bureau).
 - **Sur téléphone**, une seule fenêtre est visible à la fois, en plein écran ; le dock fait passer de l’une à l’autre.
 - **Session expirée ou préférences changées dans une fenêtre** : le bureau entier suit, et les autres fenêtres se rechargent pour prendre le nouveau fuseau.
 - **Sécurité** : la console n’accepte d’être encadrée que par elle-même. Une page d’une autre origine ne peut toujours pas l’afficher dans un cadre.
+
+## Personnaliser le bureau
+
+Depuis la version 0.8.0-alpha.32, le bouton aux deux curseurs, à droite de la cloche, ouvre le panneau **Personnaliser**.
+
+![Panneau Personnaliser sur le banc de démonstration](images/desktop-custom.jpg)
+
+*Banc local à données synthétiques : fond Lagon, widget Tâches en cours ajouté.*
+
+| Réglage | Effet |
+| --- | --- |
+| **Widgets du bureau** | Cocher pour afficher, décocher pour masquer ; les flèches changent l’ordre. Sept widgets au choix, dont Alertes et Tâches en cours. |
+| **Fond** | Nacre, Lagon, Sable ou Ardoise. |
+| **Rétablir l’affichage d’origine** | Revient aux cinq widgets de départ et au fond Nacre. |
+
+Chaque changement s’applique et s’enregistre aussitôt.
+
+Ce qu’il faut savoir :
+
+- **Widgets et fond suivent le compte** : enregistrés sur le NAS, ils se retrouvent sur tout navigateur où ce compte se connecte. Chaque compte a les siens.
+- **Les fenêtres suivent le navigateur** : applications ouvertes, place, taille, état agrandi ou réduit sont mémorisés sur ce poste et reviennent au rechargement. Une adresse qui demande une page précise l’ouvre devant, à côté des fenêtres retrouvées.
+- **Un compte en lecture seule règle son propre bureau.** C’est la seule chose qu’il peut enregistrer ; le widget Alertes lui reste invisible.
+- **Une fenêtre retrouvée est ramenée dans l’écran** si le navigateur est plus petit qu’au moment de l’enregistrement ; une page devenue inaccessible au compte est oubliée.
+- **Ces réglages ne sont pas inscrits au journal** : ils ne changent que l’affichage.
+
+Limites : pas de widget de caméra en image, pas de fond personnel ni d’icônes à déplacer, pas de disposition partagée entre navigateurs pour les fenêtres.
 
 ## Centre de notifications
 
@@ -173,8 +199,7 @@ Le bouton **Classique** de la barre supérieure rend le menu à gauche tel qu’
 
 ## Limites de cette étape
 
-- **Widgets fixes**, non personnalisables, et sans image de caméra.
-- **Position et taille des fenêtres** oubliées au rechargement de la page.
+- **Widgets sans image de caméra.**
 - **La taille des textes** n’a été relevée que pour les notes les plus petites.
 
 ## Validation
@@ -190,5 +215,7 @@ Surveillance (alpha.29), cinq essais JavaScript : mur en images fixes sans aucun
 Fichiers (alpha.30). Quatre essais Python sur espace temporaire : déplacement sans remplacement ni demi-mesure, refus des sélections et destinations invalides sans rien toucher, liens symboliques jamais suivis, lecteur et jeton absent refusés ; archive relue et vérifiée, sans liens ni fichiers cachés, noms accentués ; aperçu limité aux types sûrs et à un texte borné. Cinq essais JavaScript : arborescence, liste et aperçu, absence d’actions d’écriture pour un lecteur, dossier disparu, sélection au clic et au clavier, liens de téléchargement, texte jamais interprété, déplacement, corbeille et envoi limités à la sélection. Sur le banc, avec le vrai serveur : aperçu d’une image et d’une vidéo, archive de deux éléments relue, envoi de deux fichiers, déplacement par glisser-déposer, refus d’un dossier dans lui-même, corbeille de deux éléments, lignes de journal.
 
 Plusieurs fenêtres (alpha.31), quatre essais JavaScript : une fenêtre par application et le bureau qui continue derrière ; dock, barre de titre et marque (réduire, ramener, agrandir, fermer) sans effet sur les autres ; le bureau n’écoute que ses propres fenêtres ; une fenêtre enfant n’affiche que son contenu, navigue dans son application et confie le reste au bureau, y compris la session expirée. Un essai Python : la console ne peut être encadrée que par elle-même. Un défaut attrapé par ces essais avant la fusion : après un passage en affichage classique, les fenêtres fermées restaient en mémoire et faussaient la page rouverte. Sur le banc : quatre applications ouvertes ensemble, lien d’une fenêtre ouvrant la fenêtre d’une autre application, déplacement et redimensionnement par-dessus les cadres, téléphone, Ctrl+K depuis une fenêtre, session expirée dans une fenêtre.
+
+Bureau personnalisable (alpha.32). Deux essais Python : préférences par compte, lecteur autorisé pour cette seule route, choix invalides refusés sans rien écrire, valeurs abîmées ramenées à l’origine. Trois essais JavaScript : ordre des widgets et panneau, réponse du NAS assainie, sauvegarde en échec signalée, mémoire et restauration des fenêtres. Deux défauts attrapés par ces essais avant la fusion : au rechargement, la fenêtre retrouvée remplaçait la page demandée par l’adresse ; et un choix fait pendant une lecture en cours pouvait être écrasé par sa réponse. Sur le banc : widgets réordonnés, fond changé, relecture depuis le NAS, deux fenêtres retrouvées après rechargement avec une troisième demandée par l’adresse.
 
 Parcours navigateur sur le banc local, avec la politique de sécurité réelle de la console : ouverture des sept applications, déplacement, agrandissement, réduction et fermeture de la fenêtre, bascule vers l’affichage classique et retour, largeur de téléphone sans défilement horizontal.

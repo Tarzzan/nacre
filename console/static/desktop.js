@@ -47,11 +47,13 @@ function deskChild(win){try{const child=$('#dk-frame-'+win.app)?.contentWindow;r
 
 function deskShell(){
  deskWins=[];deskTouched=false;
- $('#app').innerHTML=`<div class="dk"><header class="dk-bar"><button type="button" class="dk-brand" data-action="desk-home" title="Afficher le bureau">nacre</button><strong id="side-host">${esc(user.nas_name||'NAS')}</strong><small id="side-version">Nacre ${esc(user.app_version||'version non identifiée')}</small><span class="dk-grow"></span>${typeof paletteButton==='function'?paletteButton()+'<span class="dk-grow"></span>':''}${typeof bellButtons==='function'?bellButtons():user.role==='admin'?'<button data-page="alerts" class="small" id="alert-summary">Alertes</button>':''}<time id="topclock">${date(Date.now()/1000)}</time><div class="account"><div class="avatar">${esc(user.name.slice(0,1).toUpperCase())}</div><span>${esc(user.name)}</span><button type="button" class="dk-switch" data-action="shell-classic" title="Revenir à l’affichage classique, avec le menu à gauche">Classique</button><button data-action="logout" aria-label="Se déconnecter">${icon('logout')}</button></div></header>`+
+ $('#app').innerHTML=`<div class="dk dk-bg-${typeof deskPrefs==='undefined'?'nacre':deskPrefs.background}" id="dk-root"><header class="dk-bar"><button type="button" class="dk-brand" data-action="desk-home" title="Afficher le bureau">nacre</button><strong id="side-host">${esc(user.nas_name||'NAS')}</strong><small id="side-version">Nacre ${esc(user.app_version||'version non identifiée')}</small><span class="dk-grow"></span>${typeof paletteButton==='function'?paletteButton()+'<span class="dk-grow"></span>':''}${typeof bellButtons==='function'?bellButtons():user.role==='admin'?'<button data-page="alerts" class="small" id="alert-summary">Alertes</button>':''}${typeof deskPrefsButton==='function'?deskPrefsButton():''}<time id="topclock">${date(Date.now()/1000)}</time><div class="account"><div class="avatar">${esc(user.name.slice(0,1).toUpperCase())}</div><span>${esc(user.name)}</span><button type="button" class="dk-switch" data-action="shell-classic" title="Revenir à l’affichage classique, avec le menu à gauche">Classique</button><button data-action="logout" aria-label="Se déconnecter">${icon('logout')}</button></div></header>`+
  `<div class="dk-desk"><div id="zone-prompt">${typeof zonePrompt==='function'?zonePrompt():''}</div><div class="dk-stage" id="dk-stage"><nav class="dk-icons" aria-label="Applications">${deskLaunch('dk-app')}</nav><aside class="dk-widgets" id="dk-widgets" aria-label="État du NAS"></aside><div id="dk-wins"></div><span class="dk-sr" id="crumb"></span><main class="content dk-solo" id="content" hidden></main></div></div>`+
- `<nav class="dk-dock" id="dk-dock" aria-label="Applications ouvertes et raccourcis">${deskLaunch('dk-dockapp')}</nav>${typeof bellButtons==='function'?'<section class="dk-panel" id="bell-panel" aria-label="Centre de notifications" hidden></section>':''}${typeof palettePanel==='function'?palettePanel():''}</div>`;
+ `<nav class="dk-dock" id="dk-dock" aria-label="Applications ouvertes et raccourcis">${deskLaunch('dk-dockapp')}</nav>${typeof bellButtons==='function'?'<section class="dk-panel" id="bell-panel" aria-label="Centre de notifications" hidden></section>':''}${typeof palettePanel==='function'?palettePanel():''}${typeof deskPrefsPanel==='function'?'<section class="dk-panel" id="desk-prefs" aria-label="Personnaliser le bureau" hidden></section>':''}</div>`;
  if(typeof drawBell==='function')drawBell();
  if(typeof drawPalette==='function'){paletteOpen=false;drawPalette();}
+ // Fenêtres retrouvées : tant que l’utilisateur n’a rien fait, ni l’adresse demandée ni la mémoire ne sont réécrites.
+ if(typeof deskRestore==='function'){deskPrefsOpen=false;deskRestore();deskTouched=false;loadDeskPrefs().catch(()=>{});}
  deskSync();
 }
 // Fenêtre enfant : le contenu seul. Les repères que les pages mettent à jour existent, masqués.
@@ -119,7 +121,8 @@ function deskSync(){
  if(solo)solo.hidden=page==='home';
  document.querySelectorAll('[data-app].dk-dockapp,[data-app].dk-app').forEach(e=>{e.classList.toggle('open',!!deskWindow(e.dataset.app));e.classList.toggle('front',front?.app===e.dataset.app);});
  // L’adresse suit la fenêtre de devant, une fois qu’une fenêtre a été ouverte : au chargement, elle garde la page demandée.
- if(page==='home'&&deskTouched&&typeof location!=='undefined')location.hash=front?front.page:'home';
+ if(page==='home'&&deskTouched&&!(typeof deskRestoring!=='undefined'&&deskRestoring)&&typeof location!=='undefined')location.hash=front?front.page:'home';
+ if(typeof deskRemember==='function')deskRemember();
 }
 // Change d’affichage en gardant la page regardée : celle de la fenêtre de devant, ou la page classique courante.
 function deskSwitch(mode){
@@ -134,7 +137,7 @@ function deskIntent(child){const win=deskByChild(child);if(!win)return {};const 
 function deskAppOf(child){return deskByChild(child)?.app||'';}
 function deskChildAt(child,next){const win=deskByChild(child);if(!win||!deskApp(next)||deskApp(next).id!==win.app)return;win.page=next;deskSync();}
 function deskChildView(child,id,view){const win=deskByChild(child);if(!win||win.app!==id)return;win.view=view;deskSync();}
-function deskChildFocus(child){const win=deskByChild(child);if(!win||win===deskFront())return;win.z=++deskZ;deskSync();if(typeof closeBell==='function')closeBell();if(typeof closePalette==='function')closePalette();}
+function deskChildFocus(child){const win=deskByChild(child);if(!win)return;if(typeof closeBell==='function')closeBell();if(typeof closePalette==='function')closePalette();if(typeof closeDeskPrefs==='function')closeDeskPrefs();if(win===deskFront())return;win.z=++deskZ;deskSync();}
 function deskChildGo(child,next){if(!deskByChild(child))return;go(next).catch(()=>{});}
 // Préférences changées dans une fenêtre : la barre du bureau suit, et les autres fenêtres se rechargent pour prendre le fuseau.
 function deskChildPrefs(child,saved){
@@ -150,13 +153,20 @@ function deskReload(except=null){for(const win of deskWins){try{const child=$('#
 function deskWidgets(d){
  const widget=(target,label,value,note,meter='')=>`<button type="button" class="dk-wg" data-page="${target}"><small>${label}</small><b>${value}</b><small>${note}</small>${meter}</button>`;
  const meter=(value,total)=>Number.isFinite(value/total)?`<progress value="${Math.round(value/total*100)}" max="100"></progress>`:'';
- const services=Array.isArray(d.services)?d.services:[],running=services.filter(s=>s.state==='running').length;
+ const services=Array.isArray(d.services)?d.services:[],running_services=services.filter(s=>s.state==='running').length;
  const fps=Number(d.camera?.camera_fps),events=Array.isArray(d.events)?d.events.slice(0,3):[];
- return widget('storage','Stockage libre',sizes(d.disk?.free),`sur ${sizes(d.disk?.total)}`,meter(d.disk?.used,d.disk?.total))+
-  widget('services','Services',d.services_available?`${running} sur ${services.length} en ligne`:'À démarrer',d.services_available?'Partage de fichiers et vidéo':'Services à installer ou à démarrer')+
-  widget('camera','Surveillance',d.camera?(Number.isFinite(fps)?`${fps.toLocaleString('fr-FR',{maximumFractionDigits:1})} images/s`:'Sans mesure'):'Aucune caméra',d.camera?(d.camera.id?`Caméra ${esc(d.camera.id)}`:'Caméra principale'):'Ajouter une caméra')+
-  widget('events','Activité récente',events.length?esc(events[0].action):'Aucune action',events.length?events.map(e=>`${date(e.ts)} · ${esc(e.username)}`).slice(0,1).join(''):'Le journal est vide')+
-  `<div class="dk-wg"><small>Mémoire</small><b>${sizes(d.memory?.used)}</b><small>sur ${sizes(d.memory?.total)} · charge ${Number(d.load?.[0]||0).toLocaleString('fr-FR',{maximumFractionDigits:2})} sur ${esc(d.cpus)} cœurs</small>${meter(d.memory?.used,d.memory?.total)}</div>`;
+ const attention=typeof bellData==='undefined'?null:bellData.alerts,running=typeof bellRunning==='function'?bellRunning().length:0;
+ const parts={
+  storage:widget('storage','Stockage libre',sizes(d.disk?.free),`sur ${sizes(d.disk?.total)}`,meter(d.disk?.used,d.disk?.total)),
+  services:widget('services','Services',d.services_available?`${running_services} sur ${services.length} en ligne`:'À démarrer',d.services_available?'Partage de fichiers et vidéo':'Services à installer ou à démarrer'),
+  camera:widget('camera','Surveillance',d.camera?(Number.isFinite(fps)?`${fps.toLocaleString('fr-FR',{maximumFractionDigits:1})} images/s`:'Sans mesure'):'Aucune caméra',d.camera?(d.camera.id?`Caméra ${esc(d.camera.id)}`:'Caméra principale'):'Ajouter une caméra'),
+  activity:widget('events','Activité récente',events.length?esc(events[0].action):'Aucune action',events.length?events.map(e=>`${date(e.ts)} · ${esc(e.username)}`).slice(0,1).join(''):'Le journal est vide'),
+  memory:`<div class="dk-wg"><small>Mémoire</small><b>${sizes(d.memory?.used)}</b><small>sur ${sizes(d.memory?.total)} · charge ${Number(d.load?.[0]||0).toLocaleString('fr-FR',{maximumFractionDigits:2})} sur ${esc(d.cpus)} cœurs</small>${meter(d.memory?.used,d.memory?.total)}</div>`,
+  alerts:user?.role==='admin'?widget('alerts','Alertes',attention?(attention.attention?`${Number(attention.attention)||0} à traiter`:'Rien à traiter'):'—',attention?.stale?'Contrôle à vérifier':`${(attention?.active||[]).length} incident(s) actif(s)`):'',
+  tasks:widget('backups','Tâches en cours',running?`${running} en cours`:'Aucune',running?'Ouvrir le suivi':'Sauvegardes et installations'),
+ };
+ const order=typeof deskPrefs==='undefined'?['storage','services','camera','activity','memory']:deskPrefs.widgets;
+ return order.map(id=>parts[id]||'').join('')||'<p class="dk-notehint">Aucun widget affiché. Le bouton Personnaliser, en haut à droite, permet d’en choisir.</p>';
 }
 async function renderDesk(){
  clearInterval(imageTimer);
@@ -215,5 +225,5 @@ document.addEventListener('pointermove',e=>{
  win.left=Math.round(Math.max(120-box.width,Math.min(e.clientX-deskDrag.dx-area.left,area.width-120)));win.top=Math.round(Math.max(0,Math.min(e.clientY-deskDrag.dy-area.top,area.height-60)));
  el.style.left=win.left+'px';el.style.top=win.top+'px';
 });
-for(const type of ['pointerup','pointercancel'])document.addEventListener(type,()=>{if(!deskDrag)return;deskDrag=null;$('#dk-stage')?.classList.remove('dk-dragging');});
+for(const type of ['pointerup','pointercancel'])document.addEventListener(type,()=>{if(!deskDrag)return;deskDrag=null;$('#dk-stage')?.classList.remove('dk-dragging');deskSync();});
 document.addEventListener('dblclick',e=>{const bar=e.target.closest?.('.dk-title');if(!bar||e.target.closest('button'))return;const win=deskWindow(bar.dataset.app);if(win){win.max=!win.max;deskSync();}});

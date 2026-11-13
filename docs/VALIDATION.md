@@ -1,5 +1,9 @@
 # Validation
 
+## Bureau personnalisable — 0.8.0-alpha.32
+
+315 tests Python et 122 JavaScript. Détail dans le [guide du Bureau](DESKTOP.md#validation).
+
 ## Plusieurs fenêtres — 0.8.0-alpha.31
 
 313 tests Python et 119 JavaScript. Détail dans le [guide du Bureau](DESKTOP.md#validation).
