@@ -608,6 +608,33 @@ test('late upload errors cannot modify another page or new session',async()=>{
  f.run('page="files"');complete(response(409,{error:'Old error'}));await pending;
  assert.equal(f.elements.get('#update-upload-error').textContent,'');assert.equal(submit.disabled,false);
 });
+const copyId=n=>String(n).padStart(24,'0'),updateCopiesSample={keep:3,bytes:4096,items:[
+ {id:copyId(3),kind:'copy',previous:'1.0.0-alpha.2',version:'1.0.0-alpha.3',created:1794182400,bytes:2048,current:true},
+ {id:copyId(2),kind:'copy',previous:'<b>ancienne</b>',version:null,created:1794096000,bytes:1024,current:false},
+ {id:copyId(1),kind:'prepared',previous:null,version:'1.0.0-alpha.9',created:1794009600,bytes:1024,current:false},null]};
+test('update copies list the retained ones, escape their fields and protect the latest',async()=>{
+ const f=updateFixture(async()=>response(200,{...updateStatus,phase:'succeeded',copies:updateCopiesSample}));
+ await f.run('renderUpdates()');const html=f.elements.get('#content').innerHTML;
+ assert.match(html,/Copies de retour arrière/);assert.match(html,/Nacre 1\.0\.0-alpha\.2/);assert.match(html,/Dernière mise à jour/);assert.match(html,/4 Kio sur le NAS/);
+ assert.match(html,/Les 3 copies les plus récentes/);assert.match(html,/&lt;b&gt;ancienne&lt;\/b&gt;/);assert.match(html,/avant l’installation de version inconnue/);
+ assert.equal(html.match(/data-action="update-copy-delete"/g).length,1);assert.match(html,new RegExp('data-id="'+copyId(2)+'"'));
+ assert.doesNotMatch(html,/<b>ancienne/);assert.doesNotMatch(html,new RegExp(copyId(1)));assert.doesNotMatch(html,/1\.0\.0-alpha\.9/);
+ // Sans copie, ou face à une ancienne console qui n'en parle pas, la carte n'apparaît pas.
+ for(const copies of [undefined,null,{keep:3,bytes:0,items:[]},{items:'x'},{keep:3,bytes:9,items:[updateCopiesSample.items[2]]}]){
+  f.context.sample={...updateStatus,copies};assert.equal(f.run('updateCopies(sample)'),'');
+ }
+});
+test('deleting a copy asks for confirmation, sends its identifier and stays out of reach otherwise',async()=>{
+ const calls=[];const f=updateFixture(async(url,options)=>{calls.push([url,options?.body]);return response(200,url.endsWith('/delete')?{keep:3,bytes:2048,items:[updateCopiesSample.items[0]]}:{...updateStatus,phase:'succeeded',copies:updateCopiesSample});});
+ const modal=f.elements.get('#modal');let shown=0;modal.showModal=()=>shown++;modal.innerHTML='';
+ await f.run('renderUpdates()');const click=id=>f.listeners.get('click').at(-1)({target:{closest:()=>({dataset:{action:'update-copy-delete',id}})}});
+ await click(copyId(9));await click(copyId(1).replace('0','x'));assert.equal(shown,0);
+ f.run('user.role="viewer"');await click(copyId(2));f.run('user.role="admin";page="files"');await click(copyId(2));assert.equal(shown,0);
+ f.run('page="updates"');await click(copyId(2));assert.equal(shown,1);
+ assert.match(modal.innerHTML,/Supprimer cette copie/);assert.match(modal.innerHTML,/définitive/);assert.match(modal.innerHTML,/&lt;b&gt;ancienne/);assert.doesNotMatch(modal.innerHTML,/<b>ancienne/);
+ const before=calls.length;const result=await f.run('modalSubmit(new Map())');
+ assert.deepEqual(calls.slice(before),[['/api/updates/copies/delete',JSON.stringify({id:copyId(2),confirm:true})]]);assert.equal(result.message,'Copie supprimée.');
+});
 
 // Relecture : journée synthétique de 24 h en UTC, deux plages et un moment détecté.
 const dayStart=1794182400,playbackSample={camera:'entry',timezone:'UTC',day:'2026-11-08',today:'2026-11-09',start:dayStart,end:dayStart+86400,now:dayStart+2*86400,clip_max:300,

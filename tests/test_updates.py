@@ -118,6 +118,44 @@ class UpdateTests(unittest.TestCase):
         self.assertEqual(self.get('/api/me')[1]['app_version'],'1.0.0-alpha.2');self.assertTrue((self.root/'console/new_feature.py').exists())
         self.unchanged();engine.installed(self.root)
 
+    def test_old_copies_are_purged_around_a_real_update_and_an_admin_can_delete_one(self):
+        area=engine.area(self.root);name=lambda index:f'{index:024x}'
+        for index in range(1,5):
+            folder=area/name(index)
+            engine.write(folder/'manifest.json',json.dumps({'version':f'0.9.{index}'}).encode());engine.write(folder/'code/console/server.py',b'old candidate')
+            engine.write(folder/'before/console/server.py',b'older code');engine.write(folder/'before.sqlite3',b'synthetic')
+            engine.write(folder/'before.json',json.dumps({'version':f'0.9.{index-1}','files':{}}).encode())
+            os.utime(folder/'before.json',(time.time()-5000+index*1000,)*2)
+        folders=lambda:sorted(p.name for p in area.iterdir() if p.is_dir())
+        # Démarrage : la règle automatique garde les trois copies les plus récentes.
+        self.start();self.assertEqual(folders(),[name(2),name(3),name(4)])
+        first=self.get('/api/updates/upload',method='POST',raw=self.candidate().read_bytes())[1]['id']
+        status,result=self.get('/api/updates/upload',method='POST',raw=self.candidate(changes={'console/new_feature.py':b'VALUE=42\n'}).read_bytes());self.assertEqual(status,200,result)
+        # Un paquet vérifié puis remplacé ne reste pas sur le disque.
+        self.assertEqual(folders(),sorted([name(2),name(3),name(4),result['id']]));self.assertNotEqual(first,result['id'])
+        current=result['id'];self.assertEqual(self.get('/api/updates/apply',method='POST',body={'id':current,'confirm':True})[0],200)
+        self.wait(lambda:engine.state(self.root)['phase']=='succeeded');self.wait(lambda:self.get('/api/me')[0]==200 and not (area/name(2)).exists())
+        self.assertEqual(folders(),sorted([name(3),name(4),current]))
+        status,data=self.get('/api/updates');self.assertEqual(status,200,data)
+        self.assertEqual([(i['id'],i['kind'],i['previous'],i['version'],i['current']) for i in data['copies']['items']],
+                         [(current,'copy','1.0.0-alpha.1','1.0.0-alpha.2',True),(name(4),'copy','0.9.3','0.9.4',False),(name(3),'copy','0.9.2','0.9.3',False)])
+        self.assertEqual((data['copies']['keep'],data['copies']['bytes']),(3,sum(i['bytes'] for i in data['copies']['items'])))
+        delete=lambda body,**kwargs:self.get('/api/updates/copies/delete',method='POST',body=body,**kwargs)
+        self.assertEqual(delete({'id':name(3),'confirm':True},csrf=False)[0],403)
+        self.assertEqual(delete({'id':name(3)})[0],400)
+        self.assertEqual((delete({'id':current,'confirm':True})[0],delete({'id':'../'+name(3),'confirm':True})[0],delete({'id':name(2),'confirm':True})[0]),(409,409,409))
+        with closing(sqlite3.connect(self.root/'state/console/console.db')) as db:db.execute("UPDATE users SET role='viewer'");db.commit()
+        self.assertEqual(delete({'id':name(3),'confirm':True})[0],403)
+        with closing(sqlite3.connect(self.root/'state/console/console.db')) as db:db.execute("UPDATE users SET role='admin'");db.commit()
+        self.assertEqual(folders(),sorted([name(3),name(4),current]))
+        status,data=delete({'id':name(3),'confirm':True});self.assertEqual((status,[i['id'] for i in data['items']]),(200,[current,name(4)]))
+        self.assertEqual(folders(),sorted([name(4),current]))
+        with closing(sqlite3.connect(self.root/'state/console/console.db')) as db:
+            trail=db.execute("SELECT username,action,detail FROM audit WHERE action LIKE '%opie%' ORDER BY rowid").fetchall()
+        self.assertEqual(trail,[('console','Anciennes copies de mise à jour supprimées','Nacre 0.9.0, avant 0.9.1'),('console','Anciennes copies de mise à jour supprimées','Nacre 0.9.1, avant 0.9.2'),
+                                ('admin','Copie de mise à jour supprimée','Nacre 0.9.2, avant 0.9.3')])
+        self.assertEqual(self.get('/api/me')[1]['app_version'],'1.0.0-alpha.2');self.unchanged();engine.installed(self.root)
+
     def test_failed_start_restores_code_database_and_original_session(self):
         self.start();candidate=self.candidate(changes={'console/server.py':b"import sqlite3\nfrom pathlib import Path\np=Path(__file__).resolve().parents[1]/'state/console/console.db'\nwith sqlite3.connect(p) as db:db.execute(\"UPDATE users SET hash='candidate-damage'\")\nraise RuntimeError('synthetic startup failure')\n",'console/new_feature.py':b'NEW=True\n'})
         staged=engine.prepare(self.root,candidate);engine.request(self.root,staged['id'],'admin')

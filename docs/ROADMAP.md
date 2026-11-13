@@ -12,6 +12,10 @@ Les versions futures sont des objectifs sans date promise. Chaque étape demande
 | **1.0 — cible à qualifier** | Version exploitable avec périmètre de support précis | Revue de sécurité, endurance, mises à jour et reprise éprouvées ; aucun défaut critique connu |
 | **Après stabilisation** | Gestion de plusieurs NAS | Identités inter-hôtes, révocation, fonctionnement déconnecté et politiques de groupe spécifiés |
 
+## Copies de mise à jour 0.8.0-alpha.24
+
+Liste des copies de retour arrière dans la page Mises à jour, conservation automatique des trois plus récentes, suppression manuelle des autres. [Guide et limites](BROWSER-UPDATES.md#copies-de-retour-arrière). Restent ouverts : nombre de copies réglable, retour à une copie depuis le navigateur après validation.
+
 ## Recherche d’événements 0.8.0-alpha.23
 
 Recherche des événements d’une caméra sur une période de jours, par type d’objet, avec ouverture du résultat dans la relecture. [Guide et limites](RECORDING-PLAYBACK.md#rechercher-sur-plusieurs-jours). Restent ouverts : recherche sur plusieurs caméras, par nom reconnu ou tranche horaire, filtre par zone.
@@ -30,7 +34,7 @@ Frise par jour civil, moments avec présence détectée, lecture enchaînée et 
 
 ## Mise à jour du logiciel 0.8.0-alpha.19
 
-Import signé depuis le navigateur, superviseur indépendant, copie préalable et retour arrière avant validation, reprise après interruption. [Guide et limites](BROWSER-UPDATES.md). Restent ouverts : migrations de schéma réversibles, rotation de confiance, nettoyage des copies, mises à jour des composants et qualification prolongée.
+Import signé depuis le navigateur, superviseur indépendant, copie préalable et retour arrière avant validation, reprise après interruption. [Guide et limites](BROWSER-UPDATES.md). Restent ouverts : migrations de schéma réversibles, rotation de confiance, mises à jour des composants et qualification prolongée. Nettoyage des copies livré en alpha.24.
 
 ## Administration quotidienne 0.8.0-alpha.18
 
