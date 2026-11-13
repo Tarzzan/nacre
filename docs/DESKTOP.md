@@ -121,6 +121,7 @@ Depuis la version 0.8.0-alpha.28, la barre supérieure porte une recherche. Ctrl
 | Un besoin : « fuseau », « mot de passe », « restaurer » | Le réglage nommé, avec l’endroit où il se trouve. |
 | Le nom d’une caméra | La fiche de cette caméra. |
 | Le nom d’un espace de fichiers | L’application Fichiers ouverte sur cet espace. |
+| Deux caractères ou plus | En dernière ligne, **Chercher « … » dans les fichiers** : Fichiers s’ouvre et [cherche ce nom](#rechercher-un-fichier-par-son-nom) dans tout le NAS. |
 
 Les flèches déplacent la sélection, Entrée ouvre, Échap ferme. Les accents et les majuscules ne comptent pas ; chaque mot saisi doit commencer un mot du résultat.
 
@@ -128,7 +129,7 @@ Ce qu’il faut savoir :
 
 - **La recherche ouvre, elle n’agit pas.** Elle mène à la page ; l’action reste à faire dans la page.
 - **Seul ce que le compte peut ouvrir est proposé.** Un compte en lecture seule ne voit pas les réglages d’administration.
-- **Pas de recherche dans les fichiers**, ni par nom ni par contenu, et pas de recherche dans les événements des caméras : la carte Recherche d’événements d’une caméra reste l’outil pour cela.
+- **Les fichiers ne sont parcourus que sur demande.** Tant que la ligne « Chercher dans les fichiers » n’est pas choisie, rien n’est lu sur les disques. Pas de recherche dans le contenu des fichiers ni dans les événements des caméras : la carte Recherche d’événements d’une caméra reste l’outil pour cela.
 - **Les réglages nommés sont une liste tenue à la main**, pas un index de tous les champs de la console.
 - **Absente de l’affichage classique.**
 
@@ -191,7 +192,26 @@ Ce qu’il faut savoir :
 - **Changer de dossier pendant un envoi** arrête les fichiers restants, pour ne rien déposer au mauvais endroit.
 - **Lecture seule** : un compte lecteur, ou un espace en lecture seule, garde la navigation, l’aperçu et le téléchargement.
 
-Limites de cette étape : pas de recherche d’un fichier par son nom dans tout le NAS, pas de copie, pas de liens de partage, pas d’envoi de dossiers entiers par glisser-déposer, pas d’avance rapide dans l’aperçu vidéo. L’arborescence montre les dossiers déjà ouverts, pas tout le disque d’avance.
+### Rechercher un fichier par son nom
+
+Depuis la version 0.8.0-alpha.33, le champ en haut de Fichiers sert à deux choses. Pendant la saisie, il **filtre le dossier ouvert**, comme avant. Dès deux caractères, une ligne propose de chercher ce nom ailleurs : **dans ce dossier et ses sous-dossiers** (ou dans l’espace entier, depuis sa racine), ou **dans tout le NAS**. Entrée lance la recherche dans tout le NAS.
+
+![Résultats d’une recherche par nom sur le banc de démonstration](images/file-search.jpg)
+
+*Banc local : fichiers fictifs, l’image est une mire synthétique.*
+
+Chaque résultat donne son emplacement. Un clic le sélectionne : l’aperçu, le téléchargement et **Afficher dans son dossier** sont dans le panneau de droite ; un double-clic ouvre le dossier trouvé, ou le dossier qui contient le fichier, celui-ci sélectionné. Renommer, déplacer et mettre en corbeille se font là, pas dans la liste des résultats. Retoucher le champ, **Fermer la recherche**, Échap ou un clic dans l’arborescence ramènent au dossier.
+
+Ce qu’il faut savoir :
+
+- **Le nom seulement**, jamais le contenu. Accents et majuscules ne comptent pas ; chaque mot saisi doit figurer dans le nom, dans n’importe quel ordre. « .pdf » trouve les PDF.
+- **Pas d’index** : le NAS est parcouru au moment de la demande. Rien n’est écrit ni tenu à jour, et un fichier déposé à l’instant est trouvé ; en contrepartie, une recherche sur des disques en veille les réveille.
+- **Une recherche est bornée** : quatre secondes, 200 000 éléments parcourus, 200 résultats. Arrêtée avant la fin, elle le dit, et chercher depuis un dossier permet d’aller plus loin. Deux recherches à la fois au plus pour tout le NAS.
+- **« Tout le NAS » = les espaces que le compte peut ouvrir**, Fichiers partagés d’abord, puis les volumes, les vidéos et les sauvegardes. Les restaurations et snapshots ne sont parcourus que si l’on cherche depuis leur espace : ils répéteraient chaque fichier.
+- **Liens symboliques jamais suivis, fichiers cachés ignorés** : un lien peut être nommé parmi les résultats, ce qu’il désigne n’est pas parcouru.
+- **Un espace indisponible** n’empêche pas la recherche ; il est signalé au-dessus des résultats.
+
+Limites de cette étape : pas de recherche dans le contenu, pas de filtre par date, taille ou type, pas de copie, pas de liens de partage, pas d’envoi de dossiers entiers par glisser-déposer, pas d’avance rapide dans l’aperçu vidéo. L’arborescence montre les dossiers déjà ouverts, pas tout le disque d’avance.
 
 ## Revenir à l’affichage classique
 
@@ -211,6 +231,8 @@ Centre de notifications (alpha.27), cinq essais JavaScript : cloche à la place 
 Recherche globale (alpha.28), quatre essais JavaScript : index limité aux pages que le compte peut ouvrir, chaque réglage nommé rattaché à une page existante ; correspondance au début des mots sans accents ni casse, libellé le plus proche en tête, noms de caméras échappés ; clavier (ouverture, flèches, Entrée, Échap, rien derrière une boîte de dialogue) ; ouverture d’une caméra, d’un espace de fichiers ou de l’affichage classique, lectures en échec ou tardives sans effet. Sur le banc : Ctrl+K, « gar », Entrée ouvre la fiche de la caméra Garage.
 
 Surveillance (alpha.29), cinq essais JavaScript : mur en images fixes sans aucun direct, noms échappés, page classique conservée ; caméra agrandie seule à recevoir le direct, caméras inconnues et réponses tardives sans effet ; événements fusionnés du plus récent au plus ancien, caméra en échec nommée, filtres sans nouvelle requête, ouverture de la relecture au bon événement ; une ligne de frise par caméra et lecture à l’heure cliquée ; réglages sans boutons pour la lecture seule. Sur le banc à deux caméras simulées : mur, agrandissement avec direct et pilotage, 48 événements synthétiques filtrés, ouverture d’un événement dans la relecture avec lecture de l’extrait, clic sur la ligne de l’autre caméra, onglet Réglages.
+
+Recherche de fichiers (alpha.33). Trois essais Python sur espace temporaire : noms trouvés sans accents ni casse dans tous les espaces du compte, ordre des résultats, liens nommés jamais suivis, fichiers cachés et restaurations hors du parcours ; portée par espace et par dossier, restaurations et volumes refusés au lecteur, chemins sortants et saisies trop courtes refusés ; arrêt annoncé à chaque borne, troisième recherche simultanée refusée, espace indisponible signalé. Trois essais JavaScript : filtre local sans requête, recherche à la demande ici ou partout, résultats mal formés ou hors des espaces du compte écartés, aperçu et téléchargement depuis l’emplacement du résultat, ouverture du dossier avec l’élément sélectionné ; arrêt anticipé annoncé, réponse tardive ou refusée sans effet ; entrée de la recherche globale. Sur le banc, avec le vrai serveur : « mire » dans tout le NAS, aperçu d’un résultat, affichage dans son dossier, « contrat » depuis Ctrl+K, « 2026 » dans les sous-dossiers de Documents, refus d’une saisie d’un caractère et d’un chemin sortant.
 
 Fichiers (alpha.30). Quatre essais Python sur espace temporaire : déplacement sans remplacement ni demi-mesure, refus des sélections et destinations invalides sans rien toucher, liens symboliques jamais suivis, lecteur et jeton absent refusés ; archive relue et vérifiée, sans liens ni fichiers cachés, noms accentués ; aperçu limité aux types sûrs et à un texte borné. Cinq essais JavaScript : arborescence, liste et aperçu, absence d’actions d’écriture pour un lecteur, dossier disparu, sélection au clic et au clavier, liens de téléchargement, texte jamais interprété, déplacement, corbeille et envoi limités à la sélection. Sur le banc, avec le vrai serveur : aperçu d’une image et d’une vidéo, archive de deux éléments relue, envoi de deux fichiers, déplacement par glisser-déposer, refus d’un dossier dans lui-même, corbeille de deux éléments, lignes de journal.
 

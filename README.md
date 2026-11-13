@@ -147,7 +147,7 @@ La [reprise sur Linux neuf](docs/FRESH-LINUX.md) retrouve données, clés et com
 
 | Domaine | Disponible en 0.8 alpha | Limite actuelle |
 | :--- | :--- | :--- |
-| Fichiers | Transferts en flux, dossiers, renommage, téléchargement, corbeille, restauration | Accès HTTP aux volumes natifs réservé aux administrateurs |
+| Fichiers | Transferts en flux, dossiers, renommage, téléchargement, corbeille, restauration, recherche par nom | Accès HTTP aux volumes natifs réservé aux administrateurs |
 | Partages SMB | Comptes, permissions, lecture seule, volumes gérés, reprise après perte de montage | Une modification des montages peut interrompre les connexions SMB |
 | Protection | Restic chiffré et dédupliqué, sources multiples, restauration privée, plans horaires, rétention manuelle ou après réussite | Captures de fichiers non atomiques ; rétention calendaire et créneaux disponibles, quotas non gérés |
 | Volumes | Inventaire, diagnostic SMART selon droits, disque entier ext4/Btrfs, miroir RAID1 | Opérations privilégiées validées en VM ; reconstruction RAID1 Btrfs qualifiée en VM ; pas de partitionnement |

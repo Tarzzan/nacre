@@ -695,6 +695,9 @@ class Handler(BaseHTTPRequestHandler):
                 if (query.get('area') == 'restaurations' or query.get('area','').startswith('native_')) and session['role'] != 'admin':
                     raise Problem('Accès réservé aux administrateurs.', 403)
                 return self.reply(200, {'items': list_files(query.get('area', 'fichiers'), query.get('path', ''))})
+            if url.path == '/api/files/search':
+                from file_search import search
+                return self.reply(200, search(sys.modules[__name__], query, session))
             if url.path == '/api/download':
                 if (query.get('area') == 'restaurations' or query.get('area','').startswith('native_')) and session['role'] != 'admin':
                     raise Problem('Accès réservé aux administrateurs.', 403)

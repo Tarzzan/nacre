@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.33 — Recherche de fichiers par nom
+
+Le champ en haut de **Fichiers** filtre toujours le dossier ouvert pendant la saisie ; dès deux caractères, il propose aussi de **chercher ce nom dans les sous-dossiers ou dans tout le NAS**, et Entrée lance la recherche partout. Les résultats indiquent l’emplacement de chaque fichier ou dossier, s’aperçoivent et se téléchargent sur place, et un clic ouvre le dossier où ils se trouvent, l’élément sélectionné. La **recherche globale** (Ctrl+K) propose la même chose pour ce que l’on vient d’y taper. Accents et majuscules ne comptent pas ; les mots saisis peuvent figurer dans n’importe quel ordre. La recherche parcourt le NAS à la demande, sans index : elle ne suit aucun lien, ignore les fichiers cachés, ne lit pas le contenu, et s’arrête d’elle-même après quatre secondes, 200 000 éléments ou 200 résultats, en le disant. Un nouveau module serveur (`file_search.py`) : aucun changement de schéma ni de module figé. 318 tests Python et 125 JavaScript. [Guide et limites](docs/DESKTOP.md#rechercher-un-fichier-par-son-nom).
+
 ## 0.8.0-alpha.32 — Bureau personnalisable
 
 Le bouton **Personnaliser** de la barre du bureau permet de choisir les widgets affichés, leur ordre et le fond parmi quatre. Deux widgets s’ajoutent au choix : Alertes et Tâches en cours. Ces préférences sont enregistrées **par compte** sur le NAS et se retrouvent sur tout navigateur ; un compte en lecture seule peut régler son propre bureau, et rien d’autre. Les **fenêtres ouvertes, leur place et leur taille** sont mémorisées par navigateur et reviennent au rechargement, sans changer la page demandée par l’adresse. Septième et dernier lot du cap « bureau dans le navigateur ». Un nouveau module serveur (`desk_prefs.py`), qui utilise la table de réglages existante : aucun changement de schéma ni de module figé. 315 tests Python et 122 JavaScript. [Guide et limites](docs/DESKTOP.md#personnaliser-le-bureau).
