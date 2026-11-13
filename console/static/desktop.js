@@ -3,7 +3,7 @@
 // leur rendu ne change pas. L’affichage classique reste disponible, au choix de chaque navigateur.
 const DESK_APPS=[
  {id:'files',name:'Fichiers',pages:[['files','Parcourir'],['trash','Corbeille']]},
- {id:'cam',name:'Surveillance',pages:[['camera','Caméras']]},
+ {id:'cam',name:'Surveillance',pages:[['camera','Caméras']],views:[['wall','Mur'],['events','Événements'],['replay','Relecture'],['settings','Réglages']]},
  {id:'storage',name:'Stockage',pages:[['storage','Disques'],['native','Volumes et snapshots']]},
  {id:'protect',name:'Protection',pages:[['backups','Sauvegardes'],['snapshots','Points de restauration'],['retention','Conservation',true]]},
  {id:'share',name:'Partages et comptes',pages:[['shares','Partages'],['users','Utilisateurs']]},
@@ -17,7 +17,10 @@ const DESK_ICONS={
  activity:'<path d="M3 12h4l3-8 4 16 3-8h4"/>'};
 const DESK_KEY='nacre-shell';
 let deskOpen=null,deskMax=false,deskPos=null,deskDrag=null;
-const deskLast={};
+const deskLast={},deskViews={};
+// Vues d’une application à page unique : ses onglets changent la vue, pas la page.
+function deskViewOf(id){const app=DESK_APPS.find(a=>a.id===id),views=app?.views||[];return views.some(v=>v[0]===deskViews[id])?deskViews[id]:views[0]?.[0]||'';}
+function deskSetView(id,view){const app=DESK_APPS.find(a=>a.id===id);if(app?.views?.some(v=>v[0]===view))deskViews[id]=view;if(typeof deskSync==='function')deskSync();}
 
 function deskMode(){
  if(!user||user.setup_required)return false;
@@ -52,8 +55,9 @@ function deskSync(){
   const pages=app?deskPages(app):[],tabs=$('#dk-tabs');
   $('#dk-name').textContent=app?app.name:(titles[page]||'');
   $('#dk-tile').innerHTML=app?deskTile(app):'';
-  tabs.hidden=pages.length<2;
-  tabs.innerHTML=pages.length<2?'':pages.map(([p,label])=>`<button type="button" role="tab" data-page="${p}" aria-selected="${p===page}">${label}</button>`).join('');
+  const views=app?.views&&pages.length===1?app.views:null;
+  tabs.hidden=!views&&pages.length<2;
+  tabs.innerHTML=views?views.map(([v,label])=>`<button type="button" role="tab" data-action="desk-view" data-app="${app.id}" data-view="${v}" aria-selected="${v===deskViewOf(app.id)}">${label}</button>`).join(''):pages.length<2?'':pages.map(([p,label])=>`<button type="button" role="tab" data-page="${p}" aria-selected="${p===page}">${label}</button>`).join('');
   win.classList.toggle('max',deskMax);
   if(deskPos&&win.style){win.style.left=deskPos.left+'px';win.style.top=deskPos.top+'px';}
  }
@@ -87,6 +91,7 @@ document.addEventListener('click',async e=>{
  const action=el.dataset.action;
  try{
   if(action==='desk-open'){const app=deskApps().find(a=>a.id===el.dataset.app);if(!app)return;const pages=deskPages(app).map(p=>p[0]);return await go(pages.includes(deskLast[app.id])?deskLast[app.id]:pages[0]);}
+  if(action==='desk-view'){deskSetView(el.dataset.app,el.dataset.view);return await go(page);}
   if(action==='desk-min')return await go('home');
   if(action==='desk-close'){deskOpen=null;return await go('home');}
   if(action==='desk-max'){deskMax=!deskMax;return deskSync();}

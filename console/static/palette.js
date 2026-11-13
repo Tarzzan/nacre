@@ -6,7 +6,7 @@ const PALETTE_MAX=8;
 const PALETTE_TOPICS=[
  ['Fuseau horaire','settings','heure horloge utc date'],['Nom du NAS','settings','renommer identité'],['Sessions de la console','settings','déconnecter connexions appareils'],
  ['Mettre à jour Nacre','updates','version paquet installer'],['Copies de retour arrière','updates','rollback restauration version'],
- ['Ajouter une caméra','camera','rtsp tapo onvif'],['Relecture des enregistrements','camera','vidéo frise lecture extrait'],['Rechercher un événement','camera','personne voiture détection passage'],['Détection et objets suivis','camera','personne véhicule animal'],
+ ['Ajouter une caméra','camera','rtsp tapo onvif','wall'],['Relecture des enregistrements','camera','vidéo frise lecture extrait','replay'],['Événements des caméras','camera','personne voiture détection passage','events'],['Détection et objets suivis','camera','personne véhicule animal','settings'],
  ['Changer un mot de passe','users','compte utilisateur'],['Nouvel utilisateur','users','compte créer lecture seule'],['Nouveau partage','shares','smb samba dossier réseau windows'],
  ['Créer une sauvegarde','backups','archive plan restic'],['Planifier une sauvegarde','backups','plan horaire automatique'],['Restaurer des fichiers','snapshots','récupérer point de restauration'],['Durée de conservation','retention','rétention nettoyage garder'],
  ['État des disques','storage','smart température capacité espace'],['Créer un volume','native','pool raid miroir btrfs zfs'],['Snapshots du volume','native','instantané natif'],
@@ -23,8 +23,9 @@ function paletteIndex(){
   const pages=deskPages(app);
   entries.push({label:app.name,hint:'Application',page:pages[0][0],words:pages.map(p=>p[1]).join(' ')});
   if(pages.length>1)for(const [target,label] of pages)entries.push({label,hint:app.name,page:target,words:titles[target]||''});
+  else if(app.views)for(const [view,label] of app.views)entries.push({label,hint:app.name,page:pages[0][0],view:[app.id,view],words:''});
  }
- for(const [label,target,words] of PALETTE_TOPICS){const app=deskApp(target);if(app)entries.push({label,hint:`${app.name} · ${deskPages(app).find(p=>p[0]===target)[1]}`,page:target,words});}
+ for(const [label,target,words,view] of PALETTE_TOPICS){const app=deskApp(target);if(!app)continue;const name=view?app.views?.find(v=>v[0]===view)?.[1]:null;entries.push({label,hint:`${app.name} · ${name||deskPages(app).find(p=>p[0]===target)[1]}`,page:target,words,...(name?{view:[app.id,view]}:{})});}
  entries.push({label:'Affichage classique',hint:'Revenir au menu à gauche',shell:'classic',words:'ancien menu barre latérale'});
  return [...entries,...paletteExtra];
 }
@@ -70,9 +71,9 @@ async function runPalette(entry){
  if(!entry||!user)return;
  closePalette();
  if(entry.shell){deskChoose(entry.shell);shell();refreshStatus().catch(()=>{});return go(page);}
- if(entry.camera){if(typeof cameraCatalog!=='undefined'){selectedCamera=entry.camera;cameraDetail=true;}return go('camera');}
+ if(entry.camera){if(typeof survOpenCamera==='function')survOpenCamera(entry.camera);else if(typeof cameraCatalog!=='undefined'){selectedCamera=entry.camera;cameraDetail=true;}return go('camera');}
  if(entry.area){area=entry.area;currentPath='';return go('files');}
- if(entry.page&&deskApp(entry.page))return go(entry.page);
+ if(entry.page&&deskApp(entry.page)){if(entry.view)deskSetView(...entry.view);return go(entry.page);}
 }
 
 document.addEventListener('click',e=>{

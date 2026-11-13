@@ -1,0 +1,171 @@
+'use strict';
+// Application Surveillance du bureau : les cartes existantes (direct, pilotage, relecture, recherche, détection)
+// rangées en quatre vues. Mur en images fixes rafraîchies ; le direct n’est ouvert que pour la caméra agrandie.
+const SURV_REFRESH=10000,SURV_SHOWN=120;
+let survFocus=false,survTimer=null,survEvents=null,survCamera='',survLabel='',survPending=null,survRowsRequest=0;
+
+function survView(){return typeof deskViewOf==='function'?deskViewOf('cam'):'wall';}
+function survGo(view){deskSetView('cam',view);return renderCamera();}
+function survSelect(cameras){
+ return `<section class="card camera-choice"><label for="camera-select">Caméra</label><select id="camera-select">${cameras.map(c=>`<option value="${esc(c.id)}" ${c.id===selectedCamera?'selected':''}>${esc(c.name)} · ${cameraState(c)}</option>`).join('')}</select>${button('surv-refresh','Actualiser','activity','small')}</section>`;
+}
+function survShot(camera,now){
+ return camera.online?`<img class="sv-still" src="/api/camera/snapshot?camera=${encodeURIComponent(camera.id)}&t=${now}" data-camera="${esc(camera.id)}" alt="Dernière image de ${esc(camera.name)}">`:empty(camera.status==='disabled'?'Caméra en pause.':'Aucune image disponible.','camera');
+}
+function survTile(camera,now){
+ return `<section class="card sv-tile"><button type="button" class="sv-shot cameraimage" data-action="surv-focus" data-camera="${esc(camera.id)}" aria-label="Agrandir ${esc(camera.name)} et ouvrir son direct">${survShot(camera,now)}</button><div class="sv-foot"><div><strong>${esc(camera.name)}</strong>${cameraBadge(camera)}</div>${button('surv-replay','Relecture',null,'small',`data-camera="${esc(camera.id)}"`)}</div></section>`;
+}
+function survWallHtml(cameras,add,now=Date.now()){
+ const received=cameras.filter(c=>c.status==='receiving').length;
+ return heading('Toutes vos caméras.','Images rafraîchies toutes les dix secondes. Cliquez sur une caméra pour l’agrandir et ouvrir son direct.',add+button('surv-refresh','Actualiser','activity'))+
+  `<p class="sv-count"><span class="badge ${received===cameras.length?'':'warn'}">${received} sur ${cameras.length} reçue${received>1?'s':''}</span></p><div class="sv-wall">${cameras.map(c=>survTile(c,now)).join('')}</div>`+
+  '<p class="capacity-note">Une image fixe par caméra : aucun direct n’est ouvert dans cette vue. Une image reçue ne prouve pas que l’enregistrement fonctionne.</p>';
+}
+function survTick(current){
+ clearInterval(survTimer);
+ survTimer=setInterval(()=>{
+  if(!current()){clearInterval(survTimer);survTimer=null;return;}
+  if(document.hidden)return;
+  for(const image of document.querySelectorAll('#content img.sv-still'))image.src=`/api/camera/snapshot?camera=${encodeURIComponent(image.dataset.camera)}&t=${Date.now()}`;
+ },SURV_REFRESH);
+}
+async function survWall(cameras,add,current){
+ if(!survFocus){cameraDetail=false;$('#content').innerHTML=survWallHtml(cameras,add);return survTick(current);}
+ const id=selectedCamera,camera=cameras.find(c=>c.id===id),suffix=cameraQuery();
+ cameraDetail=true;
+ const results=await Promise.allSettled([api('camera/info'+suffix),api('camera/settings'+suffix)]);
+ if(!current()||selectedCamera!==id||!survFocus)return;
+ const info=results[0].status==='fulfilled'?results[0].value:{};
+ cameraSettings=results[1].status==='fulfilled'?results[1].value:camera;
+ const enabled=camera.online&&camera.enabled&&info.features?.includes('pt')&&user.role==='admin',others=cameras.filter(c=>c.id!==id),now=Date.now();
+ $('#content').innerHTML=heading(`${esc(camera.name)} en direct.`,'Seule cette caméra reçoit le direct ; les autres restent en images fixes.',button('surv-wall','Revenir au mur','camera')+add)+
+  `<div class="camera-grid">${cameraLiveCards(camera,info,suffix,enabled)}</div>${others.length?`<div class="sv-wall sv-strip">${others.map(c=>survTile(c,now)).join('')}</div>`:''}`;
+ if(camera.online)watchCamera(id,current);
+ survTick(current);
+}
+
+// Événements : les soixante plus récents de chaque caméra sur sept jours, fusionnés du plus récent au plus ancien.
+function survEventsHtml(data=survEvents){
+ if(!data)return '';
+ const all=data.items,labels=[...new Set(all.map(e=>e.label))],shown=all.filter(e=>(!survCamera||e.camera===survCamera)&&(!survLabel||e.label===survLabel));
+ const chip=(kind,value,text,count)=>`<button type="button" class="pb-chip" data-action="surv-filter" data-kind="${kind}" data-value="${esc(value)}" aria-pressed="${(kind==='camera'?survCamera:survLabel)===value}">${esc(text)}<b>${count}</b></button>`;
+ let previous='';
+ const list=shown.slice(0,SURV_SHOWN).map(e=>{
+  const head=e.day===previous?'':`<h4 class="sr-day">${esc(pbDay(e.day))}</h4>`;previous=e.day;
+  const meta=[pbClock(e.start),e.ongoing?'en cours':pbDuration(e.end-e.start)].join(' · ');
+  return head+`<button type="button" class="pb-event" data-action="surv-open" data-camera="${esc(e.camera)}" data-day="${esc(e.day)}" data-start="${e.start}" data-end="${e.end}"${e.recorded===false?' disabled':''}><img class="pb-thumb" src="/api/camera/event-thumbnail?camera=${encodeURIComponent(e.camera)}&id=${encodeURIComponent(e.id)}" alt="" loading="lazy" width="175" height="175"><strong>${esc(pbLabel(e.label)+(e.sub_label?' · '+e.sub_label:''))}</strong><span>${esc(e.name)} · ${esc(meta)}</span>${e.recorded===false?'<em>Vidéo non conservée</em>':''}</button>`;
+ }).join('');
+ return (data.failed.length?`<div class="notice neutral">Événements indisponibles pour ${data.failed.map(esc).join(', ')}. Les autres caméras sont listées.</div>`:'')+
+  `<div class="pb-filter" role="group" aria-label="Filtrer par caméra">${chip('camera','','Toutes les caméras',all.length)}${data.cameras.map(c=>chip('camera',c.id,c.name,all.filter(e=>e.camera===c.id).length)).join('')}</div>`+
+  (labels.length>1?`<div class="pb-filter" role="group" aria-label="Filtrer par type">${chip('label','','Tous les types',all.length)}${labels.map(l=>chip('label',l,pbLabel(l),all.filter(e=>e.label===l).length)).join('')}</div>`:'')+
+  (shown.length?`<div class="pb-events sv-events">${list}</div>`:empty(all.length?'Aucun événement pour ces filtres.':'Aucun événement sur les sept derniers jours.','camera'))+
+  `<p class="capacity-note">Les soixante événements les plus récents de chaque caméra sur sept jours${shown.length>SURV_SHOWN?`, ${SURV_SHOWN} affichés`:''}. Pour remonter plus loin ou choisir une période, utilisez la recherche de l’onglet Relecture. Les événements proviennent du suivi d’objets de Frigate ; ils ne sont ni exhaustifs ni une alarme.</p>`;
+}
+async function survEventsView(cameras,current){
+ cameraDetail=false;
+ $('#content').innerHTML=heading('Ce qui s’est passé.','Les événements récents de toutes vos caméras, du plus récent au plus ancien.',button('surv-refresh','Actualiser','activity'))+'<div id="surv-events"><p role="status">Recherche des événements…</p></div>';
+ const results=await Promise.allSettled(cameras.map(c=>api('camera/search?camera='+encodeURIComponent(c.id))));
+ if(!current())return;
+ const items=[],failed=[];
+ results.forEach((result,index)=>{
+  const camera=cameras[index],data=result.status==='fulfilled'?searchValid(result.value):null;
+  if(!data)return failed.push(camera.name);
+  for(const event of data.events)items.push({...event,camera:camera.id,name:camera.name});
+ });
+ items.sort((a,b)=>b.start-a.start);
+ survEvents={items,failed,cameras:cameras.map(c=>({id:c.id,name:c.name}))};
+ if(!cameras.some(c=>c.id===survCamera))survCamera='';
+ if(!items.some(e=>e.label===survLabel))survLabel='';
+ const box=$('#surv-events');if(box)box.innerHTML=survEventsHtml();
+}
+
+// Frise commune : une ligne par caméra pour le jour relu ; un clic lit cette caméra à cette heure.
+function survRow(camera,data){
+ if(!data||!Array.isArray(data.intervals))return `<div class="sv-row"><span>${esc(camera.name)}</span><p class="muted">Enregistrements indisponibles.</p></div>`;
+ const rect=(cls,a,b,h)=>{const x=pbX(data,a),w=Math.max(pbX(data,b)-x,2);return `<rect class="${cls}" x="${x.toFixed(1)}" y="0" width="${w.toFixed(1)}" height="${h}"/>`;};
+ return `<div class="sv-row ${camera.id===selectedCamera?'sel':''}"><span>${esc(camera.name)}</span><svg class="pb-track sv-track" data-action="surv-seek" data-camera="${esc(camera.id)}" data-day="${esc(data.day)}" data-start="${data.start}" data-end="${data.end}" viewBox="0 0 ${PB_WIDTH} 20" preserveAspectRatio="none" role="img" aria-label="${esc(camera.name)} : ${pbDuration(data.recorded)} enregistrées le ${esc(pbDay(data.day))}. Cliquer pour lire à cet instant."><rect class="pb-none" x="0" y="0" width="${PB_WIDTH}" height="20"/>${data.intervals.map(([a,b])=>rect('pb-rec',a,b,20)).join('')}${(Array.isArray(data.events)?data.events:[]).map(e=>rect('pb-evt',e.start,e.end,7)).join('')}</svg></div>`;
+}
+async function survRows(cameras,day,current){
+ const box=$('#surv-rows');if(!box||!day)return;
+ const request=++survRowsRequest;
+ box.setAttribute?.('aria-busy','true');
+ const results=await Promise.allSettled(cameras.map(c=>api('camera/timeline?camera='+encodeURIComponent(c.id)+'&day='+encodeURIComponent(day))));
+ if(!current()||request!==survRowsRequest||survView()!=='replay')return;
+ const target=$('#surv-rows');if(!target)return;
+ target.removeAttribute?.('aria-busy');
+ target.innerHTML=`<h3>${esc(pbDay(day))} · toutes les caméras</h3>${cameras.map((c,i)=>survRow(c,results[i].status==='fulfilled'?results[i].value:null)).join('')}<p class="capacity-note">Une ligne par caméra. Cliquez sur une ligne pour lire cette caméra à cette heure ; une seule caméra est lue à la fois.</p>`;
+}
+async function survReplay(cameras,current){
+ const id=selectedCamera,pending=survPending;survPending=null;
+ cameraDetail=true;
+ const day=pending?.day||playbackDay;
+ let data=null;
+ try{data=await api('camera/timeline'+cameraQuery()+(day?'&day='+encodeURIComponent(day):''));}
+ catch(error){if(error.name==='AbortError'||error.status===401)throw error;if(error.status===400)playbackDay='';}
+ if(!current()||selectedCamera!==id)return;
+ playbackData=data&&Array.isArray(data.intervals)?data:null;if(playbackData)playbackDay=playbackData.day;
+ $('#content').innerHTML=heading('Revoir un moment.','Choisissez une caméra et un jour, puis cliquez sur la frise.')+survSelect(cameras)+
+  `<div class="camera-grid">${playbackCard(playbackData)}${cameras.length>1?'<section class="card wide cardpad" id="surv-rows"><p role="status">Chargement des autres caméras…</p></section>':''}${searchCard()}</div>`;
+ if(pending&&playbackData?.day===pending.day){if(pending.end===undefined)playbackPlay(pending.start);else await playbackOpen(pending.day,pending.start,pending.end);}
+ if(cameras.length>1&&playbackData)survRows(cameras,playbackData.day,current).catch(error=>{if(error.name!=='AbortError')toast(error.message,true);});
+}
+async function survSettings(cameras,add,current){
+ const id=selectedCamera,camera=cameras.find(c=>c.id===id),suffix=cameraQuery();
+ cameraDetail=true;
+ const results=await Promise.allSettled([api('camera/settings'+suffix),api('camera/detection'+suffix)]);
+ if(!current()||selectedCamera!==id)return;
+ cameraSettings=results[0].status==='fulfilled'?results[0].value:camera;
+ detectionData=detectionValid(results[1].status==='fulfilled'?results[1].value:null);
+ const admin=user.role==='admin';
+ $('#content').innerHTML=heading('Régler chaque caméra.','Détection, conservation et connexion de la caméra choisie.',add)+survSelect(cameras)+
+  `<div class="camera-grid">${detectionCard(detectionData)}<section class="card wide cardpad"><h2>Enregistrement et connexion</h2><p>${cameraBadge(camera)} Conservation continue : <strong>${esc(cameraSettings.days)} jour(s)</strong>.</p>${admin?`<div class="quickactions">${button('camera-settings','Modifier la conservation',null,'small')}${button('camera-edit','Modifier la connexion',null,'small')}</div><p class="capacity-note">Modifier la connexion redémarre le service vidéo et interrompt brièvement toutes les caméras. Le compte de la caméra n’est jamais affiché.</p>`:'<p class="capacity-note">Les réglages sont réservés aux administrateurs.</p>'}</section></div>`;
+}
+async function renderSurveillanceApp(){
+ clearInterval(cameraHealthTimer);cameraHealthTimer=null;clearInterval(survTimer);survTimer=null;
+ const generation=sessionGeneration,request=++cameraRequest,view=survView();
+ playbackRequest++;searchRequest++;survRowsRequest++;playbackData=null;playbackClip=null;
+ const current=()=>generation===sessionGeneration&&page==='camera'&&request===cameraRequest&&survView()===view;
+ $('#content').innerHTML='<p role="status">Chargement des caméras…</p>';
+ let cameras;
+ try{cameras=await api('cameras');}catch(error){if(!current())return;throw error;}
+ if(!current())return;
+ cameraCatalog=cameras;
+ const add=user.role==='admin'?button('camera-add','Ajouter une caméra','plus','primary'):'';
+ if(!cameras.length){selectedCamera='';cameraDetail=false;survFocus=false;$('#content').innerHTML=cameraEmpty(add);return;}
+ if(!cameras.some(c=>c.id===selectedCamera)){selectedCamera=cameras[0].id;survFocus=false;}
+ if(view==='events')return survEventsView(cameras,current);
+ if(view==='replay')return survReplay(cameras,current);
+ if(view==='settings')return survSettings(cameras,add,current);
+ return survWall(cameras,add,current);
+}
+// Ouvre une caméra agrandie sur le mur : utilisé par la recherche globale.
+function survOpenCamera(id){selectedCamera=id;survFocus=true;deskSetView('cam','wall');}
+
+document.addEventListener('click',async e=>{
+ const el=e.target.closest?.('[data-action^="surv-"]');if(!el||el.disabled||page!=='camera'||!user)return;
+ const known=id=>cameraCatalog.some(c=>c.id===id);
+ try{
+  switch(el.dataset.action){
+   case 'surv-refresh':return await renderCamera();
+   case 'surv-wall':survFocus=false;return await renderCamera();
+   case 'surv-focus':if(!known(el.dataset.camera))return;survFocus=!(survFocus&&selectedCamera===el.dataset.camera);selectedCamera=el.dataset.camera;return await renderCamera();
+   case 'surv-replay':if(!known(el.dataset.camera))return;selectedCamera=el.dataset.camera;return await survGo('replay');
+   case 'surv-filter':if(el.dataset.kind==='camera')survCamera=el.dataset.value||'';else survLabel=el.dataset.value||'';{const box=$('#surv-events');if(box)box.innerHTML=survEventsHtml();}return;
+   case 'surv-open':if(!known(el.dataset.camera))return;selectedCamera=el.dataset.camera;survPending={day:el.dataset.day,start:Number(el.dataset.start),end:Number(el.dataset.end)};return await survGo('replay');
+   case 'surv-seek':{
+    if(!known(el.dataset.camera))return;
+    const box=el.getBoundingClientRect(),from=Number(el.dataset.start),to=Number(el.dataset.end);
+    if(!(box.width>0)||!Number.isFinite(from)||!Number.isFinite(to))return;
+    const instant=from+Math.max(0,Math.min(1,(e.clientX-box.left)/box.width))*(to-from);
+    if(el.dataset.camera===selectedCamera&&playbackData?.day===el.dataset.day)return playbackPlay(instant);
+    selectedCamera=el.dataset.camera;survPending={day:el.dataset.day,start:instant};return await renderCamera();
+   }
+  }
+ }catch(error){if(error.name!=='AbortError')toast(error.message,true);}
+});
+// Changer de jour dans la carte de relecture met la frise commune sur le même jour.
+document.addEventListener('change',e=>{
+ if(e.target?.id!=='playback-day'||page!=='camera'||survView()!=='replay'||typeof deskMode!=='function'||!deskMode())return;
+ const generation=sessionGeneration,request=cameraRequest;
+ survRows(cameraCatalog,e.target.value,()=>generation===sessionGeneration&&page==='camera'&&request===cameraRequest).catch(()=>{});
+});

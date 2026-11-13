@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.29 — Surveillance en application
+
+Dans le bureau, Surveillance devient une application à quatre onglets au lieu d’une page longue. **Mur** : toutes les caméras côte à côte, en images fixes rafraîchies toutes les dix secondes ; un clic agrandit une caméra, ouvre son direct et son pilotage, les autres restant en images fixes. **Événements** : ceux de toutes les caméras sur sept jours, du plus récent au plus ancien, filtrables par caméra et par type ; un clic ouvre la relecture sur la bonne caméra, au bon moment. **Relecture** : la carte existante, complétée d’une frise commune avec une ligne par caméra pour le jour relu ; un clic sur une ligne lit cette caméra à cette heure. **Réglages** : détection, conservation et connexion de la caméra choisie. Les cartes de lecture, de recherche et de détection sont celles des versions précédentes, rangées autrement ; l’affichage classique garde sa page. Aucun changement côté serveur, de schéma ni de module figé. 308 tests Python et 112 JavaScript. [Guide et limites](docs/DESKTOP.md#surveillance).
+
 ## 0.8.0-alpha.28 — Recherche globale
 
 La barre du bureau porte une **recherche**, ouverte aussi par Ctrl+K : quelques lettres suffisent pour ouvrir une application, un onglet, une caméra ou un espace de fichiers. Une vingtaine de réglages y sont nommés comme on les cherche (« fuseau horaire », « changer un mot de passe », « restaurer des fichiers »). Flèches et Entrée au clavier, Échap pour fermer. La recherche ne propose que ce que le compte peut ouvrir, ne modifie rien et ne cherche pas dans le contenu ni les noms des fichiers. Aucun changement côté serveur, de schéma ni de module figé. 308 tests Python et 107 JavaScript. [Guide et limites](docs/DESKTOP.md#recherche-globale).
