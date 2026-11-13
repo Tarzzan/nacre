@@ -143,6 +143,8 @@ class ControlPanelTests(unittest.TestCase):
         self.assertIn('/desktop.js',raw if isinstance(raw,str) else raw.decode())
         code,raw=self.request('GET','/desktop.js')
         self.assertEqual(code,200);self.assertIn('deskShell',raw if isinstance(raw,str) else raw.decode())
+        code,raw=self.request('GET','/bell.js')
+        self.assertEqual(code,200);self.assertIn('refreshBell',raw if isinstance(raw,str) else raw.decode())
 
     def test_revocation_targets_one_account_and_preserves_current_session(self):
         self.ready();other,_=app.make_session('admin')
