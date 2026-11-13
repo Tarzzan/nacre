@@ -3,6 +3,8 @@
 // rangées en quatre vues. Mur en images fixes rafraîchies ; le direct n’est ouvert que pour la caméra agrandie.
 const SURV_REFRESH=10000,SURV_SHOWN=120;
 let survFocus=false,survTimer=null,survEvents=null,survCamera='',survLabel='',survPending=null,survRowsRequest=0;
+// Période et tranche horaire demandées dans l’onglet Événements ; null = les sept derniers jours, toute la journée.
+let survAsk=null;
 
 function survView(){return typeof deskViewOf==='function'?deskViewOf('cam'):'wall';}
 function survGo(view){deskSetView('cam',view);return renderCamera();}
@@ -44,9 +46,16 @@ async function survWall(cameras,add,current){
  survTick(current);
 }
 
-// Événements : les soixante plus récents de chaque caméra sur sept jours, fusionnés du plus récent au plus ancien.
+// Événements : les soixante plus récents de chaque caméra sur la période, fusionnés du plus récent au plus ancien.
+// Par défaut les sept derniers jours ; la période et la tranche horaire se choisissent comme dans la recherche d’une caméra.
+function survForm(data){
+ const today=data.today||searchToday(),to=survAsk?.to||data.to||today,from=survAsk?.from||data.from||searchShift(to,-6),hours=survAsk?.hours||null;
+ return `<div class="pb-go sr-form"><label for="surv-from">Du</label><input id="surv-from" type="date" value="${esc(from)}" max="${esc(today)}"><label for="surv-to">au</label><input id="surv-to" type="date" value="${esc(to)}" max="${esc(today)}"><label for="surv-after">entre</label><input id="surv-after" type="time" value="${esc(hours?.from||'')}" aria-describedby="surv-hours"><label for="surv-before">et</label><input id="surv-before" type="time" value="${esc(hours?.to||'')}" aria-describedby="surv-hours">${button('surv-search','Rechercher',null,'primary small')}${survAsk?button('surv-reset','Sept derniers jours',null,'small'):''}</div>`+
+  '<p class="capacity-note" id="surv-hours">Heures facultatives : de 22:00 à 06:00, seules les nuits de la période sont gardées.</p>';
+}
 function survEventsHtml(data=survEvents){
  if(!data)return '';
+ if(data.refused)return survForm(data)+`<div class="notice neutral">${esc(data.refused)}</div>`;
  const all=data.items,labels=[...new Set(all.map(e=>e.label))],shown=all.filter(e=>(!survCamera||e.camera===survCamera)&&(!survLabel||e.label===survLabel));
  const chip=(kind,value,text,count)=>`<button type="button" class="pb-chip" data-action="surv-filter" data-kind="${kind}" data-value="${esc(value)}" aria-pressed="${(kind==='camera'?survCamera:survLabel)===value}">${esc(text)}<b>${count}</b></button>`;
  let previous='';
@@ -55,25 +64,34 @@ function survEventsHtml(data=survEvents){
   const meta=[pbClock(e.start),e.ongoing?'en cours':pbDuration(e.end-e.start)].join(' · ');
   return head+`<button type="button" class="pb-event" data-action="surv-open" data-camera="${esc(e.camera)}" data-day="${esc(e.day)}" data-start="${e.start}" data-end="${e.end}"${e.recorded===false?' disabled':''}><img class="pb-thumb" src="/api/camera/event-thumbnail?camera=${encodeURIComponent(e.camera)}&id=${encodeURIComponent(e.id)}" alt="" loading="lazy" width="175" height="175"><strong>${esc(pbLabel(e.label)+(e.sub_label?' · '+e.sub_label:''))}</strong><span>${esc(e.name)} · ${esc(meta)}</span>${e.recorded===false?'<em>Vidéo non conservée</em>':''}</button>`;
  }).join('');
- return (data.failed.length?`<div class="notice neutral">Événements indisponibles pour ${data.failed.map(esc).join(', ')}. Les autres caméras sont listées.</div>`:'')+
+ const none=all.length?'Aucun événement pour ces filtres.':data.hours?'Aucun événement dans cette tranche horaire sur cette période.':survAsk?'Aucun événement sur cette période.':'Aucun événement sur les sept derniers jours.';
+ return survForm(data)+
+  (data.from?`<p class="pb-summary" id="surv-summary" role="status">${esc(searchPlural(data.total)+(data.more?' parmi les plus récents':'')+', '+searchPeriod(data))}</p>`:'')+
+  (data.failed.length?`<div class="notice neutral">Événements indisponibles pour ${data.failed.map(esc).join(', ')}. Les autres caméras sont listées.</div>`:'')+
   `<div class="pb-filter" role="group" aria-label="Filtrer par caméra">${chip('camera','','Toutes les caméras',all.length)}${data.cameras.map(c=>chip('camera',c.id,c.name,all.filter(e=>e.camera===c.id).length)).join('')}</div>`+
   (labels.length>1?`<div class="pb-filter" role="group" aria-label="Filtrer par type">${chip('label','','Tous les types',all.length)}${labels.map(l=>chip('label',l,pbLabel(l),all.filter(e=>e.label===l).length)).join('')}</div>`:'')+
-  (shown.length?`<div class="pb-events sv-events">${list}</div>`:empty(all.length?'Aucun événement pour ces filtres.':'Aucun événement sur les sept derniers jours.','camera'))+
-  `<p class="capacity-note">Les soixante événements les plus récents de chaque caméra sur sept jours${shown.length>SURV_SHOWN?`, ${SURV_SHOWN} affichés`:''}. Pour remonter plus loin ou choisir une période, utilisez la recherche de l’onglet Relecture. Les événements proviennent du suivi d’objets de Frigate ; ils ne sont ni exhaustifs ni une alarme.</p>`;
+  (shown.length?`<div class="pb-events sv-events">${list}</div>`:empty(none,'camera'))+
+  `<p class="capacity-note">Les soixante événements les plus récents de chaque caméra sur cette période${shown.length>SURV_SHOWN?`, ${SURV_SHOWN} affichés`:''} ; les pastilles comptent ceux qui sont listés. Pour remonter plus loin, utilisez la recherche de l’onglet Relecture. Les événements proviennent du suivi d’objets de Frigate ; ils ne sont ni exhaustifs ni une alarme.</p>`;
 }
 async function survEventsView(cameras,current){
  cameraDetail=false;
- $('#content').innerHTML=heading('Ce qui s’est passé.','Les événements récents de toutes vos caméras, du plus récent au plus ancien.',button('surv-refresh','Actualiser','activity'))+'<div id="surv-events"><p role="status">Recherche des événements…</p></div>';
- const results=await Promise.allSettled(cameras.map(c=>api('camera/search?camera='+encodeURIComponent(c.id))));
+ $('#content').innerHTML=heading('Ce qui s’est passé.','Les événements de toutes vos caméras, du plus récent au plus ancien.',button('surv-refresh','Actualiser','activity'))+'<div id="surv-events"><p role="status">Recherche des événements…</p></div>';
+ const span=survAsk?searchSpan(survAsk.from,survAsk.to,survAsk.hours):'';
+ const results=await Promise.allSettled(cameras.map(c=>api('camera/search?camera='+encodeURIComponent(c.id)+span)));
  if(!current())return;
- const items=[],failed=[];
+ const items=[],failed=[],known={cameras:cameras.map(c=>({id:c.id,name:c.name}))};
+ // Une demande que le serveur refuse pour toutes les caméras (période hors limites) s’explique au lieu d’accuser les caméras.
+ const refusal=results.every(r=>r.status==='rejected'&&r.reason?.status===400)?results[0]?.reason?.message:'';
+ if(refusal){survEvents={...known,items,failed,refused:String(refusal)};const box=$('#surv-events');if(box)box.innerHTML=survEventsHtml();return;}
+ let total=0,more=false,first=null;
  results.forEach((result,index)=>{
   const camera=cameras[index],data=result.status==='fulfilled'?searchValid(result.value):null;
   if(!data)return failed.push(camera.name);
+  first=first||data;total+=data.facets?data.facets.total:data.events.length;more=more||!!data.facets?.more;
   for(const event of data.events)items.push({...event,camera:camera.id,name:camera.name});
  });
  items.sort((a,b)=>b.start-a.start);
- survEvents={items,failed,cameras:cameras.map(c=>({id:c.id,name:c.name}))};
+ survEvents={...known,items,failed,total,more,from:first?.from||'',to:first?.to||'',today:first?.today||'',hours:first?.hours||null};
  if(!cameras.some(c=>c.id===survCamera))survCamera='';
  if(!items.some(e=>e.label===survLabel))survLabel='';
  const box=$('#surv-events');if(box)box.innerHTML=survEventsHtml();
@@ -151,6 +169,15 @@ document.addEventListener('click',async e=>{
    case 'surv-focus':if(!known(el.dataset.camera))return;survFocus=!(survFocus&&selectedCamera===el.dataset.camera);selectedCamera=el.dataset.camera;return await renderCamera();
    case 'surv-replay':if(!known(el.dataset.camera))return;selectedCamera=el.dataset.camera;return await survGo('replay');
    case 'surv-filter':if(el.dataset.kind==='camera')survCamera=el.dataset.value||'';else survLabel=el.dataset.value||'';{const box=$('#surv-events');if(box)box.innerHTML=survEventsHtml();}return;
+   case 'surv-search':{
+    const from=$('#surv-from')?.value,to=$('#surv-to')?.value;
+    if(!from||!to)return toast('Indiquez le début et la fin de la période.',true);
+    if(from>to)return toast('Le début de la période suit sa fin.',true);
+    const hours=searchHours($('#surv-after')?.value||'',$('#surv-before')?.value||'');
+    if(hours===false)return;
+    survAsk={from,to,hours};return await renderCamera();
+   }
+   case 'surv-reset':survAsk=null;return await renderCamera();
    case 'surv-open':if(!known(el.dataset.camera))return;selectedCamera=el.dataset.camera;survPending={day:el.dataset.day,start:Number(el.dataset.start),end:Number(el.dataset.end)};return await survGo('replay');
    case 'surv-seek':{
     if(!known(el.dataset.camera))return;

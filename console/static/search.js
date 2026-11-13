@@ -13,6 +13,16 @@ function searchValid(d){
  return d;
 }
 function searchClock(v){return typeof v==='string'&&/^([01]\d|2[0-3]):[0-5]\d$/.test(v);}
+// Tranche saisie : null pour toute la journée, la tranche si elle est valide, false après un message sinon.
+function searchHours(after,until){
+ if(!after&&!until)return null;
+ if(!after!==!until){toast('Indiquez le début et la fin de la tranche horaire, ou laissez les deux vides.',true);return false;}
+ if(!searchClock(after)||!searchClock(until)){toast('Tranche horaire illisible. Format attendu : 22:00.',true);return false;}
+ if(after===until){toast('Le début et la fin de la tranche horaire sont identiques.',true);return false;}
+ return {from:after,to:until};
+}
+// Période et tranche, telles que la recherche du serveur les attend.
+function searchSpan(from,to,hours){return '&from='+encodeURIComponent(from)+'&to='+encodeURIComponent(to)+(hours?'&time_from='+encodeURIComponent(hours.from)+'&time_to='+encodeURIComponent(hours.to):'');}
 function searchToday(){return playbackData?.today||new Date().toLocaleDateString('en-CA',{timeZone:pbZone()});}
 function searchShift(day,n){const [y,m,d]=day.split('-').map(Number);return new Date(Date.UTC(y,m-1,d+n)).toISOString().slice(0,10);}
 function searchPlural(n){return `${n} événement${n>1?'s':''}`;}
@@ -75,11 +85,9 @@ document.addEventListener('click',async e=>{
     const from=$('#search-from')?.value,to=$('#search-to')?.value;
     if(!from||!to)return toast('Indiquez le début et la fin de la période.',true);
     if(from>to)return toast('Le début de la période suit sa fin.',true);
-    const after=$('#search-after')?.value||'',until=$('#search-before')?.value||'';
-    if(!after!==!until)return toast('Indiquez le début et la fin de la tranche horaire, ou laissez les deux vides.',true);
-    if(after&&(!searchClock(after)||!searchClock(until)))return toast('Tranche horaire illisible. Format attendu : 22:00.',true);
-    if(after&&after===until)return toast('Le début et la fin de la tranche horaire sont identiques.',true);
-    const hours=after?{from:after,to:until}:null,same=d&&d.from===from&&d.to===to&&(d.hours?.from||'')===after&&(d.hours?.to||'')===until;
+    const after=$('#search-after')?.value||'',until=$('#search-before')?.value||'',hours=searchHours(after,until);
+    if(hours===false)return;
+    const same=d&&d.from===from&&d.to===to&&(d.hours?.from||'')===after&&(d.hours?.to||'')===until;
     return await searchLoad(from,to,same?d.label:'',null,hours);
    }
    case 'search-filter':if(d)await searchLoad(d.from,d.to,el.dataset.label||'',null,d.hours||null);return;
