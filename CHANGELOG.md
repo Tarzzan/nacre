@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.28 — Recherche globale
+
+La barre du bureau porte une **recherche**, ouverte aussi par Ctrl+K : quelques lettres suffisent pour ouvrir une application, un onglet, une caméra ou un espace de fichiers. Une vingtaine de réglages y sont nommés comme on les cherche (« fuseau horaire », « changer un mot de passe », « restaurer des fichiers »). Flèches et Entrée au clavier, Échap pour fermer. La recherche ne propose que ce que le compte peut ouvrir, ne modifie rien et ne cherche pas dans le contenu ni les noms des fichiers. Aucun changement côté serveur, de schéma ni de module figé. 308 tests Python et 107 JavaScript. [Guide et limites](docs/DESKTOP.md#recherche-globale).
+
 ## 0.8.0-alpha.27 — Centre de notifications
 
 La barre du bureau porte une **cloche** : le nombre d’alertes à traiter, et à côté le nombre de tâches en cours. Elle ouvre un panneau unique, depuis n’importe quelle application : alertes avec leur bouton « Prendre en compte » et un accès direct à la page concernée, tâches en cours avec leur progression, puis les faits des dernières vingt-quatre heures (tâches terminées, échecs, retours à la normale). Une tâche vue en cours est annoncée quand elle se termine, où que l’on soit dans la console. Un compte en lecture seule voit les tâches, pas les alertes. L’affichage classique garde son bouton d’alertes. Aucun changement côté serveur, de schéma ni de module figé. 308 tests Python et 103 JavaScript. [Guide et limites](docs/DESKTOP.md#centre-de-notifications).

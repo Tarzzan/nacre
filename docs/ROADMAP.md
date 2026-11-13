@@ -14,7 +14,7 @@ Les versions futures sont des objectifs sans date promise. Chaque étape demande
 
 ## Bureau 0.8.0-alpha.26
 
-Premier lot du cap « un bureau dans le navigateur » : coquille, sept applications à onglets, dock, widgets, affichage classique conservé. [Guide et limites](DESKTOP.md). Le [centre de notifications](DESKTOP.md#centre-de-notifications) a suivi en alpha.27. Lots suivants, dans l’ordre retenu : recherche globale, Surveillance en application (mur de caméras), plusieurs fenêtres, gestionnaire de fichiers, bureau personnalisable.
+Premier lot du cap « un bureau dans le navigateur » : coquille, sept applications à onglets, dock, widgets, affichage classique conservé. [Guide et limites](DESKTOP.md). Le [centre de notifications](DESKTOP.md#centre-de-notifications) a suivi en alpha.27. La [recherche globale](DESKTOP.md#recherche-globale) est arrivée en alpha.28. Lots suivants, dans l’ordre retenu : Surveillance en application (mur de caméras), plusieurs fenêtres, gestionnaire de fichiers, bureau personnalisable.
 
 ## Fuseau horaire 0.8.0-alpha.25
 
