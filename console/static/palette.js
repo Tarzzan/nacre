@@ -1,6 +1,6 @@
 'use strict';
 // Recherche globale du bureau (Ctrl+K) : applications, onglets, réglages nommés comme on les cherche,
-// caméras et espaces de fichiers. Elle ouvre une page ; elle ne modifie rien et ne cherche pas dans les fichiers.
+// caméras et espaces de fichiers. Elle ouvre une page et ne modifie rien ; pour un nom de fichier, elle passe la main à Fichiers.
 const PALETTE_MAX=8;
 // [libellé, page, mots associés] : ce que l’on tape rarement comme le titre de la page.
 const PALETTE_TOPICS=[
@@ -42,6 +42,12 @@ function paletteSearch(text){
  });
  return scored.sort((a,b)=>a.rank-b.rank||a.order-b.order).slice(0,PALETTE_MAX).map(item=>item.entry);
 }
+// Après les résultats, dès deux caractères : chercher ce nom parmi les fichiers. Rien n’est parcouru avant ce choix.
+function paletteResults(text){
+ const found=paletteSearch(text),name=String(text??'').trim().slice(0,80);
+ if(name.replace(/\s/g,'').length>=2&&deskApp('files')&&typeof fmQueue==='function')found.push({label:`Chercher « ${name} » dans les fichiers`,hint:'Fichiers · par nom, dans tout le NAS',find:name});
+ return found;
+}
 function drawPalette(){
  const panel=$('#palette'),results=$('#palette-results'),opener=$('#palette-open');if(!panel||!results)return;
  panel.hidden=!paletteOpen;opener?.setAttribute('aria-expanded',String(paletteOpen));
@@ -65,7 +71,7 @@ async function loadPaletteExtra(){
  const named=list=>Array.isArray(list)?list.filter(item=>item&&typeof item.id==='string'&&item.id):[];
  paletteExtra=[...named(cameras).map(c=>({label:String(c.name||c.id),hint:'Caméra',camera:c.id,words:`camera surveillance direct relecture ${c.id}`})),
   ...named(areas).map(a=>({label:String(a.name||a.id),hint:'Espace de fichiers',area:a.id,words:`fichiers dossier ${a.id}`}))];
- if(paletteOpen){paletteFound=paletteSearch($('#palette-q')?.value||'');drawPalette();}
+ if(paletteOpen){paletteFound=paletteResults($('#palette-q')?.value||'');drawPalette();}
 }
 async function runPalette(entry){
  if(!entry||!user)return;
@@ -73,12 +79,14 @@ async function runPalette(entry){
  if(entry.shell)return deskSwitch(entry.shell);
  // Dans le bureau, le résultat s’ouvre dans la fenêtre de son application, avec ce qu’il faut y montrer.
  if($('#dk-wins')){
+  if(entry.find)return void deskOpenPage('files',{find:entry.find});
   if(entry.camera)return void deskOpenPage('camera',{view:'wall',camera:entry.camera});
   if(entry.area)return void deskOpenPage('files',{area:entry.area});
   if(entry.page&&deskApp(entry.page))return void deskOpenPage(entry.page,entry.view?{view:entry.view[1]}:{});
   return;
  }
  if(entry.camera){if(typeof survOpenCamera==='function')survOpenCamera(entry.camera);else if(typeof cameraCatalog!=='undefined'){selectedCamera=entry.camera;cameraDetail=true;}return go('camera');}
+ if(entry.find){fmQueue(entry.find);return go('files');}
  if(entry.area){area=entry.area;currentPath='';return go('files');}
  if(entry.page&&deskApp(entry.page)){if(entry.view)deskSetView(...entry.view);return go(entry.page);}
 }
@@ -91,7 +99,7 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('input',e=>{
  if(e.target?.id!=='palette-q'||!paletteOpen)return;
- palettePick=0;paletteFound=paletteSearch(e.target.value);drawPalette();
+ palettePick=0;paletteFound=paletteResults(e.target.value);drawPalette();
 });
 document.addEventListener('keydown',e=>{
  if((e.ctrlKey||e.metaKey)&&!e.altKey&&String(e.key).toLowerCase()==='k'){if(typeof deskEmbedded==='function'&&deskEmbedded()){e.preventDefault?.();try{window.parent.openPalette();}catch{}return;}if(!$('#palette'))return;e.preventDefault?.();return paletteOpen?closePalette():openPalette();}

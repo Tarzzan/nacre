@@ -1,5 +1,9 @@
 # Validation
 
+## Recherche de fichiers par nom — 0.8.0-alpha.33
+
+318 tests Python et 125 JavaScript. Détail dans le [guide du Bureau](DESKTOP.md#validation).
+
 ## Bureau personnalisable — 0.8.0-alpha.32
 
 315 tests Python et 122 JavaScript. Détail dans le [guide du Bureau](DESKTOP.md#validation).

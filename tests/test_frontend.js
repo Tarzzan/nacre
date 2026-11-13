@@ -1508,6 +1508,97 @@ test('moving, trashing and sending act on the selection only, refuse a folder in
  assert.deepEqual([g.run('sent.length'),g.calls.filter(c=>c[1]).length],[0,0]);
 });
 
+// Recherche de fichiers par nom : filtre local pendant la saisie, parcours du NAS à la demande.
+const fmHits=[{area:'fichiers',path:'',name:'été.md',directory:false,link:false,size:6,modified:1794182400},{area:'fichiers',path:'Photos/Été <b>',name:'Été 2026',directory:true,link:false,size:4096,modified:1794182500},
+ {area:'video',path:'extraits',name:'été.mp4',directory:false,link:false,size:9,modified:1794182600},{area:'fichiers',path:'Docs & co',name:'notes.txt',directory:false,link:false,size:10,modified:1794182600},
+ {area:'restaurations',path:'',name:'été.md'},null,{area:'fichiers',path:3,name:'x'},{area:'fichiers',path:'',name:''}];
+function findFixture(role='admin'){
+ const state={urls:[],answer:{items:fmHits,partial:null,visited:42,skipped:[],limit:200},hold:null};
+ const f=fmFixture(async url=>{state.urls.push(url);if(url.startsWith('/api/files/search')){if(state.hold)await state.hold;return state.status?response(state.status,{error:'Deux recherches sont déjà en cours.'}):response(200,state.answer);}return response(200,url.startsWith('/api/areas')?fmAreas:{items:fmSample});},role);
+ f.state=state;f.list=()=>String(f.elements.get('#fm-list').innerHTML);f.side=()=>String(f.elements.get('#fm-side').innerHTML);
+ f.type=text=>f.listeners.get('input').at(-1)({target:{id:'fm-filter',value:text}});
+ f.at=(selector,dataset)=>f.listeners.get('click').at(-1)({target:{closest:s=>s===selector?{dataset}:null}});
+ f.key=(key,target={})=>f.listeners.get('keydown').at(-1)({key,target,preventDefault(){}});
+ f.settle=async()=>{for(let i=0;i<4;i++)await new Promise(resolve=>setImmediate(resolve));};
+ f.searches=()=>state.urls.filter(url=>url.startsWith('/api/files/search'));return f;
+}
+test('the filter stays local while typing and a name search runs only on demand, here or in the whole NAS',async()=>{
+ const f=findFixture();await f.run('renderFiles()');f.mount();
+ assert.match(String(f.elements.get('#content').innerHTML),/id="fm-filter" type="search" placeholder="Filtrer ou rechercher"/);
+ f.type('é');assert.doesNotMatch(f.list(),/fm-find/);
+ f.type('été');assert.match(f.list(),/class="fm-find"><span>Filtre sur ce dossier\./);assert.match(f.list(),/data-action="fm-find" data-scope="here"><span>Dans cet espace/);assert.match(f.list(),/data-action="fm-find" data-scope="all"><span>Dans tout le NAS/);
+ assert.equal(f.searches().length,0);
+ // Entrée dans le champ : tout le NAS. Les résultats mal formés ou hors des espaces du compte sont écartés.
+ f.key('Enter',{id:'fm-filter',tagName:'INPUT'});assert.match(f.list(),/Recherche en cours/);await f.settle();
+ assert.deepEqual(f.searches(),['/api/files/search?q=%C3%A9t%C3%A9']);
+ assert.match(f.list(),/<strong>4 résultats<\/strong> pour « été » dans tout le NAS/);assert.match(f.list(),/data-action="fm-find-close"/);
+ assert.match(f.list(),/<tr class="fm-hit " data-hit="1"><td>.*Été 2026<\/td><td>Fichiers &lt;b&gt;partagés&lt;\/b&gt; › Photos › Été &lt;b&gt;<\/td><td>—<\/td>/);
+ assert.doesNotMatch(f.list(),/<b>|fm-row|draggable|fm-trash|fm-check|fm-note/);assert.match(f.side(),/Sélectionnez un résultat/);
+ // Un résultat sélectionné : aperçu et téléchargement depuis son propre emplacement, sans action d'écriture.
+ await f.at('.fm-hit',{hit:'0'});assert.match(f.list(),/<tr class="fm-hit sel" data-hit="0">/);
+ assert.match(f.side(),/id="fm-text" data-name="été\.md" data-src="\/api\/download\?area=fichiers&amp;path=%C3%A9t%C3%A9\.md&amp;inline=1"/);assert.match(f.side(),/<dt>Emplacement<\/dt><dd>Fichiers &lt;b&gt;partagés&lt;\/b&gt;<\/dd>/);
+ assert.match(f.side(),/class="primary small" data-action="fm-reveal" ><span>Afficher dans son dossier/);assert.doesNotMatch(f.side(),/data-inside|rename|fm-trash|fm-open/);
+ await f.at('.fm-hit',{hit:'2'});assert.match(f.side(),/<video class="fm-shot" controls preload="metadata" src="\/api\/download\?area=video&amp;path=extraits%2F%C3%A9t%C3%A9\.mp4&amp;inline=1">/);assert.match(f.side(),/href="\/api\/download\?area=video&amp;path=extraits%2F%C3%A9t%C3%A9\.mp4">Télécharger/);
+ await f.at('.fm-hit',{hit:'1'});assert.match(f.side(),/data-action="fm-reveal" data-inside="1"><span>Ouvrir ce dossier/);assert.match(f.side(),/href="\/api\/archive\?area=fichiers&amp;path=Photos%2F%C3%89t%C3%A9%20%3Cb%3E&amp;name=%C3%89t%C3%A9%202026">Télécharger en archive/);
+ // Le clavier du gestionnaire ne touche à rien pendant une recherche ; Échap la ferme.
+ f.key('a',{});f.key('Delete',{});assert.deepEqual(f.names(),[]);
+ // Afficher dans son dossier : le dossier parent s'ouvre, l'élément sélectionné, le champ vidé.
+ await f.at('.fm-hit',{hit:'3'});await f.at('[data-action]',{action:'fm-reveal'});
+ assert.deepEqual(JSON.parse(JSON.stringify(f.run('[area,currentPath,fmFound,fmFilter,[...fmSel]]'))),['fichiers','Docs & co',null,'',['notes.txt']]);
+ assert.match(f.state.urls.at(-1),/^\/api\/files\?area=fichiers&path=Docs%20%26%20co$/);
+ // Depuis un dossier : la portée « ici » envoie l'espace et le chemin ; ouvrir un dossier trouvé y entre.
+ f.mount();f.type('été');assert.match(f.list(),/data-scope="here"><span>Dans ses sous-dossiers/);
+ await f.at('[data-action]',{action:'fm-find',scope:'here'});
+ assert.equal(f.searches().at(-1),'/api/files/search?q=%C3%A9t%C3%A9&area=fichiers&path=Docs%20%26%20co');assert.match(f.list(),/pour « été » dans « Docs &amp; co » et ses sous-dossiers/);
+ await f.at('.fm-hit',{hit:'1'});await f.at('[data-action]',{action:'fm-reveal',inside:'1'});
+ assert.deepEqual(JSON.parse(JSON.stringify(f.run('[area,currentPath,fmFound,[...fmSel]]'))),['fichiers','Photos/Été <b>/Été 2026',null,[]]);
+ // Double-clic : un fichier s'affiche dans son dossier, un dossier s'ouvre.
+ f.mount();f.type('été');await f.at('[data-action]',{action:'fm-find',scope:'all'});
+ f.listeners.get('dblclick').at(-1)({target:{closest:s=>s==='.fm-hit'?{dataset:{hit:'2'}}:null}});await f.settle();
+ assert.deepEqual(JSON.parse(JSON.stringify(f.run('[area,currentPath,fmFound]'))),['video','extraits',null]);
+ // Un compte en lecture seule cherche de la même façon.
+ const g=findFixture('viewer');await g.run('renderFiles()');g.mount();g.type('été');await g.at('[data-action]',{action:'fm-find',scope:'all'});assert.match(g.list(),/<strong>4 résultats<\/strong>/);
+});
+test('a name search says when it stopped early, drops a late or refused answer and can be queued from elsewhere',async()=>{
+ const f=findFixture();await f.run('renderFiles()');f.mount();f.type('été');
+ f.state.answer={items:[],partial:'time',visited:200000,skipped:['video','inconnu',7],limit:200};await f.at('[data-action]',{action:'fm-find',scope:'here'});
+ assert.match(f.list(),/<strong>0 résultat<\/strong> pour « été » dans Fichiers &lt;b&gt;partagés&lt;\/b&gt;/);assert.match(f.list(),/class="fm-note">Recherche arrêtée après 200\s000 éléments parcourus/);
+ assert.match(f.list(),/Espace indisponible, non parcouru : Vidéos, inconnu\./);assert.match(f.list(),/Aucun nom ne correspond ici/);
+ f.state.answer={items:fmHits.slice(0,1),partial:'results',visited:9,skipped:[],limit:200};await f.at('[data-action]',{action:'fm-find',scope:'all'});
+ assert.match(f.list(),/Seuls les 200 premiers résultats sont affichés/);assert.match(f.list(),/<strong>1 résultat<\/strong>/);
+ f.state.answer={items:'abîmé'};await f.at('[data-action]',{action:'fm-find',scope:'all'});assert.match(f.list(),/Aucun fichier ni dossier ne porte ce nom/);assert.doesNotMatch(f.list(),/fm-note/);
+ // Retoucher le champ ou appuyer sur Échap quitte les résultats ; la réponse d'une recherche quittée est ignorée.
+ f.type('ét');assert.equal(f.run('fmFound'),null);assert.match(f.list(),/Filtre sur ce dossier/);
+ let release;f.state.hold=new Promise(resolve=>{release=resolve;});f.state.answer={items:fmHits,partial:null,visited:1,skipped:[],limit:200};
+ const late=f.at('[data-action]',{action:'fm-find',scope:'all'});assert.match(f.list(),/Recherche de « ét » dans tout le NAS…/);
+ f.key('Escape',{});assert.equal(f.run('fmFound'),null);release();await late;assert.equal(f.run('fmFound'),null);assert.doesNotMatch(f.list(),/fm-hit/);
+ // Un refus du serveur ramène au dossier et s'annonce ; moins de deux caractères ne partent pas.
+ f.state.hold=null;f.state.status=429;await f.at('[data-action]',{action:'fm-find',scope:'all'});
+ assert.equal(f.run('fmFound'),null);assert.match(f.elements.get('#toast').textContent,/Deux recherches sont déjà en cours/);
+ f.state.status=0;const before=f.searches().length;f.run('fmFilter=" e ";');await f.run('fmFind("all")');assert.equal(f.searches().length,before);assert.match(f.elements.get('#toast').textContent,/au moins deux caractères/);
+ // Demandée depuis la recherche globale : le nom arrive dans le champ et la recherche part sur tout le NAS, une seule fois.
+ f.state.answer={items:fmHits,partial:null,visited:1,skipped:[],limit:200};f.run('deskApply({find:"  rapport annuel  "});');await f.run('renderFiles()');f.mount();await f.settle();
+ assert.equal(f.searches().at(-1),'/api/files/search?q=rapport%20annuel');assert.equal(f.run('fmFilter'),'rapport annuel');
+ const count=f.searches().length;await f.run('renderFiles()');await f.settle();assert.equal(f.searches().length,count);
+ // Naviguer dans l'arborescence quitte la recherche.
+ f.run('fmFilter="été";');await f.run('fmFind("all")');assert.notEqual(f.run('fmFound'),null);await f.run('fmGo("video","")');assert.deepEqual([f.run('fmFound'),f.run('fmFilter')],[null,'']);
+});
+test('global search offers to look a name up in the files from two characters, and hands it to the Files application',async()=>{
+ const f=paletteFixture();f.key('k',{ctrlKey:true});await new Promise(resolve=>setImmediate(resolve));
+ // Sans le gestionnaire de fichiers chargé, rien n'est proposé.
+ f.type('facture 2026');assert.deepEqual(f.labels(),[]);
+ f.context.asked=[];f.context.fmQueue=text=>f.context.asked.push(text);
+ f.type('f');assert.doesNotMatch(f.labels().join('|'),/Chercher/);
+ f.type('  facture <b>2026</b> ');assert.deepEqual(f.labels(),['Chercher « facture <b>2026</b> » dans les fichiers']);
+ assert.match(f.elements.get('#palette-results').innerHTML,/Chercher « facture &lt;b&gt;2026&lt;\/b&gt; » dans les fichiers<small>Fichiers · par nom, dans tout le NAS<\/small>/);
+ // Elle vient après les résultats habituels et ne lance rien tant qu'elle n'est pas choisie.
+ f.type('sauv');assert.deepEqual([f.labels()[0],f.labels().at(-1)],['Sauvegardes','Chercher « sauv » dans les fichiers']);assert.deepEqual(f.context.asked,[]);
+ await f.run('runPalette(paletteFound.at(-1))');assert.deepEqual([f.context.asked,f.run('page'),f.elements.get('#palette').hidden],[['sauv'],'files',true]);
+ // Dans le bureau, la demande part vers la fenêtre de Fichiers.
+ const opened=[];f.context.deskOpenPage=(...args)=>opened.push(args);f.elements.set('#dk-wins',{});
+ await f.run('runPalette({find:"rapport"})');assert.deepEqual(JSON.parse(JSON.stringify(opened)),[['files',{find:'rapport'}]]);
+});
+
 // Bureau personnalisable : widgets et fond par compte, fenêtres mémorisées par navigateur.
 function prefFixture(fetch,role='admin'){
  const posts=[],f=winFixture(fetch||(async(url,options)=>{if(options?.body)posts.push([url,JSON.parse(options.body)]);return response(200,url.endsWith('/desk')?{widgets:['tasks','storage','<x>',7,'tasks'],background:'lagon'}:url.endsWith('/alerts')?{stale:false,attention:2,active:[{},{}],history:[]}:url.endsWith('/jobs')?[{id:'j',kind:'backup',status:'running',ts:1,progress:'{}'}]:overviewSample);}),role);

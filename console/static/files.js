@@ -1,9 +1,12 @@
 'use strict';
 // Gestionnaire de fichiers du bureau : arborescence, sélection multiple, glisser-déposer et aperçu.
 // Il réutilise l’envoi, le renommage, la corbeille et la création de dossier existants ; déplacer et archiver sont nouveaux côté serveur.
+// Le champ du haut filtre le dossier ouvert pendant la saisie ; la recherche par nom dans les sous-dossiers ou tout le NAS se lance, elle, à la demande.
 const FM_KINDS=[[/\.(jpe?g|png|gif|webp)$/i,'img','Image'],[/\.(mp4|webm)$/i,'vid','Vidéo'],[/\.pdf$/i,'pdf','PDF'],[/\.(txt|md|csv|log|json|ya?ml|ini|conf)$/i,'txt','Texte'],[/\.(zip|tar|gz|tgz|7z|rar)$/i,'zip','Archive']];
 const FM_MARK={dir:'D',lnk:'↗',img:'IMG',vid:'VID',pdf:'PDF',txt:'TXT',zip:'ZIP',file:'·'};
 let fmItems=[],fmSel=new Set(),fmLast='',fmView='list',fmPreview=true,fmFilter='',fmSort=['name',1],fmRequest=0,fmDrag=null,fmBusy=false;
+// Recherche par nom : null hors recherche ; sinon la demande, sa portée et ses résultats (items null tant qu’elle court).
+let fmFound=null,fmHit=-1,fmFindRequest=0,fmPending='';
 // Sous-dossiers déjà vus, par « espace|chemin » : l’arborescence se construit en naviguant.
 const fmDirs=new Map();
 
@@ -14,8 +17,8 @@ function fmKind(item){
  return found?[found[1],found[2]]:['file','Fichier'];
 }
 function fmJoin(name,base=currentPath){return [base,name].filter(Boolean).join('/');}
-function fmUrl(name,inline=false){return `/api/download?area=${encodeURIComponent(area)}&path=${encodeURIComponent(fmJoin(name))}${inline?'&inline=1':''}`;}
-function fmArchive(names){return `/api/archive?area=${encodeURIComponent(area)}&path=${encodeURIComponent(currentPath)}${names.map(n=>'&name='+encodeURIComponent(n)).join('')}`;}
+function fmUrl(name,inline=false,base=currentPath,space=area){return `/api/download?area=${encodeURIComponent(space)}&path=${encodeURIComponent(fmJoin(name,base))}${inline?'&inline=1':''}`;}
+function fmArchive(names,base=currentPath,space=area){return `/api/archive?area=${encodeURIComponent(space)}&path=${encodeURIComponent(base)}${names.map(n=>'&name='+encodeURIComponent(n)).join('')}`;}
 function fmWritable(){return user?.role==='admin'&&!!fileAreas.find(a=>a.id===area)?.writable;}
 function fmShown(){
  const needle=fmFilter.trim().toLowerCase(),[key,way]=fmSort;
@@ -35,35 +38,68 @@ function fmTree(){
 function fmTools(){
  const chain=currentPath?currentPath.split('/'):[],name=fileAreas.find(a=>a.id===area)?.name||area,write=fmWritable();
  const crumbs=[`<button type="button" data-action="fm-go" data-area="${esc(area)}" data-path="">${esc(name)}</button>`,...chain.map((part,i)=>`<button type="button" data-action="fm-go" data-area="${esc(area)}" data-path="${esc(chain.slice(0,i+1).join('/'))}">${esc(part)}</button>`)].join('<span aria-hidden="true">›</span>');
- return `<div class="fm-crumbs" aria-label="Emplacement">${crumbs}</div><span class="fm-grow"></span><input id="fm-filter" type="search" placeholder="Filtrer ce dossier" value="${esc(fmFilter)}" aria-label="Filtrer ce dossier">${button('fm-view',fmView==='list'?'Grille':'Liste',null,'small')}${button('fm-preview','Aperçu',null,'small',`aria-pressed="${fmPreview}"`)}${write?button('mkdir','Nouveau dossier','plus','small')+button('fm-send','Déposer des fichiers','upload','primary small'):''}`;
+ return `<div class="fm-crumbs" aria-label="Emplacement">${crumbs}</div><span class="fm-grow"></span><input id="fm-filter" type="search" placeholder="Filtrer ou rechercher" value="${esc(fmFilter)}" aria-label="Filtrer ce dossier ou rechercher un nom" title="Filtre ce dossier pendant la saisie ; Entrée cherche dans tout le NAS">${button('fm-view',fmView==='list'?'Grille':'Liste',null,'small')}${button('fm-preview','Aperçu',null,'small',`aria-pressed="${fmPreview}"`)}${write?button('mkdir','Nouveau dossier','plus','small')+button('fm-send','Déposer des fichiers','upload','primary small'):''}`;
 }
 function fmBar(){
  const chosen=fmSelected(),write=fmWritable();if(!chosen.length)return '';
  const one=chosen.length===1?chosen[0]:null,href=one&&!one.directory&&!one.link?fmUrl(one.name):fmArchive(chosen.map(i=>i.name));
  return `<div class="fm-bar"><strong>${chosen.length} élément${chosen.length>1?'s':''}</strong><span class="fm-grow"></span>${chosen.some(i=>i.link)?'':`<a class="fm-link" href="${esc(href)}">${one&&!one.directory?'Télécharger':'Télécharger en archive'}</a>`}${write?(one?button('rename','Renommer',null,'small',`data-path="${esc(fmJoin(one.name))}" data-name="${esc(one.name)}"`):'')+button('fm-move','Déplacer',null,'small')+button('fm-trash','Corbeille',null,'small'):''}${button('fm-clear','Désélectionner',null,'small')}</div>`;
 }
+function fmAreaName(id){return fileAreas.find(a=>a.id===id)?.name||id;}
+function fmFindable(){return fmFilter.replace(/\s/g,'').length>=2;}
+// Sous le champ, dès deux caractères : le filtre reste local, la recherche se lance ici ou par Entrée.
+function fmAsk(){
+ if(!fmFindable())return '';
+ return `<div class="fm-find"><span>Filtre sur ce dossier. Chercher ce nom ailleurs :</span><span class="fm-grow"></span>${button('fm-find',currentPath?'Dans ses sous-dossiers':'Dans cet espace',null,'small','data-scope="here"')}${button('fm-find','Dans tout le NAS',null,'primary small','data-scope="all"')}</div>`;
+}
+function fmFoundList(){
+ const {query,where,items,partial,visited,skipped,limit}=fmFound;
+ const place=where?(where.path?`dans « ${where.path.split('/').pop()} » et ses sous-dossiers`:`dans ${fmAreaName(where.area)}`):'dans tout le NAS';
+ const head=text=>`<div class="fm-find"><span>${text}</span><span class="fm-grow"></span>${button('fm-find-close','Fermer la recherche',null,'small')}</div>`;
+ if(!items)return head(`Recherche de « ${esc(query)} » ${esc(place)}…`)+'<p class="fm-hint">Recherche en cours…</p>';
+ const notes=[];
+ if(partial==='results')notes.push(`Seuls les ${limit} premiers résultats sont affichés : précisez le nom.`);
+ else if(partial)notes.push(`Recherche arrêtée après ${visited.toLocaleString('fr-FR')} éléments parcourus : tout n’a pas été vu. Cherchez depuis un dossier pour aller plus loin.`);
+ if(skipped.length)notes.push(`Espace indisponible, non parcouru : ${skipped.map(fmAreaName).join(', ')}.`);
+ const note=notes.map(text=>`<p class="fm-note">${esc(text)}</p>`).join('');
+ const title=head(`<strong>${items.length} résultat${items.length>1?'s':''}</strong> pour « ${esc(query)} » ${esc(place)}`);
+ if(!items.length)return title+note+empty(where?'Aucun nom ne correspond ici. Essayez dans tout le NAS.':'Aucun fichier ni dossier ne porte ce nom. Les restaurations ne sont parcourues que depuis leur espace.','folder');
+ return title+note+`<table class="fm-table fm-hits"><thead><tr><th>Nom</th><th>Emplacement</th><th>Taille</th><th>Modifié</th></tr></thead><tbody>${items.map((item,index)=>`<tr class="fm-hit ${index===fmHit?'sel':''}" data-hit="${index}"><td>${fmIcon(item)}${esc(item.name)}</td><td>${esc(fmAreaName(item.area)+(item.path?' › '+item.path.split('/').join(' › '):''))}</td><td>${item.directory?'—':sizes(item.size)}</td><td>${date(item.modified)}</td></tr>`).join('')}</tbody></table>`;
+}
 function fmList(){
+ if(fmFound)return fmFoundList();
  const list=fmShown(),write=fmWritable();
- if(!list.length)return fmBar()+empty(fmFilter.trim()?'Aucun élément ne correspond à ce filtre.':write?'Ce dossier est vide. Glissez des fichiers ici pour les envoyer.':'Ce dossier est vide.','folder');
+ if(!list.length)return fmAsk()+fmBar()+empty(fmFilter.trim()?'Aucun élément ne correspond à ce filtre.':write?'Ce dossier est vide. Glissez des fichiers ici pour les envoyer.':'Ce dossier est vide.','folder');
  const attrs=item=>`data-name="${esc(item.name)}"${write?' draggable="true"':''}${item.directory&&!item.link?` data-fm-drop="${esc(fmJoin(item.name))}"`:''}`;
  const detail=item=>item.directory?'—':sizes(item.size),arrow=key=>fmSort[0]===key?(fmSort[1]>0?' ↑':' ↓'):'';
- if(fmView==='grid')return fmBar()+`<div class="fm-grid">${list.map(item=>`<div class="fm-row fm-cell ${fmSel.has(item.name)?'sel':''}" ${attrs(item)}>${fmIcon(item)}<div>${esc(item.name)}</div><small>${detail(item)}</small></div>`).join('')}</div>`;
- return fmBar()+`<table class="fm-table"><thead><tr><th><input type="checkbox" data-action="fm-all" aria-label="Tout sélectionner" ${list.every(i=>fmSel.has(i.name))?'checked':''}></th><th data-action="fm-sort" data-key="name">Nom${arrow('name')}</th><th data-action="fm-sort" data-key="size">Taille${arrow('size')}</th><th data-action="fm-sort" data-key="modified">Modifié${arrow('modified')}</th></tr></thead><tbody>${list.map(item=>`<tr class="fm-row ${fmSel.has(item.name)?'sel':''}" ${attrs(item)}><td><input type="checkbox" data-action="fm-check" aria-label="Sélectionner ${esc(item.name)}" ${fmSel.has(item.name)?'checked':''}></td><td>${fmIcon(item)}${esc(item.name)}</td><td>${detail(item)}</td><td>${date(item.modified)}</td></tr>`).join('')}</tbody></table>`;
+ if(fmView==='grid')return fmAsk()+fmBar()+`<div class="fm-grid">${list.map(item=>`<div class="fm-row fm-cell ${fmSel.has(item.name)?'sel':''}" ${attrs(item)}>${fmIcon(item)}<div>${esc(item.name)}</div><small>${detail(item)}</small></div>`).join('')}</div>`;
+ return fmAsk()+fmBar()+`<table class="fm-table"><thead><tr><th><input type="checkbox" data-action="fm-all" aria-label="Tout sélectionner" ${list.every(i=>fmSel.has(i.name))?'checked':''}></th><th data-action="fm-sort" data-key="name">Nom${arrow('name')}</th><th data-action="fm-sort" data-key="size">Taille${arrow('size')}</th><th data-action="fm-sort" data-key="modified">Modifié${arrow('modified')}</th></tr></thead><tbody>${list.map(item=>`<tr class="fm-row ${fmSel.has(item.name)?'sel':''}" ${attrs(item)}><td><input type="checkbox" data-action="fm-check" aria-label="Sélectionner ${esc(item.name)}" ${fmSel.has(item.name)?'checked':''}></td><td>${fmIcon(item)}${esc(item.name)}</td><td>${detail(item)}</td><td>${date(item.modified)}</td></tr>`).join('')}</tbody></table>`;
+}
+// Carte d’aperçu d’un élément, dans le dossier ouvert ou parmi des résultats : seul l’emplacement change.
+function fmCard(item,base,space,acts){
+ const [kind,label]=fmKind(item),src=esc(fmUrl(item.name,true,base,space));
+ const body=kind==='img'?`<img class="fm-shot" src="${src}" alt="Aperçu de ${esc(item.name)}">`:kind==='vid'?`<video class="fm-shot" controls preload="metadata" src="${src}"></video>`:kind==='txt'?`<pre class="fm-text" id="fm-text" data-name="${esc(item.name)}" data-src="${src}">Chargement de l’aperçu…</pre>`:kind==='pdf'?'<p class="fm-hint">Un PDF se télécharge pour être ouvert.</p>':kind==='lnk'?'<p class="fm-hint">Lien symbolique : Nacre ne le suit pas.</p>':'';
+ const link=item.link?'':`<a class="fm-link" href="${esc(item.directory?fmArchive([item.name],base,space):fmUrl(item.name,false,base,space))}">${item.directory?'Télécharger en archive':'Télécharger'}</a>`;
+ return body+`<h3>${esc(item.name)}</h3><dl><dt>Type</dt><dd>${label}</dd>${item.directory?'':`<dt>Taille</dt><dd>${sizes(item.size)}</dd>`}<dt>Modifié</dt><dd>${date(item.modified)}</dd>${acts.where?`<dt>Emplacement</dt><dd>${esc(acts.where)}</dd>`:''}</dl><div class="fm-acts">${acts.before||''}${link}${acts.after||''}</div>`;
 }
 function fmSide(){
+ if(fmFound){
+  const hit=fmFound.items?.[fmHit];
+  if(!hit)return `<div class="fm-hint">${fmFound.items?.length?'Sélectionnez un résultat pour le voir ici.':''}</div>`;
+  return fmCard(hit,hit.path,hit.area,{where:fmAreaName(hit.area)+(hit.path?' › '+hit.path.split('/').join(' › '):''),before:(hit.directory&&!hit.link?button('fm-reveal','Ouvrir ce dossier',null,'primary small','data-inside="1"'):'')+button('fm-reveal','Afficher dans son dossier',null,hit.directory&&!hit.link?'small':'primary small')});
+ }
  const chosen=fmSelected();
  if(chosen.length!==1)return `<div class="fm-hint">${chosen.length?`${chosen.length} éléments sélectionnés.`:'Sélectionnez un élément pour le voir ici.'}</div>`;
- const item=chosen[0],[kind,label]=fmKind(item),write=fmWritable();
- const body=kind==='img'?`<img class="fm-shot" src="${esc(fmUrl(item.name,true))}" alt="Aperçu de ${esc(item.name)}">`:kind==='vid'?`<video class="fm-shot" controls preload="metadata" src="${esc(fmUrl(item.name,true))}"></video>`:kind==='txt'?`<pre class="fm-text" id="fm-text" data-name="${esc(item.name)}">Chargement de l’aperçu…</pre>`:kind==='pdf'?'<p class="fm-hint">Un PDF se télécharge pour être ouvert.</p>':kind==='lnk'?'<p class="fm-hint">Lien symbolique : Nacre ne le suit pas.</p>':'';
- return body+`<h3>${esc(item.name)}</h3><dl><dt>Type</dt><dd>${label}</dd>${item.directory?'':`<dt>Taille</dt><dd>${sizes(item.size)}</dd>`}<dt>Modifié</dt><dd>${date(item.modified)}</dd></dl><div class="fm-acts">${item.directory&&!item.link?button('fm-open','Ouvrir',null,'primary small',`data-name="${esc(item.name)}"`):''}${item.link?'':`<a class="fm-link" href="${esc(item.directory?fmArchive([item.name]):fmUrl(item.name))}">${item.directory?'Télécharger en archive':'Télécharger'}</a>`}${write?button('rename','Renommer',null,'small',`data-path="${esc(fmJoin(item.name))}" data-name="${esc(item.name)}"`)+button('fm-trash','Corbeille',null,'small'):''}</div>`;
+ const item=chosen[0],write=fmWritable();
+ return fmCard(item,currentPath,area,{before:item.directory&&!item.link?button('fm-open','Ouvrir',null,'primary small',`data-name="${esc(item.name)}"`):'',after:write?button('rename','Renommer',null,'small',`data-path="${esc(fmJoin(item.name))}" data-name="${esc(item.name)}"`)+button('fm-trash','Corbeille',null,'small'):''});
 }
 // Aperçu d’un texte : les premiers kilo-octets, lus comme du texte et jamais interprétés.
 async function fmLoadText(){
  const box=$('#fm-text');if(!box)return;
  const generation=sessionGeneration,name=box.dataset.name;
  try{
-  const response=await fetch(fmUrl(name,true)),text=response.ok?await response.text():null;
-  const target=$('#fm-text');if(generation!==sessionGeneration||!target||target.dataset.name!==name)return;
+  const source=box.dataset.src||fmUrl(name,true),response=await fetch(source),text=response.ok?await response.text():null;
+  const target=$('#fm-text');if(generation!==sessionGeneration||!target||target.dataset.name!==name||(target.dataset.src||source)!==source)return;
   target.textContent=text===null?'Aperçu indisponible.':text||'Fichier vide.';
  }catch{const target=$('#fm-text');if(target&&target.dataset.name===name)target.textContent='Aperçu indisponible.';}
 }
@@ -75,6 +111,8 @@ function fmRedraw(tools=false){
 }
 async function renderFileManager(){
  const generation=sessionGeneration,request=++fmRequest,current=()=>generation===sessionGeneration&&page==='files'&&request===fmRequest;
+ // Une recherche demandée depuis la recherche globale : le nom arrive dans le champ, puis elle part sur tout le NAS.
+ const asked=fmPending;fmPending='';if(asked){fmFilter=asked;fmFound=null;}
  const areas=await api('areas');if(!current())return;
  fileAreas=areas;
  if(!fileAreas.some(a=>a.id===area)){area='fichiers';currentPath='';toast('Le volume est indisponible. Retour aux fichiers partagés.',true);}
@@ -91,8 +129,34 @@ async function renderFileManager(){
  fmSel=new Set([...fmSel].filter(name=>fmItems.some(i=>i.name===name)));
  $('#content').innerHTML=`<div class="fm ${fmPreview?'':'fm-nopreview'}" id="fm"><nav class="fm-tree" id="fm-tree" aria-label="Espaces et dossiers">${fmTree()}</nav><div class="fm-main"><div class="fm-tools" id="fm-tools">${fmTools()}</div><div class="fm-list" id="fm-list">${fmList()}</div></div><aside class="fm-side" id="fm-side" aria-label="Aperçu">${fmSide()}</aside><input type="file" id="fm-upload" multiple hidden><div class="fm-drop" id="fm-drop" hidden></div></div>`;
  fmLoadText();
+ if(asked)fmFind('all').catch(error=>{if(error.name!=='AbortError')toast(error.message,true);});
 }
-function fmGo(space,path){if(space!==area)fmFilter='';area=space;currentPath=path;fmSel.clear();fmLast='';fmFilter='';return renderFileManager();}
+function fmQueue(text){fmPending=String(text||'').trim().slice(0,80);}
+// Recherche par nom, lancée à la demande : dans le dossier ouvert et ses sous-dossiers (« here ») ou dans tous les espaces.
+async function fmFind(scope){
+ const text=fmFilter.trim();
+ if(!fmFindable())return toast('Saisissez au moins deux caractères du nom recherché.',true);
+ const generation=sessionGeneration,request=++fmFindRequest,where=scope==='here'?{area,path:currentPath}:null;
+ const current=()=>generation===sessionGeneration&&request===fmFindRequest&&page==='files'&&!!fmFound;
+ fmSel.clear();fmHit=-1;fmFound={query:text,where,items:null};fmRedraw();
+ let data;
+ try{data=await api('files/search?q='+encodeURIComponent(text)+(where?`&area=${encodeURIComponent(where.area)}&path=${encodeURIComponent(where.path)}`:''));}
+ catch(error){if(current()){fmFound=null;fmRedraw();}throw error;}
+ if(!current())return;
+ // Ne sont gardés que les résultats bien formés, dans un espace que ce compte voit.
+ const items=(Array.isArray(data?.items)?data.items:[]).filter(i=>i&&typeof i.name==='string'&&i.name&&typeof i.path==='string'&&fileAreas.some(a=>a.id===i.area));
+ fmFound={query:text,where,items,partial:typeof data?.partial==='string'?data.partial:'',visited:Number(data?.visited)||0,skipped:(Array.isArray(data?.skipped)?data.skipped:[]).filter(x=>typeof x==='string'),limit:Number(data?.limit)||items.length};
+ fmRedraw();
+}
+function fmFindClose(){fmFindRequest++;fmFound=null;fmHit=-1;fmRedraw();}
+// Depuis un résultat : ouvrir le dossier trouvé, ou son dossier parent avec l’élément sélectionné.
+function fmReveal(hit,inside){
+ if(!hit||!fileAreas.some(a=>a.id===hit.area))return;
+ fmFindRequest++;fmFound=null;fmHit=-1;fmFilter='';area=hit.area;currentPath=inside?fmJoin(hit.name,hit.path):hit.path;
+ fmSel=inside?new Set():new Set([hit.name]);fmLast=inside?'':hit.name;
+ return renderFileManager();
+}
+function fmGo(space,path){fmFindRequest++;fmFound=null;fmHit=-1;area=space;currentPath=path;fmSel.clear();fmLast='';fmFilter='';return renderFileManager();}
 // Envoi de plusieurs fichiers, l’un après l’autre, par le transfert existant. Changer de dossier arrête la suite.
 async function fmSend(files){
  if(fmBusy||!files.length||!fmWritable())return;
@@ -148,8 +212,13 @@ document.addEventListener('click',async e=>{
    if(action==='fm-send')return $('#fm-upload')?.click();
    if(action==='fm-trash')return fmAskTrash();
    if(action==='fm-move')return fmAskMove();
+   if(action==='fm-find')return await fmFind(el.dataset.scope==='here'?'here':'all');
+   if(action==='fm-find-close')return fmFindClose();
+   if(action==='fm-reveal')return await fmReveal(fmFound?.items?.[fmHit],el.dataset.inside==='1');
    return;
   }
+  const hit=e.target.closest?.('.fm-hit');
+  if(hit&&fmFound?.items){fmHit=Number(hit.dataset.hit);return fmRedraw();}
   if(!row||e.target.closest?.('a'))return;
   const name=row.dataset.name,list=fmShown().map(i=>i.name);
   if(e.shiftKey&&list.includes(fmLast)){const a=list.indexOf(fmLast),b=list.indexOf(name);fmSel=new Set(list.slice(Math.min(a,b),Math.max(a,b)+1));}
@@ -159,14 +228,20 @@ document.addEventListener('click',async e=>{
  }catch(error){if(error.name!=='AbortError')toast(error.message,true);}
 });
 document.addEventListener('dblclick',e=>{
+ const hit=e.target.closest?.('.fm-hit');
+ if(hit&&page==='files'&&fmFound?.items){const found=fmFound.items[Number(hit.dataset.hit)];Promise.resolve(fmReveal(found,!!found?.directory&&!found.link)).catch(error=>{if(error.name!=='AbortError')toast(error.message,true);});return;}
  const row=e.target.closest?.('.fm-row');if(!row||page!=='files'||e.target.closest?.('input,a,button'))return;
  const item=fmItems.find(i=>i.name===row.dataset.name);
  if(item?.directory&&!item.link)fmGo(area,fmJoin(item.name)).catch(error=>{if(error.name!=='AbortError')toast(error.message,true);});
 });
-document.addEventListener('input',e=>{if(e.target?.id==='fm-filter'&&page==='files'){fmFilter=e.target.value;fmSel.clear();fmRedraw();}});
+// Retoucher le champ quitte les résultats : on revient au dossier, filtré par la saisie.
+document.addEventListener('input',e=>{if(e.target?.id==='fm-filter'&&page==='files'){fmFilter=e.target.value;fmSel.clear();if(fmFound){fmFindRequest++;fmFound=null;fmHit=-1;}fmRedraw();}});
 document.addEventListener('change',e=>{if(e.target?.id==='fm-upload'){const files=[...(e.target.files||[])];e.target.value='';fmSend(files).catch(error=>toast(error.message,true));}});
 document.addEventListener('keydown',e=>{
- if(page!=='files'||!$('#fm')||$('#modal')?.open||/^(INPUT|SELECT|TEXTAREA)$/.test(e.target?.tagName||''))return;
+ if(page!=='files'||!$('#fm')||$('#modal')?.open)return;
+ if(e.target?.id==='fm-filter'&&e.key==='Enter'&&fmFindable()){e.preventDefault?.();fmFind('all').catch(error=>{if(error.name!=='AbortError')toast(error.message,true);});return;}
+ if(/^(INPUT|SELECT|TEXTAREA)$/.test(e.target?.tagName||''))return;
+ if(fmFound){if(e.key==='Escape')fmFindClose();return;}
  if((e.ctrlKey||e.metaKey)&&String(e.key).toLowerCase()==='a'){e.preventDefault?.();fmSel=new Set(fmShown().map(i=>i.name));return fmRedraw();}
  if(e.key==='Escape'&&fmSel.size){fmSel.clear();return fmRedraw();}
  if(e.key==='Delete'&&fmSel.size)return fmAskTrash();
