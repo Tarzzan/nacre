@@ -1,5 +1,19 @@
 # Déploiements de la console sur Spark
 
+## 13 novembre 2026 — alpha.32, bureau personnalisable
+
+L’installation alpha.31 a reçu le paquet `nacre-0.8.0-alpha.32.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.32), construit depuis le commit [`46e4c40`](https://github.com/Tarzzan/nacre/commit/46e4c402b9122a8100e4316d216c9d9e8110282f) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
+
+Avant l’import : neuf modules figés identiques, aucune tâche active, répétition isolée alpha.31 → alpha.32 réussie. Fichier importé téléchargé depuis la release, empreinte contrôlée ; session administrateur temporaire refermée.
+
+Première mise à jour confirmée depuis une fenêtre du bureau : la page Mises à jour, ouverte dans la fenêtre Réglages, a suivi l’installation jusqu’à **Mise à jour réussie**, session conservée, et son bouton **Recharger Nacre** a rechargé le bureau entier.
+
+Préparation enregistrée à 14 h 27 min 34 s, validation à 14 h 27 min 59 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Constaté dans le navigateur : le bouton et le panneau [Personnaliser](DESKTOP.md#personnaliser-le-bureau) sont présents ; les préférences lues sont celles d’origine.
+
+Limites de ce contrôle : aucune préférence de bureau n’a été enregistrée sur cette installation, le choix étant laissé à son administrateur ; les réglages du panneau et la restauration des fenêtres n’ont été exercés que sur le banc. Le fuseau de la console n’est toujours pas choisi.
+
 ## 13 novembre 2026 — alpha.31, plusieurs fenêtres
 
 L’installation alpha.30 a reçu le paquet `nacre-0.8.0-alpha.31.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.31), construit depuis le commit [`754d574`](https://github.com/Tarzzan/nacre/commit/754d574f9ecb8d53eab80119f84ae4431df5b20a) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
