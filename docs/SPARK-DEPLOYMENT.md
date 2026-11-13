@@ -1,5 +1,24 @@
 # Déploiements de la console sur Spark
 
+## 13 novembre 2026 — alpha.25
+
+L’installation alpha.24 a reçu le paquet `nacre-0.8.0-alpha.25.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.25), construit depuis le commit [`9088038`](https://github.com/Tarzzan/nacre/commit/9088038d9602b6190d87e4e6be2378ec2d244bf2), par le même [parcours de mise à jour](BROWSER-UPDATES.md).
+
+Validation du commit : les quatorze contrôles de la PR 53 sont verts sur x86-64 et ARM64, et le commit fusionné a exactement le même arbre de fichiers que le commit contrôlé. La CI de `main` n’a pas tourné sur ce commit : GitHub a refusé de démarrer les tâches pour une raison de facturation du compte. Aucun test n’a échoué ; la suite complète a aussi été rejouée localement sur ce code (308 tests).
+
+Avant la fusion, le nouveau module de préférences a été exécuté en lecture seule sur la base réelle de Spark, sans rien y installer ni y écrire : console reconnue comme jamais réglée (aucune préférence enregistrée), 449 fuseaux proposés, noms techniques refusés. Le fuseau système de Spark a été relevé au passage : il ne correspond pas au lieu, ce qui a écarté l’idée de s’en servir comme proposition.
+
+Avant l’import : neuf modules figés identiques entre Spark et le paquet, aucune tâche active. La mise à jour alpha.24 → alpha.25 a été répétée sur une console et son superviseur en répertoire temporaire, sans préférences enregistrées comme sur Spark : fuseau proposé après la mise à jour, nom technique refusé, choix enregistré, second onglet refusé. Le fichier importé est celui téléchargé depuis la release, empreinte contrôlée. Il a été envoyé par une session administrateur temporaire, refermée ensuite ; l’installation a été confirmée et suivie dans le navigateur jusqu’à **Mise à jour réussie**, session conservée.
+
+Le superviseur a enregistré la préparation à 11 h 08 min 47 s et la validation à 11 h 09 min 11 s, heure de Guyane, confirmation humaine comprise. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configuration Samba et configuration Frigate identiques avant et après. Conteneurs Samba et Frigate inchangés (identifiants et heures de démarrage), service systemd non relancé.
+
+Constaté dans le navigateur après rechargement :
+
+- Le [bandeau du fuseau](CONTROL-PANEL.md#fuseau-horaire-au-premier-accès) s’affiche en haut de chaque page et propose le fuseau du navigateur, America/Cayenne, avec les deux heures côte à côte.
+- La purge des copies s’est appliquée une seconde fois d’elle-même : la copie d’alpha.21 a été supprimée et inscrite au journal, trois copies restent.
+
+Limites de ce contrôle : aucun des trois boutons du bandeau n’a été cliqué sur Spark. Le choix du fuseau est laissé à l’administrateur ; il a été exercé sur le banc et dans la répétition isolée. Tant qu’il n’est pas fait, les heures de Spark restent en UTC. Aucune panne n’a été injectée sur Spark.
+
 ## 12 novembre 2026 — alpha.24
 
 L’installation alpha.23 a reçu le paquet `nacre-0.8.0-alpha.24.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.24), construit depuis le commit [`6ea9e74`](https://github.com/Tarzzan/nacre/commit/6ea9e74c8a8f26268bb9fb879c5eecd87b9d2cda) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).

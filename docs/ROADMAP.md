@@ -12,6 +12,10 @@ Les versions futures sont des objectifs sans date promise. Chaque étape demande
 | **1.0 — cible à qualifier** | Version exploitable avec périmètre de support précis | Revue de sécurité, endurance, mises à jour et reprise éprouvées ; aucun défaut critique connu |
 | **Après stabilisation** | Gestion de plusieurs NAS | Identités inter-hôtes, révocation, fonctionnement déconnecté et politiques de groupe spécifiés |
 
+## Bureau 0.8.0-alpha.26
+
+Premier lot du cap « un bureau dans le navigateur » : coquille, sept applications à onglets, dock, widgets, affichage classique conservé. [Guide et limites](DESKTOP.md). Lots suivants, dans l’ordre retenu : centre de notifications, recherche globale, Surveillance en application (mur de caméras), plusieurs fenêtres, gestionnaire de fichiers, bureau personnalisable.
+
 ## Fuseau horaire 0.8.0-alpha.25
 
 Proposition du fuseau aux administrateurs tant qu’il n’a jamais été choisi, champ à liste avec aperçu de l’heure, repli sur UTC pour un nom que le navigateur ignore. [Guide et limites](CONTROL-PANEL.md#fuseau-horaire-au-premier-accès). Restent ouverts : libellés de fuseaux en français, fuseau par compte.

@@ -679,6 +679,86 @@ test('setup assistant offers the same timezone list and stops an unknown name be
  assert.deepEqual(calls,[]);assert.match(error.textContent,/Ce navigateur ne connaît pas ce fuseau/);assert.equal(submit.disabled,false);
 });
 
+// Bureau : coquille à une fenêtre, applications à onglets, affichage classique conservé.
+const overviewSample={host:'<b>Atelier</b>',services_available:true,services:[{name:'fichiers',state:'running'},{name:'video',state:'exited'}],disk:{total:4000,used:1000,free:3000},memory:{total:8000,used:2000},load:[0.5,0,0],cpus:4,camera:{id:'<i>entree</i>',camera_fps:5},events:[{ts:1794182400,username:'<u>admin</u>',action:'<script>x</script>',detail:''}]};
+function deskFixture(fetch=async()=>response(200,overviewSample),role='admin'){
+ const f=fixture(fetch);vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/desktop.js'),'utf8'),f.context);
+ const store={};f.context.localStorage={getItem:k=>store[k]??null,setItem:(k,v)=>{store[k]=String(v);}};f.store=store;
+ f.html='';const real=f.elements.get('#app');f.elements.set('#app',{set innerHTML(v){f.html=v;real.innerHTML=v;
+  for(const id of ['dk-win','dk-name','dk-tile','dk-tabs','dk-widgets','side-host'])if(v.includes(`id="${id}"`))f.elements.set('#'+id,{hidden:false,textContent:'',innerHTML:'',style:{},classList:{toggle(name,on){this[name]=on;}}});else f.elements.delete('#'+id);}});
+ f.context.rendered=[];f.run(`user={name:"admin",role:"${role}",csrf:"synthetic",nas_name:"<b>Atelier</b>",app_version:"test"};page="home";render=async()=>{rendered.push(page);};shell();`);
+ f.click=(action,data={})=>f.listeners.get('click').at(-1)({target:{closest:()=>({dataset:{action,...data}})}});return f;
+}
+test('desktop shell replaces the sidebar, keeps the anchors pages rely on and escapes the NAS name',()=>{
+ const f=deskFixture();
+ assert.match(f.html,/^<div class="dk">/);assert.doesNotMatch(f.html,/class="sidebar"|<b>Atelier|style=/);assert.match(f.html,/&lt;b&gt;Atelier/);
+ for(const id of ['content','crumb','topclock','side-host','side-version','alert-summary','zone-prompt','dk-win','dk-tabs','dk-widgets'])assert.match(f.html,new RegExp(`id="${id}"`),id);
+ assert.equal((f.html.match(/class="dk-dockapp"/g)||[]).length,7);assert.equal((f.html.match(/class="dk-app"/g)||[]).length,7);
+ assert.match(f.html,/data-action="shell-classic"/);assert.match(f.html,/data-action="logout"/);
+ // Lecture seule : ni alertes ni onglets d'administration, et les applications gardent leurs pages ouvertes à tous.
+ const g=deskFixture(undefined,'viewer');assert.doesNotMatch(g.html,/alert-summary/);
+ assert.deepEqual(JSON.parse(JSON.stringify(g.run('deskApps().map(a=>[a.id,deskPages(a).map(p=>p[0])])'))),[['files',['files','trash']],['cam',['camera']],['storage',['storage','native']],['protect',['backups','snapshots']],['share',['shares','users']],['settings',['services']],['activity',['events']]]);
+ // Chaque page de la console appartient à une application et une seule.
+ const pages=f.run('DESK_APPS.flatMap(a=>a.pages.map(p=>p[0]))');assert.equal(new Set(pages).size,pages.length);
+ for(const name of pages)assert.ok(f.run('titles')[name],name);
+ for(const name of Object.keys(f.run('titles')))if(!['home','setup'].includes(name))assert.ok(pages.includes(name),name);
+});
+test('classic display stays one click away and the first-run assistant never uses the desktop',async()=>{
+ const f=deskFixture();await f.run('go("users")');
+ await f.click('shell-classic');
+ assert.equal(f.store['nacre-shell'],'classic');assert.match(f.html,/class="sidebar"/);assert.match(f.html,/data-action="shell-desk"/);assert.equal(f.run('page'),'users');assert.equal(f.run('deskMode()'),false);
+ await f.click('shell-desk');assert.equal(f.store['nacre-shell'],'desk');assert.match(f.html,/^<div class="dk">/);assert.equal(f.run('page'),'users');
+ f.run('user.setup_required=true;shell();');assert.match(f.html,/class="sidebar"/);assert.doesNotMatch(f.html,/shell-desk/);assert.equal(f.run('deskMode()'),false);
+ // Stockage du navigateur indisponible : le bureau reste l'affichage par défaut et le choix ne casse rien.
+ const g=deskFixture();g.context.localStorage={getItem(){throw new Error('bloqué');},setItem(){throw new Error('bloqué');}};
+ assert.equal(g.run('deskMode()'),true);await g.click('shell-classic');assert.match(g.html,/^<div class="dk">/);
+});
+test('navigation opens the application window with its tabs and the desktop hides it',async()=>{
+ const f=deskFixture();const win=()=>f.elements.get('#dk-win');
+ assert.equal(win().hidden,true);
+ await f.run('go("snapshots")');
+ assert.equal(win().hidden,false);assert.equal(f.elements.get('#dk-name').textContent,'Protection');assert.match(f.elements.get('#dk-tile').innerHTML,/dk-protect/);
+ const tabs=f.elements.get('#dk-tabs');assert.equal(tabs.hidden,false);
+ assert.deepEqual([...tabs.innerHTML.matchAll(/data-page="(\w+)" aria-selected="(\w+)">([^<]+)</g)].map(m=>m.slice(1)),[['backups','false','Sauvegardes'],['snapshots','true','Points de restauration'],['retention','false','Conservation']]);
+ assert.equal(f.elements.get('#crumb').textContent,'Snapshots');
+ await f.run('go("camera")');assert.equal(f.elements.get('#dk-name').textContent,'Surveillance');assert.equal(tabs.hidden,true);assert.equal(tabs.innerHTML,'');
+ await f.run('go("home")');assert.equal(win().hidden,true);assert.equal(f.run('deskOpen'),'cam');
+ // Page hors application (fin de l'assistant) : fenêtre simple, titrée par la page.
+ f.run('page="setup";deskSync();');assert.equal(win().hidden,false);assert.equal(f.elements.get('#dk-name').textContent,'Première configuration');assert.equal(tabs.hidden,true);
+ // Fenêtre agrandie et position mémorisée survivent aux changements d'onglet.
+ await f.click('desk-max');assert.equal(win().classList.max,true);f.run('deskPos={left:40,top:12};');await f.run('go("backups")');
+ assert.deepEqual([win().classList.max,win().style.left,win().style.top],[true,'40px','12px']);
+});
+test('dock reopens an application on its last tab, closing forgets it, and unknown applications are ignored',async()=>{
+ const f=deskFixture();
+ await f.click('desk-open',{app:'protect'});assert.equal(f.run('page'),'backups');
+ await f.run('go("retention")');await f.click('desk-min');assert.deepEqual([f.run('page'),f.run('deskOpen')],['home','protect']);
+ await f.click('desk-open',{app:'protect'});assert.equal(f.run('page'),'retention');
+ await f.click('desk-close');assert.deepEqual([f.run('page'),f.run('deskOpen')],['home',null]);
+ const before=f.run('rendered.length');await f.click('desk-open',{app:'nowhere'});await f.click('desk-open',{});assert.equal(f.run('rendered.length'),before);
+ // Un onglet mémorisé devenu inaccessible (compte passé en lecture seule) retombe sur le premier onglet permis.
+ f.run('user.role="viewer"');await f.click('desk-open',{app:'protect'});assert.equal(f.run('page'),'backups');
+});
+test('desktop widgets replace the overview, escape what the NAS reports and ignore late answers',async()=>{
+ const calls=[];let release;const f=deskFixture(url=>{calls.push(url);return new Promise(resolve=>{release=()=>resolve(response(200,overviewSample));});});
+ f.run('render=async()=>renderHome();');const first=f.run('renderHome()');release();await first;
+ assert.deepEqual(calls,['/api/overview']);
+ const html=f.elements.get('#dk-widgets').innerHTML;
+ assert.equal((html.match(/class="dk-wg"/g)||[]).length,5);assert.doesNotMatch(html,/<script>|<i>|<u>|style=/);assert.match(html,/&lt;script&gt;/);
+ for(const target of ['storage','services','camera','events'])assert.match(html,new RegExp(`data-page="${target}"`));
+ assert.match(html,/1 sur 2 en ligne/);assert.match(html,/<progress value="25" max="100">/);assert.match(html,/5 images\/s/);
+ assert.equal(f.elements.get('#side-host').textContent,'<b>Atelier</b>');assert.equal(f.elements.get('#content').innerHTML,undefined);
+ // Réponse arrivée après un changement de page ou une déconnexion : rien n'est écrit.
+ f.elements.get('#dk-widgets').innerHTML='inchangé';const late=f.run('renderHome()');f.run('page="files";');release();await late;
+ assert.equal(f.elements.get('#dk-widgets').innerHTML,'inchangé');
+ f.run('page="home";');const gone=f.run('renderHome()');f.run('login();');release();await gone.catch(()=>{});assert.equal(f.run('user'),null);
+ // Mesures absentes ou malformées : des tirets, pas d'erreur.
+ const g=deskFixture();assert.match(g.run('deskWidgets({})'),/Aucune caméra/);assert.doesNotMatch(g.run('deskWidgets({disk:{total:0,used:0}})'),/<progress/);
+ // Affichage classique : la vue d'ensemble d'origine est conservée.
+ const h=deskFixture(async()=>response(200,{...overviewSample,uptime:10}));h.store['nacre-shell']='classic';h.run('shell();');h.elements.set('#side-host',{textContent:''});
+ await h.run('renderHome()').catch(()=>{});assert.match(String(h.elements.get('#content').innerHTML),/Votre NAS, d’un regard/);
+});
+
 function updateFixture(fetch){
  const f=fixture(fetch);vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/updates.js'),'utf8'),f.context);
  f.run('user={name:"admin",role:"admin",csrf:"synthetic"};page="updates";shell();');return f;

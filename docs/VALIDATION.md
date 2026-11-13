@@ -1,5 +1,9 @@
 # Validation
 
+## Le Bureau — 0.8.0-alpha.26
+
+308 tests Python et 98 JavaScript. Le détail des essais et du parcours navigateur est dans le [guide du Bureau](DESKTOP.md#validation).
+
 ## Fuseau horaire proposé au premier accès — 0.8.0-alpha.25
 
 308 tests Python et 93 JavaScript. Trois essais Python sur HTTP et base temporaires : l’indicateur n’est vrai que pour un administrateur d’une console terminée, encore en UTC et jamais enregistrée (absence d’état, état d’origine, assistant en cours, fuseau déjà choisi, révision enregistrée) ; « Garder UTC » s’enregistre, s’inscrit au journal et un second onglet resté sur la proposition est refusé ; la liste proposée commence par UTC, ne contient que des noms géographiques triés et tout nom proposé est accepté ; les fichiers techniques de la base de fuseaux sont refusés par le panneau comme par l’assistant, sans modifier l’état. Sept essais JavaScript : repli sur UTC d’un fuseau inconnu du navigateur pour les dates, l’horloge et la relecture ; bandeau absent pour un lecteur, une console réglée, un assistant en cours ; aucune suggestion pour un navigateur en UTC, un nom illisible ou piégé ; un seul enregistrement malgré deux clics ; fuseau refusé par le serveur retiré de la proposition ; réglage fait ailleurs adopté ; réponse tardive ou session expirée sans effet ; champ à liste réduit aux noms affichables, aperçu de l’heure, nom inconnu arrêté avant tout envoi.

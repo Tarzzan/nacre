@@ -139,6 +139,10 @@ class ControlPanelTests(unittest.TestCase):
         self.assertEqual(code,200);self.assertIn('zonePrompt',raw if isinstance(raw,str) else raw.decode())
         code,raw=self.request('GET','/')
         self.assertIn('/timezone.js',raw if isinstance(raw,str) else raw.decode())
+        # Le bureau est servi avec la console et chargé avant les pages qu'il habille.
+        self.assertIn('/desktop.js',raw if isinstance(raw,str) else raw.decode())
+        code,raw=self.request('GET','/desktop.js')
+        self.assertEqual(code,200);self.assertIn('deskShell',raw if isinstance(raw,str) else raw.decode())
 
     def test_revocation_targets_one_account_and_preserves_current_session(self):
         self.ready();other,_=app.make_session('admin')
