@@ -7,7 +7,7 @@ Point d’entrée pour reprendre le développement sans relire tout l’historiq
 - **Version courante : 0.8.0-alpha.25** — [fuseau horaire proposé au premier accès](CONTROL-PANEL.md#fuseau-horaire-au-premier-accès), champ de fuseau à liste.
 - Versions précédentes : 0.8.0-alpha.24 — [purge et consultation des copies de mise à jour](BROWSER-UPDATES.md#copies-de-retour-arrière) ; 0.8.0-alpha.23 — [recherche d’événements sur plusieurs jours](RECORDING-PLAYBACK.md#rechercher-sur-plusieurs-jours) par type d’objet ; 0.8.0-alpha.22 — [détection et objets suivis par caméra](CAMERA-DETECTION.md), appliqués sans redémarrer le service vidéo ; 0.8.0-alpha.21 — [événements en vignettes et filtre par type d’objet dans la relecture](RECORDING-PLAYBACK.md) ; 0.8.0-alpha.20 — relecture des enregistrements par jour ; 0.8.0-alpha.19 — [mises à jour signées depuis le navigateur](BROWSER-UPDATES.md).
 - Schéma SQLite inchangé depuis alpha.19. Aucun module figé modifié d’alpha.20 à alpha.25 : ces versions sont distribuables par paquet `.nacre-update`.
-- Installation de développement : alpha.24 installée le 12 novembre 2026 au soir par paquet signé, après alpha.21 à alpha.23 le même jour et alpha.20 la veille. La purge s’y est appliquée seule : trois copies de retour arrière restent sur cinq. La recherche y a lu les 532 événements réels de la caméra en neuf pages et ouvert un résultat ancien dans la relecture. La carte Détection y a été éprouvée (ajout puis retrait d’un type, sans redémarrage) ; les types suivis y sont revenus aux seules personnes. Le détail et les mises à jour suivantes sont consignés dans [Déploiements](SPARK-DEPLOYMENT.md) ; vérifier la version réellement installée avant d’agir.
+- Installation de développement : alpha.25 installée le 13 novembre 2026 par paquet signé ; le bandeau du fuseau y est affiché et attend le choix de l’administrateur. Auparavant : alpha.24 le 12 novembre au soir, après alpha.21 à alpha.23 le même jour et alpha.20 la veille. La purge s’y est appliquée seule : trois copies de retour arrière restent sur cinq. La recherche y a lu les 532 événements réels de la caméra en neuf pages et ouvert un résultat ancien dans la relecture. La carte Détection y a été éprouvée (ajout puis retrait d’un type, sans redémarrage) ; les types suivis y sont revenus aux seules personnes. Le détail et les mises à jour suivantes sont consignés dans [Déploiements](SPARK-DEPLOYMENT.md) ; vérifier la version réellement installée avant d’agir.
 
 ## Reprendre en cinq minutes
 
@@ -38,7 +38,14 @@ Point d’entrée pour reprendre le développement sans relire tout l’historiq
 - Stockage : pas de programmation des snapshots natifs ([issue 4](https://github.com/Tarzzan/nacre/issues/4)) ; opérations privilégiées validées en VM seulement.
 - Administration : pas de MFA ; accès à Docker encore large ([issue 2](https://github.com/Tarzzan/nacre/issues/2)).
 
+## Points d’attention
+
+- **CI arrêtée par la facturation.** Depuis le 13 novembre 2026, GitHub refuse de démarrer les tâches Actions (paiement ou plafond de dépense du compte). Tant que ce n’est pas réglé, aucune PR ne peut passer ses contrôles requis. Pour dépenser moitié moins ensuite, la CI ne tourne plus deux fois par PR : `push` est limité à `main`.
+- **Rythme.** Six versions en trois jours ont prouvé la chaîne de mise à jour ; la suite se livre par lots, une release par lot.
+
 ## Prochaine étape recommandée
+
+Proposition soumise le 13 novembre 2026, en attente de validation : faire évoluer l’interface vers un **bureau dans le navigateur** (lanceur, applications en fenêtres, centre de notifications, recherche globale), en sept lots livrables par paquet. Premier lot : la coquille du bureau et le regroupement des treize rubriques en sept applications, précédé d’une maquette. Les étapes ci-dessous restent valables et s’y insèrent.
 
 1. **Programmation des snapshots natifs** avec simulation de rétention (issue 4). Modules natifs figés : campagne en VM et installation accompagnée.
 2. **Vue d’ensemble des événements récents de toutes les caméras** sur la page Surveillance : réutilise la recherche d’alpha.23, lecture seule de Frigate, distribuable par paquet. Utile surtout à partir de deux caméras.
