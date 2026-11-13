@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.34 — Recherche d’événements par tranche horaire
+
+La carte **Recherche d’événements** d’une caméra accepte une **tranche horaire** facultative, appliquée à chaque jour de la période : « entre 22:00 et 06:00 » ne garde que les nuits, « entre 08:00 et 18:00 » les journées. Une tranche dont la fin précède le début enjambe minuit. Le total, les compteurs par type et par jour ne portent alors que sur la tranche ; le type choisi et **Afficher la suite** la conservent. C’est l’heure de début de l’événement, dans le fuseau de la console, qui décide. Le filtre est appliqué par Nacre : rien ne change dans les demandes faites au service vidéo. Aucun changement de schéma ni de module figé. 320 tests Python et 126 JavaScript. [Guide et limites](docs/RECORDING-PLAYBACK.md#ne-garder-quune-tranche-horaire).
+
 ## 0.8.0-alpha.33 — Recherche de fichiers par nom
 
 Le champ en haut de **Fichiers** filtre toujours le dossier ouvert pendant la saisie ; dès deux caractères, il propose aussi de **chercher ce nom dans les sous-dossiers ou dans tout le NAS**, et Entrée lance la recherche partout. Les résultats indiquent l’emplacement de chaque fichier ou dossier, s’aperçoivent et se téléchargent sur place, et un clic ouvre le dossier où ils se trouvent, l’élément sélectionné. La **recherche globale** (Ctrl+K) propose la même chose pour ce que l’on vient d’y taper. Accents et majuscules ne comptent pas ; les mots saisis peuvent figurer dans n’importe quel ordre. La recherche parcourt le NAS à la demande, sans index : elle ne suit aucun lien, ignore les fichiers cachés, ne lit pas le contenu, et s’arrête d’elle-même après quatre secondes, 200 000 éléments ou 200 résultats, en le disant. Un nouveau module serveur (`file_search.py`) : aucun changement de schéma ni de module figé. 318 tests Python et 125 JavaScript. [Guide et limites](docs/DESKTOP.md#rechercher-un-fichier-par-son-nom).

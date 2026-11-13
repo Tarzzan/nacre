@@ -140,6 +140,61 @@ class SearchTests(unittest.TestCase):
         # Résumé d'enregistrements indisponible : pas d'indice, la relecture du jour tranchera.
         self.assertTrue(all(e['recorded'] is True for e in following['events']))
 
+    def test_time_slot_keeps_events_started_in_it_on_every_day_and_across_midnight(self):
+        self.configure(); hour = 3600
+        events = [self.event(1, 30 * 60), self.event(1, 22 * hour), self.event(1, 3 * hour + 5, 'car'), self.event(1, 9 * hour), self.event(2, 22 * hour - 1),
+                  self.event(2, 6 * hour), self.event(3, 6 * hour - 60, 'dog'), self.event(4, 12 * hour, 'car')]
+        context, calls = self.frigate(events, [])
+        night = '/api/camera/search?camera=entry&time_from=22:00&time_to=06:00'
+        with context:
+            status, data = self.get(night)
+        # La nuit enjambe minuit : 22:00 compris, 06:00 exclu, chaque jour de la période.
+        self.assertEqual(status, 200, data)
+        self.assertEqual([(e['label'], e['day'], round(e['start'] - self.midnight(self.day(int((self.day(0) - datetime.date.fromisoformat(e['day'])).days))))) for e in data['events']],
+                         [('person', self.day(1).isoformat(), 22 * hour), ('car', self.day(1).isoformat(), 3 * hour + 5), ('person', self.day(1).isoformat(), 30 * 60), ('dog', self.day(3).isoformat(), 6 * hour - 60)])
+        self.assertEqual((data['hours'], data['next']), ({'from': '22:00', 'to': '06:00'}, None))
+        # Les compteurs ne portent que sur la tranche : types et jours.
+        self.assertEqual(data['facets'], {'total': 4, 'matched': 4, 'more': False, 'types': [{'label': 'person', 'count': 2}, {'label': 'car', 'count': 1}, {'label': 'dog', 'count': 1}],
+                                          'days': [{'day': self.day(1).isoformat(), 'count': 3}, {'day': self.day(3).isoformat(), 'count': 1}]})
+        with context:
+            status, typed = self.get(night + '&label=car')
+            self.assertEqual((status, [e['label'] for e in typed['events']], typed['facets']['total'], typed['facets']['matched']), (200, ['car'], 4, 1))
+            # La tranche complémentaire, sans enjamber minuit, garde tout le reste et rien d'autre.
+            status, day = self.get('/api/camera/search?camera=entry&time_from=06:00&time_to=22:00')
+            self.assertEqual((status, len(day['events']), day['facets']['total'], day['hours']), (200, 4, 4, {'from': '06:00', 'to': '22:00'}))
+            self.assertEqual({e['id'] for e in day['events']} & {e['id'] for e in data['events']}, set())
+            status, whole = self.get('/api/camera/search?camera=entry')
+            self.assertEqual((status, len(whole['events']), whole['hours']), (200, 8, None))
+        # Frigate n'est jamais interrogé par heure : le filtre est appliqué par Nacre, dans son fuseau.
+        self.assertFalse(any('time_' in call for call in calls))
+        with patch.object(app, 'video_get') as video:
+            for query in ('time_from=22:00', 'time_to=06:00', 'time_from=22:00&time_to=22:00', 'time_from=24:00&time_to=06:00', 'time_from=6:00&time_to=22:00',
+                          'time_from=22h&time_to=06h', 'time_from=22:00&time_to=06:60', 'time_from=22:00%0A&time_to=06:00'):
+                status, refused = self.get('/api/camera/search?camera=entry&' + query)
+                self.assertEqual(status, 400, query); self.assertIn('Tranche horaire invalide', refused['error'])
+            video.assert_not_called()
+
+    def test_time_slot_pages_follow_each_other_even_when_frigate_pages_hold_nothing_of_it(self):
+        self.configure(); hour = 3600
+        # Par jour : vingt événements de nuit (01:00) et trente de jour (10:00), sur quatre jours.
+        events = [self.event(d, hour + i * 20, 'car' if i % 4 == 0 else 'person') for d in range(1, 5) for i in range(20)] + [self.event(d, 10 * hour + i * 20) for d in range(1, 5) for i in range(30)]
+        context, calls = self.frigate(events, [])
+        for counted, label, expected in ((10000, '', 80), (25, '', 80), (25, 'car', 20)):
+            seen, cursor, first = [], None, None
+            with patch.object(playback, 'SEARCH_PAGE', 7), patch.object(playback, 'SEARCH_COUNTED', counted), context:
+                for _ in range(60):
+                    data = playback.search(app, 'entry', {'time_from': '00:30', 'time_to': '05:00', 'label': label} | ({} if cursor is None else {'before': str(cursor)}))
+                    self.assertLessEqual(len(data['events']), 7); self.assertEqual(data['hours'], {'from': '00:30', 'to': '05:00'})
+                    first = first or data; seen += data['events']; cursor = data['next']
+                    if cursor is None:
+                        break
+            self.assertIsNone(cursor, (counted, label))
+            self.assertEqual(len(seen), expected, (counted, label))
+            self.assertEqual([e['start'] for e in seen], sorted({e['start'] for e in seen}, reverse=True))
+            self.assertTrue(all(label in ('', e['label']) for e in seen))
+            # Compteurs plafonnés : seuls les événements lus sont comptés, et c'est annoncé.
+            self.assertEqual((first['facets']['more'], first['facets']['total']), (False, 80) if counted == 10000 else (True, 0))
+
     def test_invalid_requests_are_refused_before_frigate(self):
         self.configure(); today, old = self.day(0), self.day(playback.HISTORY_DAYS + 1)
         with patch.object(app, 'video_get') as video:

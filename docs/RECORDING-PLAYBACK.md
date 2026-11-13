@@ -37,6 +37,30 @@ Les événements peuvent être gardés plus longtemps que la vidéo. Quand Friga
 
 Les résultats sont gardés tant que la caméra reste ouverte, y compris après **Actualiser** ; ils ne sont pas relus automatiquement. Relancer **Rechercher** pour y voir les événements les plus récents.
 
+### Ne garder qu’une tranche horaire
+
+Depuis la version 0.8.0-alpha.34, deux champs d’heure suivent la période : **entre** et **et**. Laissés vides, ils ne changent rien. Remplis, ils ne gardent que les événements commencés dans cette tranche, **chaque jour de la période**.
+
+![Recherche limitée à la nuit sur le banc simulé](images/event-search-hours.jpg)
+
+*Banc local : caméra, événements et vignettes simulés.*
+
+| Tranche | Ce qui est gardé |
+| --- | --- |
+| entre 22:00 et 06:00 | Les nuits : la fin précède le début, la tranche enjambe minuit. |
+| entre 08:00 et 18:00 | Les journées. |
+| entre 12:00 et 14:00 | La pause de midi, sur tous les jours de la période. |
+
+Le résumé rappelle la tranche ; le total, les compteurs par type et par jour ne portent que sur elle. Choisir un type ou **Afficher la suite** la conserve. Pour revenir à toute la journée, vider les deux champs et relancer **Rechercher**.
+
+Ce qu’il faut savoir :
+
+- **L’heure de début décide.** Un passage commencé à 05:59 appartient à la nuit, même s’il se termine après 06:00. Le début de la tranche est compris, la fin exclue.
+- **Les heures sont celles de la console**, dans le fuseau choisi au Panneau de configuration, pas celles du navigateur.
+- **Un événement de nuit est rangé sous son jour civil** : celui de 01:00 figure sous le jour qui commence, pas sous la veille.
+- **Les deux heures ou aucune** : une tranche à moitié remplie, ou dont le début égale la fin, est refusée avant toute recherche.
+- **Période très chargée** : au-delà de dix mille événements, les compteurs portent sur les plus récents ; la suite reste accessible, et une page de suite peut alors n’ajouter aucun événement de la tranche avant la suivante.
+
 ## Ce que montrent les indications
 
 | Indication | Origine et portée |
@@ -63,7 +87,7 @@ Au-delà de la durée de conservation continue, Frigate ne garde que certains pa
 - **Jour en cours.** La frise reflète l’inventaire au chargement. **Actualiser** relit les enregistrements récents.
 - **Période consultable.** Dates jusqu’à 400 jours en arrière pour la frise et la recherche, extraits jusqu’à 31 jours : la conservation réglable s’arrête à 30 jours.
 - **Comptes en lecture seule.** Ils consultent et téléchargent les extraits, comme ils consultaient déjà les clips. Les réglages et le pilotage restent réservés aux administrateurs.
-- **Non couvert.** Recherche sur plusieurs caméras à la fois, par nom reconnu ou par tranche horaire, filtre par zone ou par score, export de longues périodes, lecture synchronisée de plusieurs caméras, protection d’un passage contre la suppression et contrôle d’intégrité des fichiers vidéo.
+- **Non couvert.** Recherche par tranche horaire sur plusieurs caméras à la fois (l’onglet Événements du bureau n’a pas ce filtre), par nom reconnu, par jour de la semaine, filtre par zone ou par score, export de longues périodes, lecture synchronisée de plusieurs caméras, protection d’un passage contre la suppression et contrôle d’intégrité des fichiers vidéo.
 
 ## Erreurs affichées
 
@@ -86,6 +110,8 @@ Huit tests Python sur inventaire simulé : fusion des segments, bornage au jour 
 Parcours navigateur sur un banc local : console réelle, service vidéo simulé, mire générée localement, trois jours dont un avec un trou et un ne gardant que des passages. Clic dans un trou, heure saisie, moment détecté, enchaînement automatique, retour de cinq minutes, changement de jour, téléchargement et date refusée y ont été contrôlés. Aucune image réelle n’est publiée.
 
 Événements (alpha.21) : trois tests Python supplémentaires sur le bornage au jour et à la caméra, les entrées malformées, le plafond, la relecture maintenue quand les événements manquent, et la vignette refusée pour un identifiant invalide ou une autre caméra. Trois tests JavaScript sur les vignettes, l’échappement, le filtre appliqué sans reconstruire la carte et le repli sur les moments détectés. Parcours navigateur sur le banc avec vignettes synthétiques, en largeur d’ordinateur et de téléphone.
+
+Tranche horaire (alpha.34) : deux tests Python sur le même service simulé : nuit enjambant minuit avec bornes comprise et exclue, tranche complémentaire sans recouvrement, compteurs limités à la tranche, type choisi, huit demandes mal formées refusées avant tout appel au service vidéo ; pages qui se suivent sans trou ni répétition, y compris quand le comptage est plafonné et qu’une page du service ne contient rien de la tranche. Un test JavaScript : champs facultatifs, tranche reprise dans le résumé, refus local d’une tranche incomplète, identique ou illisible, tranche conservée au changement de type et à la page suivante, type remis à zéro quand la tranche change. Sur le banc, avec le vrai serveur : 50 événements simulés sur sept jours, 7 la nuit et 43 le jour, soit le compte entier ; refus d’une tranche à moitié remplie.
 
 Recherche (alpha.23) : six tests Python sur un service simulé qui applique les filtres demandés : période par défaut, compteurs par type et par jour, type choisi, pages qui se suivent sans trou ni doublon, événements simultanés jamais séparés entre deux pages, plafond de comptage avec suite accessible, indice de vidéo à l’heure près, demandes refusées avant toute requête vidéo, comptes en lecture seule et service indisponible. Quatre tests JavaScript : carte et résultats sans style en ligne, valeurs échappées, page suivante ajoutée sans recharger les vignettes, réponses tardives ou malformées écartées, ouverture d’un résultat dans la relecture et message quand la vidéo manque. Parcours navigateur sur le banc : quinze jours, 112 événements, deux pages, filtre, ouverture d’un résultat, en largeur d’ordinateur et de téléphone.
 
