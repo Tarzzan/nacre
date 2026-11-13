@@ -4,9 +4,9 @@ Point d’entrée pour reprendre le développement sans relire tout l’historiq
 
 ## État livré
 
-- **Version courante : 0.8.0-alpha.24** — [purge et consultation des copies de mise à jour](BROWSER-UPDATES.md#copies-de-retour-arrière) depuis la page Mises à jour.
-- Versions précédentes : 0.8.0-alpha.23 — [recherche d’événements sur plusieurs jours](RECORDING-PLAYBACK.md#rechercher-sur-plusieurs-jours) par type d’objet ; 0.8.0-alpha.22 — [détection et objets suivis par caméra](CAMERA-DETECTION.md), appliqués sans redémarrer le service vidéo ; 0.8.0-alpha.21 — [événements en vignettes et filtre par type d’objet dans la relecture](RECORDING-PLAYBACK.md) ; 0.8.0-alpha.20 — relecture des enregistrements par jour ; 0.8.0-alpha.19 — [mises à jour signées depuis le navigateur](BROWSER-UPDATES.md).
-- Schéma SQLite inchangé depuis alpha.19. Aucun module figé modifié d’alpha.20 à alpha.24 : ces versions sont distribuables par paquet `.nacre-update`.
+- **Version courante : 0.8.0-alpha.25** — [fuseau horaire proposé au premier accès](CONTROL-PANEL.md#fuseau-horaire-au-premier-accès), champ de fuseau à liste.
+- Versions précédentes : 0.8.0-alpha.24 — [purge et consultation des copies de mise à jour](BROWSER-UPDATES.md#copies-de-retour-arrière) ; 0.8.0-alpha.23 — [recherche d’événements sur plusieurs jours](RECORDING-PLAYBACK.md#rechercher-sur-plusieurs-jours) par type d’objet ; 0.8.0-alpha.22 — [détection et objets suivis par caméra](CAMERA-DETECTION.md), appliqués sans redémarrer le service vidéo ; 0.8.0-alpha.21 — [événements en vignettes et filtre par type d’objet dans la relecture](RECORDING-PLAYBACK.md) ; 0.8.0-alpha.20 — relecture des enregistrements par jour ; 0.8.0-alpha.19 — [mises à jour signées depuis le navigateur](BROWSER-UPDATES.md).
+- Schéma SQLite inchangé depuis alpha.19. Aucun module figé modifié d’alpha.20 à alpha.25 : ces versions sont distribuables par paquet `.nacre-update`.
 - Installation de développement : alpha.24 installée le 12 novembre 2026 au soir par paquet signé, après alpha.21 à alpha.23 le même jour et alpha.20 la veille. La purge s’y est appliquée seule : trois copies de retour arrière restent sur cinq. La recherche y a lu les 532 événements réels de la caméra en neuf pages et ouvert un résultat ancien dans la relecture. La carte Détection y a été éprouvée (ajout puis retrait d’un type, sans redémarrage) ; les types suivis y sont revenus aux seules personnes. Le détail et les mises à jour suivantes sont consignés dans [Déploiements](SPARK-DEPLOYMENT.md) ; vérifier la version réellement installée avant d’agir.
 
 ## Reprendre en cinq minutes
@@ -21,6 +21,7 @@ Point d’entrée pour reprendre le développement sans relire tout l’historiq
 - **Le premier titre du changelog est la version.** `console/release.py` la lit ; ajouter une entrée en tête change la version annoncée par la console.
 - **Mises à jour web.** Un paquet ne peut pas modifier le schéma SQLite ni les modules figés listés dans `PINNED` de `console/update_engine.py`. Toute fonction qui y touche demande une installation accompagnée. Préférer un nouveau module et la table `settings` existante quand c’est possible.
 - **Copies de mise à jour.** La purge vit dans `console/update_copies.py`, hors du superviseur figé. Elle prend le verrou de préparation (`request.lock`), refuse pendant une phase active et ne supprime jamais le dossier que `status.json` désigne. Après validation, le superviseur ne relit plus les copies : seul un administrateur s’en sert. La règle s’applique au démarrage de la console et après un import.
+- **Fuseau de la console.** Une console est « jamais réglée » quand son état est terminé, en UTC et sans révision de préférences (`onboarding.unset`). La proposition vient du navigateur, jamais du fuseau système du serveur. Elle s’enregistre par la route des préférences avec la révision 0, donc sans écraser un réglage fait ailleurs. Tout affichage de date passe par `consoleZone()` ou `pbZone()`, qui retombent sur UTC pour un nom que le navigateur ignore.
 - **Clé de signature.** Elle reste hors du dépôt et hors du NAS. Un paquet se construit depuis le commit exact validé par la CI, avec `scripts/build_update.py`.
 - **Interface sans style en ligne.** La politique de sécurité (`style-src 'self'`) bloque les attributs `style`. Les positions calculées passent par des attributs SVG ou des classes. Les liens à comportement natif ne portent pas `data-action` : le gestionnaire global annule l’action par défaut.
 - **Réponses tardives.** Chaque écran vérifie session, page et numéro de requête avant d’écrire dans la page. Les tests JavaScript couvrent ce point pour chaque vue.
@@ -31,7 +32,7 @@ Point d’entrée pour reprendre le développement sans relire tout l’historiq
 
 ## Limites ouvertes
 
-- Fuseau : une installation dont les préférences n’ont jamais été enregistrées affiche des heures UTC, relecture comprise.
+- Fuseau : noms IANA non traduits ; un seul fuseau pour toute la console, pas de fuseau par compte.
 - Surveillance : recherche limitée à une caméra et au type d’objet (ni nom reconnu, ni tranche horaire) ; pas de filtre par zone, d’export long ni de lecture multi-caméra synchronisée ; une seule caméra réelle observée ; pas de réglage des seuils, zones et masques de détection.
 - Mises à jour : pas de migration de schéma réversible, de rotation de la clé de confiance ni de mise à jour des composants ; nombre de copies conservées fixe (trois), pas de retour à une copie depuis le navigateur après validation.
 - Stockage : pas de programmation des snapshots natifs ([issue 4](https://github.com/Tarzzan/nacre/issues/4)) ; opérations privilégiées validées en VM seulement.
@@ -41,6 +42,6 @@ Point d’entrée pour reprendre le développement sans relire tout l’historiq
 
 1. **Programmation des snapshots natifs** avec simulation de rétention (issue 4). Modules natifs figés : campagne en VM et installation accompagnée.
 2. **Vue d’ensemble des événements récents de toutes les caméras** sur la page Surveillance : réutilise la recherche d’alpha.23, lecture seule de Frigate, distribuable par paquet. Utile surtout à partir de deux caméras.
-3. **Réglage du fuseau proposé au premier accès** quand les préférences n’ont jamais été enregistrées : la relecture et les copies affichent sinon des heures UTC. Petit incrément, distribuable par paquet.
+3. **Recherche par tranche horaire** dans la carte Recherche d’événements (par exemple la nuit seulement) : complète alpha.23 sans nouvelle dépendance, distribuable par paquet.
 
 Le premier lève une limite structurante mais demande une installation accompagnée ; les deux autres restent livrables par le navigateur.

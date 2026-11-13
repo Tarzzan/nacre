@@ -16,7 +16,7 @@ def read(app, session):
         authorized(app, db, session)
         state = onboarding.read(app, db)
         rows = db.execute('SELECT u.name,u.role,u.active,count(s.token) AS valid_sessions FROM users u LEFT JOIN sessions s ON s.name=u.name AND s.expires>? AND u.active=1 GROUP BY u.name ORDER BY u.name', (now,)).fetchall()
-    return {'name': state['name'], 'timezone': state['timezone'],
+    return {'name': state['name'], 'timezone': state['timezone'], 'timezone_unset': onboarding.unset(state), 'timezones': onboarding.zones(),
             'revision': state.get('preferences_revision', 0), 'setup_complete': state['phase']=='complete',
             'version': app.release_version(), 'system': platform.system(), 'architecture': platform.machine(),
             'accounts': [{**dict(row), 'current': row['name']==session['name']} for row in rows]}

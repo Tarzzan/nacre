@@ -565,6 +565,120 @@ test('only other valid sessions can be selected for disconnection',()=>{
  assert.match(f.run('controlSessions(sample.accounts)'),/Déconnecter les autres/);
 });
 
+// Fuseau horaire : proposition au premier accès, champ avec liste, et garde d'affichage.
+const zoneNow=Date.UTC(2026,10,13,0,31);
+function zoneFixture(fetch,zone='America/Cayenne'){
+ const f=panelFixture(fetch);vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/timezone.js'),'utf8'),f.context);
+ f.context.zone=zone;f.run('browserZone=()=>zone;user={name:"admin",role:"admin",csrf:"synthetic",timezone:"UTC",nas_name:"Atelier",timezone_unset:true};page="home";shell();');
+ f.elements.set('#zone-prompt',{innerHTML:'x'});f.context.rendered=0;f.run('render=async()=>{rendered++;};');
+ f.click=(action,data={})=>f.listeners.get('click').at(-1)({target:{closest:()=>({dataset:{action,...data}})}});return f;
+}
+test('a console timezone unknown to the browser falls back to UTC instead of breaking every date',()=>{
+ const f=fixture(async()=>response(200,{}));
+ for(const zone of ['localtime','posixrules','Factory','Mars/Olympus','',null,undefined,7,{}])assert.equal(f.run('zoneKnown')(zone),false,String(zone));
+ for(const zone of ['UTC','America/Cayenne','Europe/Paris'])assert.equal(f.run('zoneKnown')(zone),true);
+ f.run('user={name:"admin",role:"admin",timezone:"UTC"};');const expected=[f.run('date(1794182400)'),f.run('clock(1794182400)')];
+ f.run('user.timezone="Mars/Olympus";');assert.equal(f.run('consoleZone()'),'UTC');assert.deepEqual([f.run('date(1794182400)'),f.run('clock(1794182400)')],expected);
+ f.run('shell()');assert.ok(f.elements.has('#content'));
+ f.run('user.timezone="America/Cayenne";');assert.equal(f.run('consoleZone()'),'America/Cayenne');assert.notEqual(f.run('clock(1794182400)'),expected[1]);
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/playback.js'),'utf8'),f.context);
+ f.run('playbackData={timezone:"Mars/Olympus"};');assert.equal(f.run('pbZone()'),'UTC');assert.match(f.run('pbClock(1794182400)'),/^\d\d:\d\d:\d\d$/);
+ f.run('playbackData={timezone:"America/Cayenne"};');assert.equal(f.run('pbZone()'),'America/Cayenne');
+});
+test('timezone prompt appears only for an administrator who never chose, with the browser zone',()=>{
+ const f=zoneFixture(async()=>response(200,{}));f.context.now=zoneNow;
+ const html=f.run('zonePrompt(now)');
+ assert.match(html,/il est 00:31/);assert.match(html,/il est 21:31 chez vous \(America\/Cayenne\)/);
+ assert.match(html,/data-action="zone-use" data-zone="America\/Cayenne"/);assert.match(html,/Utiliser America\/Cayenne/);
+ assert.match(html,/data-action="zone-choose"[^>]*>(<[^>]*>)*Choisir un autre fuseau/);assert.match(html,/data-action="zone-keep"[^>]*>(<[^>]*>)*Garder UTC/);
+ assert.doesNotMatch(html,/style=|role="alert"/);
+ // La coquille réserve l'emplacement et le remplit dès l'ouverture.
+ let shellHtml='';f.elements.set('#app',{set innerHTML(v){shellHtml=v;}});f.run('shell()');
+ assert.match(shellHtml,/<div id="zone-prompt"><section class="notice zone-prompt"[\s\S]*<\/section><\/div><main class="content" id="content">/);
+ for(const change of ['user.role="viewer"','user.timezone_unset=false','user.setup_required=true','user=null']){
+  f.run('user={name:"admin",role:"admin",timezone:"UTC",timezone_unset:true};');assert.notEqual(f.run('zonePrompt(now)'),'');
+  f.run(change);assert.equal(f.run('zonePrompt(now)'),'',change);
+ }
+ f.run('user={name:"admin",role:"admin",timezone:"UTC",timezone_unset:true};');
+ // Navigateur en UTC, fuseau illisible ou nom piégé : aucune suggestion, le choix reste possible.
+ for(const zone of ['UTC','Etc/UTC','GMT','Etc/GMT','Mars/Olympus','"><img src=x onerror=alert(1)>']){
+  f.context.zone=zone;const plain=f.run('zonePrompt(now)');
+  assert.doesNotMatch(plain,/zone-use|<img/,zone);assert.match(plain,/UTC \(00:31\)/);assert.match(plain,/>Choisir un fuseau</);assert.match(plain,/zone-keep/);
+ }
+ // Londres est à l'heure d'UTC en hiver, mais reste une vraie proposition.
+ f.context.zone='Europe/London';assert.match(f.run('zonePrompt(now)'),/data-zone="Europe\/London"/);
+});
+test('accepting the proposal saves it once, redraws the page and removes the prompt',async()=>{
+ const calls=[];let release;const f=zoneFixture((url,options)=>{calls.push([url,options?.body]);return new Promise(resolve=>{release=()=>resolve(response(200,{name:'Atelier',timezone:JSON.parse(options.body).timezone,revision:1}));});});
+ await f.click('zone-use',{zone:'Europe/Paris'});assert.equal(calls.length,0);
+ const first=f.click('zone-use',{zone:'America/Cayenne'}),second=f.click('zone-keep');await second;
+ assert.equal(calls.length,1);release();await first;
+ assert.deepEqual(calls,[['/api/control-panel/configure',JSON.stringify({name:'Atelier',timezone:'America/Cayenne',revision:0})]]);
+ assert.deepEqual([f.run('user.timezone'),f.run('user.timezone_unset'),f.run('rendered'),f.run('page')],['America/Cayenne',false,1,'home']);
+ assert.equal(f.elements.get('#zone-prompt').innerHTML,'');assert.match(f.elements.get('#toast').textContent,/America\/Cayenne/);
+ assert.equal(f.elements.get('#topclock').textContent,f.run('date(Date.now()/1000)'));
+ await f.click('zone-keep');assert.equal(calls.length,1);
+ // « Garder UTC » enregistre aussi le choix.
+ const g=zoneFixture(async(url,options)=>{calls.push([url,options?.body]);return response(200,{name:'Atelier',timezone:'UTC',revision:1});});
+ await g.click('zone-keep');assert.deepEqual(calls.at(-1),['/api/control-panel/configure',JSON.stringify({name:'Atelier',timezone:'UTC',revision:0})]);
+ assert.deepEqual([g.run('user.timezone'),g.run('user.timezone_unset'),g.run('rendered')],['UTC',false,1]);assert.match(g.elements.get('#toast').textContent,/restent affichées en UTC/);
+ // « Choisir un autre fuseau » ouvre le panneau sans rien enregistrer.
+ const h=zoneFixture(async()=>response(200,{}));let focused=0;h.elements.set('#field-timezone',{focus(){focused++;}});
+ await h.click('zone-choose');assert.deepEqual([h.run('page'),h.run('rendered'),focused,h.run('user.timezone_unset')],['settings',1,1,true]);
+});
+test('a zone the server refuses is withdrawn, and a choice made elsewhere is adopted',async()=>{
+ const f=zoneFixture(async()=>response(400,{error:'Fuseau horaire inconnu sur ce système.'}),'Asia/Calcutta');
+ await f.click('zone-use',{zone:'Asia/Calcutta'});
+ const html=f.elements.get('#zone-prompt').innerHTML;
+ assert.match(html,/role="alert">Ce serveur ne connaît pas le fuseau Asia\/Calcutta/);assert.doesNotMatch(html,/zone-use/);assert.match(html,/>Choisir un fuseau</);
+ assert.deepEqual([f.run('user.timezone'),f.run('user.timezone_unset'),f.run('rendered')],['UTC',true,0]);
+ const calls=[],g=zoneFixture(async url=>{calls.push(url);return url.endsWith('/me')?response(200,{name:'admin',role:'admin',timezone:'Europe/Paris',nas_name:'Maison',timezone_unset:false}):response(409,{error:'Les préférences ont changé dans une autre session.'});});
+ await g.click('zone-use',{zone:'America/Cayenne'});
+ assert.deepEqual(calls,['/api/control-panel/configure','/api/me']);
+ assert.deepEqual([g.run('user.timezone'),g.run('user.nas_name'),g.run('user.timezone_unset'),g.run('user.csrf'),g.run('rendered')],['Europe/Paris','Maison',false,'synthetic',1]);
+ assert.equal(g.elements.get('#zone-prompt').innerHTML,'');
+ // Panne du serveur : le message est montré, la proposition reste.
+ const h=zoneFixture(async()=>response(500,{error:'Base indisponible.'}));await h.click('zone-use',{zone:'America/Cayenne'});
+ assert.match(h.elements.get('#zone-prompt').innerHTML,/Base indisponible\./);assert.match(h.elements.get('#zone-prompt').innerHTML,/zone-use/);assert.equal(h.run('rendered'),0);
+});
+test('late or expired answers to the timezone prompt never touch another session',async()=>{
+ let complete;const f=zoneFixture(()=>new Promise(resolve=>{complete=resolve;}));
+ const pending=f.click('zone-use',{zone:'America/Cayenne'});f.run('login();');complete(response(200,{name:'Atelier',timezone:'America/Cayenne',revision:1}));await pending;
+ assert.equal(f.run('user'),null);assert.equal(f.run('rendered'),0);assert.equal(f.run('zoneBusy'),false);
+ const g=zoneFixture(async()=>response(401,{error:'Session expirée.'}));await g.click('zone-keep');
+ assert.equal(g.run('user'),null);assert.equal(g.elements.get('#login-error').textContent,'Session expirée.');assert.equal(g.run('rendered'),0);
+});
+test('timezone field lists displayable names, previews the hour and refuses an unknown name before any request',async()=>{
+ const calls=[],f=zoneFixture(async(url,options)=>{calls.push(url);return response(200,url.endsWith('/control-panel')?{...panelSample,timezone_unset:true,timezones:['UTC','America/Cayenne','Mars/Olympus','<b>x</b>',7,'Europe/Paris']}:{name:'Mon NAS',timezone:'America/Cayenne',revision:1});});
+ f.run('page="settings";');await f.run('renderControlPanel()');const html=f.elements.get('#content').innerHTML;
+ assert.match(html,/<input id="field-timezone" name="timezone" type="text" value="UTC" list="zone-list"/);
+ assert.match(html,/<datalist id="zone-list"><option value="UTC"><\/option><option value="America\/Cayenne"><\/option><option value="Europe\/Paris"><\/option><\/datalist>/);
+ assert.match(html,/id="zone-preview" aria-live="polite">Dans ce fuseau, il est \d\d:\d\d \(UTC\+0\)\./);assert.doesNotMatch(html,/<b>x|Olympus|style=/);
+ f.context.now=zoneNow;assert.equal(f.run('zonePreview(" America/Cayenne ",now)'),'Dans ce fuseau, il est 21:31 (UTC−3).');
+ assert.equal(f.run('zonePreview("Europe/Paris",now)'),'Dans ce fuseau, il est 01:31 (UTC+1).');
+ assert.match(f.run('zonePreview("Cayenne",now)'),/^Choisissez un nom de la liste/);assert.equal(f.run('zonePreview("",now)'),'');
+ const preview={textContent:''};f.elements.set('#zone-preview',preview);const input=f.listeners.get('input').at(-1);
+ input({target:{id:'field-timezone',value:'Europe/Paris',closest:()=>null}});assert.equal(preview.textContent,'');
+ input({target:{id:'field-other',value:'Europe/Paris',closest:()=>({})}});assert.equal(preview.textContent,'');
+ input({target:{id:'field-timezone',value:'Europe/Paris',closest:()=>({})}});assert.match(preview.textContent,/^Dans ce fuseau, il est \d\d:\d\d \(UTC\+[12]\)\.$/);
+ // Enregistrement depuis le panneau : nom illisible arrêté avant l'envoi, nom valide envoyé sans espaces et proposition retirée.
+ const {values}=panelForm(f);values.timezone='localtime';const before=calls.length;await f.run('saveControlPreferences(form)');
+ assert.equal(calls.length,before);assert.match(f.elements.get('#control-error').textContent,/Ce navigateur ne connaît pas ce fuseau/);assert.equal(f.run('user.timezone_unset'),true);
+ values.timezone=' America/Cayenne ';f.elements.set('#zone-prompt',{innerHTML:'x'});await f.run('saveControlPreferences(form)');
+ assert.equal(calls.at(-1),'/api/control-panel/configure');assert.deepEqual([f.run('user.timezone'),f.run('user.timezone_unset')],['America/Cayenne',false]);assert.equal(f.elements.get('#zone-prompt').innerHTML,'');
+});
+test('setup assistant offers the same timezone list and stops an unknown name before any request',async()=>{
+ const calls=[],f=zoneFixture(async url=>{calls.push(url);return response(200,{});},'Europe/Paris');
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/onboarding.js'),'utf8'),f.context);
+ f.run('page="setup";setupStep=2;setupState={phase:"system",name:"Nacre",timezone:"UTC",existing:false,timezones:["UTC","Europe/Paris","Mars/Olympus"]};drawSetup();');
+ const html=f.elements.get('#content').innerHTML;
+ assert.match(html,/id="field-timezone" name="timezone" type="text" value="Europe\/Paris" list="zone-list"/);assert.match(html,/<option value="Europe\/Paris"><\/option><\/datalist>/);assert.doesNotMatch(html,/Olympus/);
+ const error={textContent:''};f.elements.set('#setup-error',error);const submit={disabled:false};
+ const form={getAttribute:()=> 'setup-finish',values:{name:'Maison',timezone:'Factory'},querySelector:()=>submit};
+ await f.listeners.get('submit').at(-1)({target:form,preventDefault(){}});
+ assert.deepEqual(calls,[]);assert.match(error.textContent,/Ce navigateur ne connaît pas ce fuseau/);assert.equal(submit.disabled,false);
+});
+
 function updateFixture(fetch){
  const f=fixture(fetch);vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/updates.js'),'utf8'),f.context);
  f.run('user={name:"admin",role:"admin",csrf:"synthetic"};page="updates";shell();');return f;

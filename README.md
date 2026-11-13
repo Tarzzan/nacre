@@ -25,7 +25,7 @@ Importez un paquet signé depuis **Panneau de configuration → Mises à jour Na
 
 ### Administrer le NAS depuis un panneau commun
 
-Le **Panneau de configuration** rassemble les accès au stockage, aux partages, aux sauvegardes et aux services. Il permet de régler le nom et le fuseau de la console, puis de déconnecter les sessions d’un compte en conservant sa session d’administration. [Guide et limites](docs/CONTROL-PANEL.md).
+Le **Panneau de configuration** rassemble les accès au stockage, aux partages, aux sauvegardes et aux services. Il permet de régler le nom et le fuseau de la console, proposé dès le premier accès tant qu’il n’a jamais été choisi, puis de déconnecter les sessions d’un compte en conservant sa session d’administration. [Guide et limites](docs/CONTROL-PANEL.md).
 
 ![Panneau de configuration sur le banc isolé](docs/images/control-panel.jpg)
 

@@ -79,6 +79,65 @@ class ControlPanelTests(unittest.TestCase):
         self.assertEqual(self.post('/api/control-panel/configure',{**body,'revision':1})[0],409)
         self.assertEqual(self.get()['revision'],2)
 
+    def me(self,token=None):
+        code,raw=self.request('GET','/api/me',token=token or self.token)
+        self.assertEqual(code,200,raw);return json.loads(raw)
+
+    def test_timezone_is_proposed_to_administrators_until_a_first_choice_is_saved(self):
+        # Assistant en cours : il demandera le fuseau lui-même.
+        self.assertIs(self.me()['timezone_unset'],False)
+        with app.database() as db:
+            db.execute("INSERT INTO users(name,salt,hash,role) VALUES('reader','00','unused','viewer')")
+            # Installation antérieure à l'assistant : aucune préférence enregistrée.
+            db.execute("DELETE FROM settings WHERE key='onboarding'")
+        reader,_=app.make_session('reader')
+        self.assertIs(self.me()['timezone_unset'],True)
+        self.assertIs(self.me(reader)['timezone_unset'],False)
+        value=self.get()
+        self.assertEqual((value['timezone'],value['timezone_unset'],value['revision']),('UTC',True,0))
+        with app.database() as db:
+            self.assertIsNone(db.execute("SELECT 1 FROM settings WHERE key='onboarding'").fetchone())
+        # « Garder UTC » est un choix : il est enregistré et la question ne revient pas.
+        code,raw=self.post('/api/control-panel/configure',{'name':'Nacre','timezone':'UTC','revision':0})
+        self.assertEqual(code,200,raw)
+        self.assertEqual((self.me()['timezone_unset'],self.me()['timezone'],self.get()['timezone_unset']),(False,'UTC',False))
+        with app.database() as db:
+            self.assertEqual(tuple(db.execute('SELECT username,action,detail FROM audit ORDER BY id DESC LIMIT 1').fetchone()),('admin','Préférences du NAS modifiées','Nacre · UTC'))
+        # Un second onglet resté sur la proposition ne remplace pas ce choix.
+        self.assertEqual(self.post('/api/control-panel/configure',{'name':'Nacre','timezone':'America/Cayenne','revision':0})[0],409)
+        self.assertEqual(self.me()['timezone'],'UTC')
+        for state,expected in [({'phase':'complete','name':'Atelier','timezone':'UTC','existing':True},True),
+                               ({'phase':'complete','name':'Atelier','timezone':'Europe/Paris','existing':True},False),
+                               ({'phase':'complete','name':'Atelier','timezone':'UTC','preferences_revision':1},False),
+                               ({'phase':'system','name':'Atelier','timezone':'UTC','existing':False},False)]:
+            with app.database() as db:onboarding.write(db,state)
+            self.assertIs(self.me()['timezone_unset'],expected,state)
+        self.assertEqual(self.post('/api/setup/finish',{'name':'Atelier','timezone':'UTC'})[0],200)
+        self.assertIs(self.me()['timezone_unset'],False)
+
+    def test_offered_timezones_are_geographic_and_technical_names_are_refused(self):
+        self.ready();zones=self.get()['timezones']
+        self.assertEqual(zones[0],'UTC');self.assertEqual(zones[1:],sorted(zones[1:]));self.assertEqual(len(zones),len(set(zones)))
+        for name in ('America/Cayenne','Europe/Paris','America/Argentina/Buenos_Aires'):self.assertIn(name,zones)
+        for name in zones[1:]:
+            self.assertIn('/',name);self.assertFalse(name.startswith(('Etc/','posix/','right/','SystemV/')),name)
+        code,raw=self.request('GET','/api/setup',token=self.token)
+        self.assertEqual(json.loads(raw)['timezones'],zones)
+        before=onboarding.read(app)
+        for name in ('localtime','posixrules','Factory','posix/Europe/Paris','right/Europe/Paris','SystemV/AST4',' UTC','UTC\n',''):
+            for route,body in (('/api/control-panel/configure',{'name':'Atelier','timezone':name,'revision':0}),('/api/setup/finish',{'name':'Atelier','timezone':name})):
+                code,raw=self.post(route,body)
+                self.assertEqual((code,json.loads(raw)['error']),(400,'Fuseau horaire inconnu sur ce système.'),name)
+        self.assertEqual(onboarding.read(app),before)
+        # Un nom que le serveur propose est accepté tel quel.
+        self.assertEqual(self.post('/api/control-panel/configure',{'name':'Atelier','timezone':zones[-1],'revision':0})[0],200)
+
+    def test_timezone_script_is_served_with_the_console(self):
+        code,raw=self.request('GET','/timezone.js')
+        self.assertEqual(code,200);self.assertIn('zonePrompt',raw if isinstance(raw,str) else raw.decode())
+        code,raw=self.request('GET','/')
+        self.assertIn('/timezone.js',raw if isinstance(raw,str) else raw.decode())
+
     def test_revocation_targets_one_account_and_preserves_current_session(self):
         self.ready();other,_=app.make_session('admin')
         with app.database() as db:
