@@ -1657,6 +1657,39 @@ test('a name search says when it stopped early, drops a late or refused answer a
  // Naviguer dans l'arborescence quitte la recherche.
  f.run('fmFilter="été";');await f.run('fmFind("all")');assert.notEqual(f.run('fmFound'),null);await f.run('fmGo("video","")');assert.deepEqual([f.run('fmFound'),f.run('fmFilter')],[null,'']);
 });
+test('search results can be narrowed by kind, date and size without changing the name or the scope',async()=>{
+ const f=findFixture();await f.run('renderFiles()');f.mount();f.run('currentPath="Docs & co";');f.type('été');
+ const pick=(key,value,id='fm-ref-'+key)=>f.listeners.get('change').at(-2)({target:{dataset:{refine:key},value,id}});
+ const filters=()=>JSON.parse(JSON.stringify(f.run('fmFound&&fmFound.filters')));
+ await f.at('[data-action]',{action:'fm-find',scope:'here'});
+ // Trois listes sous le titre, aucune active, pas de bouton de retrait.
+ assert.match(f.list(),/class="fm-find fm-refine" role="group" aria-label="Affiner les résultats"><label for="fm-ref-kind">Type<\/label><select id="fm-ref-kind" data-refine="kind">/);
+ assert.match(f.list(),/<option value="" selected>Tous les types<\/option><option value="folder">Dossiers<\/option>/);assert.match(f.list(),/id="fm-ref-days" data-refine="days">.*Depuis 7 jours/);assert.match(f.list(),/id="fm-ref-min_size" data-refine="min_size">.*Plus de 1 Gio/);
+ assert.doesNotMatch(f.list(),/fm-refine-clear|style=/);assert.deepEqual(filters(),{});
+ // Un choix relance la même recherche avec le filtre ; le suivant s'ajoute ; nom et portée ne bougent pas.
+ const focused=[];f.elements.set('#fm-ref-kind',{focus(){focused.push('kind');}});
+ await pick('kind','image');
+ assert.equal(f.searches().at(-1),'/api/files/search?q=%C3%A9t%C3%A9&area=fichiers&path=Docs%20%26%20co&kind=image');assert.deepEqual(filters(),{kind:'image'});assert.deepEqual(focused,['kind']);
+ assert.match(f.list(),/<option value="image" selected>Images<\/option>/);assert.match(f.list(),/data-action="fm-refine-clear"/);assert.match(f.list(),/pour « été » dans « Docs &amp; co » et ses sous-dossiers/);
+ await pick('days','7');await pick('min_size','1048576');
+ assert.equal(f.searches().at(-1),'/api/files/search?q=%C3%A9t%C3%A9&area=fichiers&path=Docs%20%26%20co&kind=image&days=7&min_size=1048576');
+ // Revenir au choix vide retire ce filtre seul ; une valeur qui n'est pas proposée ou une clé inconnue ne lance rien.
+ await pick('days','');assert.match(f.searches().at(-1),/&kind=image&min_size=1048576$/);
+ const count=f.searches().length;await pick('kind','exe');await pick('days','8');await pick('autre','1');f.listeners.get('change').at(-2)({target:{id:'fm-upload',files:[]}});assert.equal(f.searches().length,count);
+ // Aucun résultat avec des filtres : le message le dit ; plafond atteint : les filtres sont suggérés.
+ f.state.answer={items:[],partial:null,visited:9,skipped:[],limit:200};await pick('kind','archive');assert.match(f.list(),/Aucun résultat avec ces filtres\./);
+ f.state.answer={items:fmHits.slice(0,1),partial:'results',visited:9,skipped:[],limit:200};await pick('kind','');assert.match(f.list(),/précisez le nom, ou affinez par type, date ou taille\./);
+ // Pendant la recherche, les listes sont inactives et un autre choix est ignoré.
+ let release;f.state.hold=new Promise(resolve=>{release=resolve;});const slow=pick('kind','video');
+ assert.match(f.list(),/data-refine="kind" disabled>/);assert.doesNotMatch(f.list(),/fm-refine-clear/);const during=f.searches().length;await pick('days','30');assert.equal(f.searches().length,during);
+ release();await slow;f.state.hold=null;assert.deepEqual(filters(),{kind:'video',min_size:'1048576'});
+ // Un affinage refusé laisse les résultats précédents ; retirer les filtres relance sans aucun.
+ f.state.status=429;await pick('kind','audio');assert.deepEqual(filters(),{kind:'video',min_size:'1048576'});assert.match(f.elements.get('#toast').textContent,/Deux recherches/);assert.match(f.list(),/fm-hit/);
+ f.state.status=0;await f.at('[data-action]',{action:'fm-refine-clear'});assert.equal(f.searches().at(-1),'/api/files/search?q=%C3%A9t%C3%A9&area=fichiers&path=Docs%20%26%20co');assert.deepEqual(filters(),{});
+ // Une nouvelle recherche repart sans filtre ; hors recherche, un choix ne fait rien.
+ await pick('kind','image');f.type('ét');assert.equal(f.run('fmFound'),null);const idle=f.searches().length;await pick('kind','video');assert.equal(f.searches().length,idle);
+ f.type('été');await f.at('[data-action]',{action:'fm-find',scope:'all'});assert.equal(f.searches().at(-1),'/api/files/search?q=%C3%A9t%C3%A9');assert.deepEqual(filters(),{});
+});
 test('global search offers to look a name up in the files from two characters, and hands it to the Files application',async()=>{
  const f=paletteFixture();f.key('k',{ctrlKey:true});await new Promise(resolve=>setImmediate(resolve));
  // Sans le gestionnaire de fichiers chargé, rien n'est proposé.

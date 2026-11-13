@@ -203,6 +203,22 @@ Depuis la version 0.8.0-alpha.33, le champ en haut de Fichiers sert à deux chos
 
 Chaque résultat donne son emplacement. Un clic le sélectionne : l’aperçu, le téléchargement et **Afficher dans son dossier** sont dans le panneau de droite ; un double-clic ouvre le dossier trouvé, ou le dossier qui contient le fichier, celui-ci sélectionné. Renommer, déplacer et mettre en corbeille se font là, pas dans la liste des résultats. Retoucher le champ, **Fermer la recherche**, Échap ou un clic dans l’arborescence ramènent au dossier.
 
+#### Affiner les résultats
+
+Depuis la version 0.8.0-alpha.36, trois listes suivent le titre des résultats. Un choix relance la même recherche, avec le même nom et la même portée.
+
+| Liste | Choix | Ce qui est gardé |
+| --- | --- | --- |
+| **Type** | Dossiers, Images, Vidéos, Sons, Documents, Archives | Les éléments de cette famille, reconnue à l’extension du nom. |
+| **Modifié** | Depuis 24 heures, 7 jours, 30 jours, un an | Les éléments modifiés depuis ce délai. |
+| **Taille** | Plus de 1 Mio, 100 Mio, 1 Gio | Les fichiers au moins aussi gros ; jamais un dossier. |
+
+Les filtres se combinent ; **Retirer les filtres** les enlève tous, et une nouvelle recherche repart sans filtre. Quand un nom très courant atteint le plafond de 200 résultats, un filtre permet de voir le reste.
+
+- **Le type vient de l’extension**, pas du contenu : un fichier renommé change de famille. Un lien symbolique n’appartient à aucune famille.
+- **La date d’un dossier est la sienne** : un dossier ancien est écarté par « Modifié », mais son contenu reste parcouru.
+- **Il faut toujours un nom** : les filtres resserrent une recherche, ils ne la remplacent pas. Chercher « tous les gros fichiers » sans nom n’est pas possible.
+
 Ce qu’il faut savoir :
 
 - **Le nom seulement**, jamais le contenu. Accents et majuscules ne comptent pas ; chaque mot saisi doit figurer dans le nom, dans n’importe quel ordre. « .pdf » trouve les PDF.
@@ -212,7 +228,7 @@ Ce qu’il faut savoir :
 - **Liens symboliques jamais suivis, fichiers cachés ignorés** : un lien peut être nommé parmi les résultats, ce qu’il désigne n’est pas parcouru.
 - **Un espace indisponible** n’empêche pas la recherche ; il est signalé au-dessus des résultats.
 
-Limites de cette étape : pas de recherche dans le contenu, pas de filtre par date, taille ou type, pas de copie, pas de liens de partage, pas d’envoi de dossiers entiers par glisser-déposer, pas d’avance rapide dans l’aperçu vidéo. L’arborescence montre les dossiers déjà ouverts, pas tout le disque d’avance.
+Limites de cette étape : pas de recherche dans le contenu, pas de recherche par filtres seuls sans nom, pas de dates ni de tailles libres, pas de copie, pas de liens de partage, pas d’envoi de dossiers entiers par glisser-déposer, pas d’avance rapide dans l’aperçu vidéo. L’arborescence montre les dossiers déjà ouverts, pas tout le disque d’avance.
 
 ## Revenir à l’affichage classique
 
@@ -234,6 +250,8 @@ Recherche globale (alpha.28), quatre essais JavaScript : index limité aux pages
 Événements par période et tranche horaire (alpha.35), un essai JavaScript : aucune période envoyée par défaut, formulaire prérempli par la réponse, total additionné sur les caméras lues ; période à l’envers, tranche incomplète ou identique refusées sans requête ; période et tranche envoyées à chaque caméra et reprises dans le résumé ; refus du serveur expliqué une fois sans accuser les caméras ; retour aux sept derniers jours. Sur le banc à deux caméras simulées : 50 événements par défaut, 7 entre 22:00 et 06:00, refus d’une tranche à moitié remplie et d’une date trop ancienne.
 
 Surveillance (alpha.29), cinq essais JavaScript : mur en images fixes sans aucun direct, noms échappés, page classique conservée ; caméra agrandie seule à recevoir le direct, caméras inconnues et réponses tardives sans effet ; événements fusionnés du plus récent au plus ancien, caméra en échec nommée, filtres sans nouvelle requête, ouverture de la relecture au bon événement ; une ligne de frise par caméra et lecture à l’heure cliquée ; réglages sans boutons pour la lecture seule. Sur le banc à deux caméras simulées : mur, agrandissement avec direct et pilotage, 48 événements synthétiques filtrés, ouverture d’un événement dans la relecture avec lecture de l’extrait, clic sur la ligne de l’autre caméra, onglet Réglages.
+
+Filtres de la recherche de fichiers (alpha.36). Un essai Python sur espace temporaire : famille de type d’après l’extension, dossiers à part, liens dans aucune famille ; modification récente, dossier ancien écarté mais parcouru ; taille minimale sans dossier ni lien ; filtres combinés entre eux et avec la portée ; douze demandes mal formées refusées. Un essai JavaScript : trois listes sous le titre, choix ajoutés à la même recherche, valeur non proposée ignorée, listes inactives pendant la recherche, affinage refusé sans perdre les résultats, retrait des filtres, nouvelle recherche sans filtre. Sur le banc, avec le vrai serveur : « mire » donne 3 résultats, 2 images et 1 vidéo ; « 2026 » donne 1 dossier, 1 document, aucun fichier de plus de 1 Mio.
 
 Recherche de fichiers (alpha.33). Trois essais Python sur espace temporaire : noms trouvés sans accents ni casse dans tous les espaces du compte, ordre des résultats, liens nommés jamais suivis, fichiers cachés et restaurations hors du parcours ; portée par espace et par dossier, restaurations et volumes refusés au lecteur, chemins sortants et saisies trop courtes refusés ; arrêt annoncé à chaque borne, troisième recherche simultanée refusée, espace indisponible signalé. Trois essais JavaScript : filtre local sans requête, recherche à la demande ici ou partout, résultats mal formés ou hors des espaces du compte écartés, aperçu et téléchargement depuis l’emplacement du résultat, ouverture du dossier avec l’élément sélectionné ; arrêt anticipé annoncé, réponse tardive ou refusée sans effet ; entrée de la recherche globale. Sur le banc, avec le vrai serveur : « mire » dans tout le NAS, aperçu d’un résultat, affichage dans son dossier, « contrat » depuis Ctrl+K, « 2026 » dans les sous-dossiers de Documents, refus d’une saisie d’un caractère et d’un chemin sortant.
 

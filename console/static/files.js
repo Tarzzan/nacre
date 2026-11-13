@@ -52,18 +52,26 @@ function fmAsk(){
  if(!fmFindable())return '';
  return `<div class="fm-find"><span>Filtre sur ce dossier. Chercher ce nom ailleurs :</span><span class="fm-grow"></span>${button('fm-find',currentPath?'Dans ses sous-dossiers':'Dans cet espace',null,'small','data-scope="here"')}${button('fm-find','Dans tout le NAS',null,'primary small','data-scope="all"')}</div>`;
 }
+// Filtres des résultats : [paramètre de la recherche, libellé, choix]. Le choix vide ne filtre pas.
+const FM_REFINE=[['kind','Type',[['','Tous les types'],['folder','Dossiers'],['image','Images'],['video','Vidéos'],['audio','Sons'],['document','Documents'],['archive','Archives']]],
+ ['days','Modifié',[['','À toute date'],['1','Depuis 24 heures'],['7','Depuis 7 jours'],['30','Depuis 30 jours'],['365','Depuis un an']]],
+ ['min_size','Taille',[['','Toute taille'],['1048576','Plus de 1 Mio'],['104857600','Plus de 100 Mio'],['1073741824','Plus de 1 Gio']]]];
+function fmRefined(filters){return FM_REFINE.some(([key])=>filters?.[key]);}
+function fmRefineRow(filters,busy){
+ return `<div class="fm-find fm-refine" role="group" aria-label="Affiner les résultats">${FM_REFINE.map(([key,label,choices])=>`<label for="fm-ref-${key}">${label}</label><select id="fm-ref-${key}" data-refine="${key}"${busy?' disabled':''}>${choices.map(([value,text])=>`<option value="${value}"${(filters?.[key]||'')===value?' selected':''}>${text}</option>`).join('')}</select>`).join('')}<span class="fm-grow"></span>${fmRefined(filters)&&!busy?button('fm-refine-clear','Retirer les filtres',null,'small'):''}</div>`;
+}
 function fmFoundList(){
- const {query,where,items,partial,visited,skipped,limit}=fmFound;
+ const {query,where,items,partial,visited,skipped,limit,filters}=fmFound;
  const place=where?(where.path?`dans « ${where.path.split('/').pop()} » et ses sous-dossiers`:`dans ${fmAreaName(where.area)}`):'dans tout le NAS';
  const head=text=>`<div class="fm-find"><span>${text}</span><span class="fm-grow"></span>${button('fm-find-close','Fermer la recherche',null,'small')}</div>`;
- if(!items)return head(`Recherche de « ${esc(query)} » ${esc(place)}…`)+'<p class="fm-hint">Recherche en cours…</p>';
+ if(!items)return head(`Recherche de « ${esc(query)} » ${esc(place)}…`)+fmRefineRow(filters,true)+'<p class="fm-hint">Recherche en cours…</p>';
  const notes=[];
- if(partial==='results')notes.push(`Seuls les ${limit} premiers résultats sont affichés : précisez le nom.`);
+ if(partial==='results')notes.push(`Seuls les ${limit} premiers résultats sont affichés : précisez le nom, ou affinez par type, date ou taille.`);
  else if(partial)notes.push(`Recherche arrêtée après ${visited.toLocaleString('fr-FR')} éléments parcourus : tout n’a pas été vu. Cherchez depuis un dossier pour aller plus loin.`);
  if(skipped.length)notes.push(`Espace indisponible, non parcouru : ${skipped.map(fmAreaName).join(', ')}.`);
  const note=notes.map(text=>`<p class="fm-note">${esc(text)}</p>`).join('');
- const title=head(`<strong>${items.length} résultat${items.length>1?'s':''}</strong> pour « ${esc(query)} » ${esc(place)}`);
- if(!items.length)return title+note+empty(where?'Aucun nom ne correspond ici. Essayez dans tout le NAS.':'Aucun fichier ni dossier ne porte ce nom. Les restaurations ne sont parcourues que depuis leur espace.','folder');
+ const title=head(`<strong>${items.length} résultat${items.length>1?'s':''}</strong> pour « ${esc(query)} » ${esc(place)}`)+fmRefineRow(filters,false);
+ if(!items.length)return title+note+empty(fmRefined(filters)?'Aucun résultat avec ces filtres.':where?'Aucun nom ne correspond ici. Essayez dans tout le NAS.':'Aucun fichier ni dossier ne porte ce nom. Les restaurations ne sont parcourues que depuis leur espace.','folder');
  return title+note+`<table class="fm-table fm-hits"><thead><tr><th>Nom</th><th>Emplacement</th><th>Taille</th><th>Modifié</th></tr></thead><tbody>${items.map((item,index)=>`<tr class="fm-hit ${index===fmHit?'sel':''}" data-hit="${index}"><td>${fmIcon(item)}${esc(item.name)}</td><td>${esc(fmAreaName(item.area)+(item.path?' › '+item.path.split('/').join(' › '):''))}</td><td>${item.directory?'—':sizes(item.size)}</td><td>${date(item.modified)}</td></tr>`).join('')}</tbody></table>`;
 }
 function fmList(){
@@ -133,19 +141,24 @@ async function renderFileManager(){
 }
 function fmQueue(text){fmPending=String(text||'').trim().slice(0,80);}
 // Recherche par nom, lancée à la demande : dans le dossier ouvert et ses sous-dossiers (« here ») ou dans tous les espaces.
-async function fmFind(scope){
- const text=fmFilter.trim();
- if(!fmFindable())return toast('Saisissez au moins deux caractères du nom recherché.',true);
- const generation=sessionGeneration,request=++fmFindRequest,where=scope==='here'?{area,path:currentPath}:null;
+// Avec « refine », la même recherche est relancée avec d’autres filtres : nom et portée ne changent pas.
+async function fmFind(scope,refine=null){
+ const before=refine?fmFound:null;
+ if(refine?!before?.items:!fmFindable())return refine?undefined:toast('Saisissez au moins deux caractères du nom recherché.',true);
+ const text=before?before.query:fmFilter.trim(),where=before?before.where:scope==='here'?{area,path:currentPath}:null;
+ // Seuls les filtres réellement choisis sont gardés.
+ const filters=Object.fromEntries(FM_REFINE.map(([key])=>[key,String(refine?.[key]||'')]).filter(([,value])=>value));
+ const generation=sessionGeneration,request=++fmFindRequest;
  const current=()=>generation===sessionGeneration&&request===fmFindRequest&&page==='files'&&!!fmFound;
- fmSel.clear();fmHit=-1;fmFound={query:text,where,items:null};fmRedraw();
+ fmSel.clear();fmHit=-1;fmFound={query:text,where,filters,items:null};fmRedraw();
  let data;
- try{data=await api('files/search?q='+encodeURIComponent(text)+(where?`&area=${encodeURIComponent(where.area)}&path=${encodeURIComponent(where.path)}`:''));}
- catch(error){if(current()){fmFound=null;fmRedraw();}throw error;}
+ try{data=await api('files/search?q='+encodeURIComponent(text)+(where?`&area=${encodeURIComponent(where.area)}&path=${encodeURIComponent(where.path)}`:'')+FM_REFINE.map(([key])=>filters[key]?`&${key}=${encodeURIComponent(filters[key])}`:'').join(''));}
+ // Une recherche refusée ramène au dossier ; un affinage refusé laisse les résultats précédents.
+ catch(error){if(current()){fmFound=before;fmRedraw();}throw error;}
  if(!current())return;
  // Ne sont gardés que les résultats bien formés, dans un espace que ce compte voit.
  const items=(Array.isArray(data?.items)?data.items:[]).filter(i=>i&&typeof i.name==='string'&&i.name&&typeof i.path==='string'&&fileAreas.some(a=>a.id===i.area));
- fmFound={query:text,where,items,partial:typeof data?.partial==='string'?data.partial:'',visited:Number(data?.visited)||0,skipped:(Array.isArray(data?.skipped)?data.skipped:[]).filter(x=>typeof x==='string'),limit:Number(data?.limit)||items.length};
+ fmFound={query:text,where,filters,items,partial:typeof data?.partial==='string'?data.partial:'',visited:Number(data?.visited)||0,skipped:(Array.isArray(data?.skipped)?data.skipped:[]).filter(x=>typeof x==='string'),limit:Number(data?.limit)||items.length};
  fmRedraw();
 }
 function fmFindClose(){fmFindRequest++;fmFound=null;fmHit=-1;fmRedraw();}
@@ -214,6 +227,7 @@ document.addEventListener('click',async e=>{
    if(action==='fm-move')return fmAskMove();
    if(action==='fm-find')return await fmFind(el.dataset.scope==='here'?'here':'all');
    if(action==='fm-find-close')return fmFindClose();
+   if(action==='fm-refine-clear')return await fmFind('',{});
    if(action==='fm-reveal')return await fmReveal(fmFound?.items?.[fmHit],el.dataset.inside==='1');
    return;
   }
@@ -236,6 +250,13 @@ document.addEventListener('dblclick',e=>{
 });
 // Retoucher le champ quitte les résultats : on revient au dossier, filtré par la saisie.
 document.addEventListener('input',e=>{if(e.target?.id==='fm-filter'&&page==='files'){fmFilter=e.target.value;fmSel.clear();if(fmFound){fmFindRequest++;fmFound=null;fmHit=-1;}fmRedraw();}});
+// Un filtre choisi relance la même recherche ; le choix doit être l’un de ceux proposés.
+document.addEventListener('change',e=>{
+ const key=e.target?.dataset?.refine;if(!key||page!=='files'||!fmFound?.items)return;
+ const value=String(e.target.value||''),id=e.target.id;
+ if(!FM_REFINE.find(r=>r[0]===key)?.[2].some(choice=>choice[0]===value))return;
+ return fmFind('',{...fmFound.filters,[key]:value}).then(()=>$('#'+id)?.focus?.()).catch(error=>{if(error.name!=='AbortError')toast(error.message,true);});
+});
 document.addEventListener('change',e=>{if(e.target?.id==='fm-upload'){const files=[...(e.target.files||[])];e.target.value='';fmSend(files).catch(error=>toast(error.message,true));}});
 document.addEventListener('keydown',e=>{
  if(page!=='files'||!$('#fm')||$('#modal')?.open)return;

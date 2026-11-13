@@ -78,6 +78,37 @@ class FileSearchTests(unittest.TestCase):
         status, _, _ = self.call('GET', '/api/files/search?q=ete', token='inconnu')
         self.assertEqual(status, 401)
 
+    def test_filters_narrow_by_kind_recency_and_size_after_the_name(self):
+        import os, time
+        self.tree()
+        (self.files / 'Photos/été-gros.bin').write_bytes(b'x' * 3000)
+        old = time.time() - 40 * 86400
+        for path in ('été.md', 'Photos/Été 2026'):
+            os.utime(self.files / path, (old, old))
+        names = lambda **scope: [name for _, _, name in self.found('été', **scope)]
+        # Famille de type d'après l'extension, sans casse ; un lien n'appartient à aucune famille, un dossier à la sienne seulement.
+        self.assertEqual(names(kind='image'), ['plage été.jpg'])
+        self.assertEqual(names(kind='video'), ['été au jardin.mp4'])
+        self.assertEqual(names(kind='document'), ['été.md', 'ete-notes.txt', 'facture ÉTÉ.pdf'])
+        self.assertEqual(names(kind='folder'), ['Été 2026'])
+        self.assertEqual(names(kind='archive'), [])
+        # Modification récente : l'ancien fichier et l'ancien dossier sortent, mais le contenu du dossier reste parcouru.
+        self.assertEqual(sorted(names(days='30')), sorted(['ete-notes.txt', 'été-gros.bin', 'été au jardin.mp4', 'lien été', 'facture ÉTÉ.pdf', 'plage été.jpg']))
+        self.assertEqual(len(names(days='60')), 8)
+        # Taille minimale : des fichiers seulement, jamais un dossier ni un lien.
+        self.assertEqual(names(min_size='2048'), ['été-gros.bin'])
+        self.assertEqual(names(min_size='3001'), [])
+        # Les filtres se combinent, avec la portée.
+        self.assertEqual(names(kind='document', days='30'), ['ete-notes.txt', 'facture ÉTÉ.pdf'])
+        self.assertEqual(names(kind='document', days='30', area='fichiers', path='Photos'), ['ete-notes.txt'])
+        status, value = self.find('été', kind='image', days='7', min_size='1')
+        self.assertEqual((status, value['filters']), (200, {'kind': 'image', 'days': 7, 'min_size': 1}))
+        self.assertEqual(self.find('été')[1]['filters'], {'kind': None, 'days': None, 'min_size': None})
+        self.assertEqual(self.find('été', kind='', days='', min_size='')[1]['filters'], {'kind': None, 'days': None, 'min_size': None})
+        for query in ({'kind': 'exe'}, {'kind': 'Image'}, {'kind': 'image,video'}, {'days': '0'}, {'days': '-1'}, {'days': 'abc'}, {'days': '1.5'}, {'days': '36501'},
+                      {'days': '٣'}, {'min_size': '0'}, {'min_size': '1e3'}, {'min_size': str((1 << 50) + 1)}):
+            self.assertEqual(self.find('été', **query)[0], 400, query)
+
     def test_search_stops_at_its_bounds_and_says_so(self):
         import file_search
         self.tree()
