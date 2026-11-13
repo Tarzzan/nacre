@@ -112,6 +112,37 @@ Ce qu’il faut savoir :
 
 Limites de cette étape : pas de lecture synchronisée de plusieurs caméras, pas de zones, masques ni seuils de détection, pas de disposition du mur au choix. Une seule caméra réelle a été observée par le projet : le mur et la frise commune n’ont été éprouvés à plusieurs caméras que sur le banc.
 
+## Fichiers
+
+Depuis la version 0.8.0-alpha.30, l’application Fichiers du bureau est un gestionnaire à trois colonnes.
+
+![Gestionnaire de fichiers sur le banc de démonstration](images/file-manager.jpg)
+
+*Banc local : fichiers fictifs, l’image est une mire synthétique.*
+
+| Geste | Effet |
+| --- | --- |
+| Clic sur une ligne | La sélectionne et l’affiche dans l’aperçu. Ctrl ajoute, Maj étend, Ctrl+A prend tout, Échap vide. |
+| Double-clic sur un dossier, ou Entrée | L’ouvre. L’arborescence et le fil d’Ariane permettent de remonter. |
+| Glisser des fichiers depuis l’ordinateur | Les envoie dans le dossier ouvert, l’un après l’autre, avec la progression habituelle. |
+| Glisser une sélection sur un dossier | La déplace. Le bouton **Déplacer** fait la même chose sans glisser. |
+| **Télécharger** | Un fichier seul se télécharge tel quel ; un dossier ou plusieurs éléments en une archive ZIP. |
+| **Corbeille**, ou Suppr | Après confirmation ; tout reste récupérable dans l’onglet Corbeille. |
+
+L’aperçu montre les images (JPEG, PNG, GIF, WebP), les vidéos (MP4, WebM) et le début des fichiers texte. Le bouton **Aperçu** masque le panneau ; **Grille** change de présentation ; le champ de filtre réduit la liste du dossier ouvert.
+
+Ce qu’il faut savoir :
+
+- **Rien n’est jamais remplacé.** Si un nom existe déjà à destination, le déplacement est refusé en entier et rien ne bouge ; un envoi sous un nom déjà pris est refusé pour ce fichier seulement.
+- **Déplacer reste dans un espace.** D’un espace à l’autre, il faut télécharger puis envoyer.
+- **Les liens symboliques ne sont jamais suivis** : ni ouverts, ni prévisualisés, ni mis dans une archive. Un lien déplacé reste un lien.
+- **L’archive n’est pas compressée et n’a pas de plafond de taille** ; elle est produite pendant le téléchargement, sans copie temporaire sur le NAS. Les fichiers cachés n’y entrent pas. Son téléchargement est inscrit au journal.
+- **Aperçu : types sûrs seulement.** Pages web et dessins vectoriels ne sont jamais affichés dans la console ; un texte est montré tel quel, limité à ses soixante-quatre premiers kilo-octets. Les PDF se téléchargent.
+- **Changer de dossier pendant un envoi** arrête les fichiers restants, pour ne rien déposer au mauvais endroit.
+- **Lecture seule** : un compte lecteur, ou un espace en lecture seule, garde la navigation, l’aperçu et le téléchargement.
+
+Limites de cette étape : pas de recherche d’un fichier par son nom dans tout le NAS, pas de copie, pas de liens de partage, pas d’envoi de dossiers entiers par glisser-déposer, pas d’avance rapide dans l’aperçu vidéo. L’arborescence montre les dossiers déjà ouverts, pas tout le disque d’avance.
+
 ## Revenir à l’affichage classique
 
 Le bouton **Classique** de la barre supérieure rend le menu à gauche tel qu’il était ; le bouton **Bureau** y ramène. Le choix est mémorisé dans le navigateur, pas sur le NAS : chaque poste garde le sien. L’assistant de première configuration utilise toujours l’affichage classique.
@@ -132,5 +163,7 @@ Centre de notifications (alpha.27), cinq essais JavaScript : cloche à la place 
 Recherche globale (alpha.28), quatre essais JavaScript : index limité aux pages que le compte peut ouvrir, chaque réglage nommé rattaché à une page existante ; correspondance au début des mots sans accents ni casse, libellé le plus proche en tête, noms de caméras échappés ; clavier (ouverture, flèches, Entrée, Échap, rien derrière une boîte de dialogue) ; ouverture d’une caméra, d’un espace de fichiers ou de l’affichage classique, lectures en échec ou tardives sans effet. Sur le banc : Ctrl+K, « gar », Entrée ouvre la fiche de la caméra Garage.
 
 Surveillance (alpha.29), cinq essais JavaScript : mur en images fixes sans aucun direct, noms échappés, page classique conservée ; caméra agrandie seule à recevoir le direct, caméras inconnues et réponses tardives sans effet ; événements fusionnés du plus récent au plus ancien, caméra en échec nommée, filtres sans nouvelle requête, ouverture de la relecture au bon événement ; une ligne de frise par caméra et lecture à l’heure cliquée ; réglages sans boutons pour la lecture seule. Sur le banc à deux caméras simulées : mur, agrandissement avec direct et pilotage, 48 événements synthétiques filtrés, ouverture d’un événement dans la relecture avec lecture de l’extrait, clic sur la ligne de l’autre caméra, onglet Réglages.
+
+Fichiers (alpha.30). Quatre essais Python sur espace temporaire : déplacement sans remplacement ni demi-mesure, refus des sélections et destinations invalides sans rien toucher, liens symboliques jamais suivis, lecteur et jeton absent refusés ; archive relue et vérifiée, sans liens ni fichiers cachés, noms accentués ; aperçu limité aux types sûrs et à un texte borné. Cinq essais JavaScript : arborescence, liste et aperçu, absence d’actions d’écriture pour un lecteur, dossier disparu, sélection au clic et au clavier, liens de téléchargement, texte jamais interprété, déplacement, corbeille et envoi limités à la sélection. Sur le banc, avec le vrai serveur : aperçu d’une image et d’une vidéo, archive de deux éléments relue, envoi de deux fichiers, déplacement par glisser-déposer, refus d’un dossier dans lui-même, corbeille de deux éléments, lignes de journal.
 
 Parcours navigateur sur le banc local, avec la politique de sécurité réelle de la console : ouverture des sept applications, déplacement, agrandissement, réduction et fermeture de la fenêtre, bascule vers l’affichage classique et retour, largeur de téléphone sans défilement horizontal.

@@ -1,5 +1,9 @@
 # Validation
 
+## Gestionnaire de fichiers — 0.8.0-alpha.30
+
+312 tests Python et 117 JavaScript. Détail dans le [guide du Bureau](DESKTOP.md#validation).
+
 ## Surveillance en application — 0.8.0-alpha.29
 
 308 tests Python et 112 JavaScript. Détail dans le [guide du Bureau](DESKTOP.md#validation).
