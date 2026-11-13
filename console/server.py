@@ -26,6 +26,7 @@ import tarfile
 import threading
 import time
 from urllib.parse import parse_qs, quote, urlsplit
+import zipfile
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 
@@ -248,6 +249,37 @@ def list_files(area, path):
             items.append({'name': name, 'directory': stat.S_ISDIR(info.st_mode), 'link': stat.S_ISLNK(info.st_mode),
                           'size': info.st_size, 'modified': info.st_mtime})
     return sorted(items, key=lambda x: (not x['directory'], x['name'].casefold()))
+
+
+PREVIEW_TYPES = {'.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp',
+                 '.mp4': 'video/mp4', '.webm': 'video/webm',
+                 **{suffix: 'text/plain; charset=utf-8' for suffix in ('.txt', '.md', '.csv', '.log', '.json', '.yml', '.yaml', '.ini', '.conf')}}
+PREVIEW_TEXT = 64 * 1024
+ARCHIVE_NAMES = 500
+ARCHIVE_DEPTH = 64
+
+
+def move_entries(area, source, names, target):
+    """Déplace des éléments d'un dossier vers un autre du même espace, sans jamais remplacer ni suivre un lien."""
+    if not isinstance(names, list) or not 1 <= len(names) <= ARCHIVE_NAMES or not isinstance(source, str) or not isinstance(target, str):
+        raise Problem('Sélection invalide.')
+    names = [safe_name(name) for name in names]
+    if len(set(names)) != len(names):
+        raise Problem('Sélection invalide.')
+    origin, destination = parts(source), parts(target)
+    if origin == destination:
+        raise Problem('Ces éléments sont déjà dans ce dossier.')
+    if any(destination[:len(origin) + 1] == origin + [name] for name in names):
+        raise Problem('Un dossier ne peut pas être déplacé dans lui-même.')
+    with folder(area, source, write=True) as fd, folder(area, target, write=True) as target_fd:
+        present = set(os.listdir(target_fd))
+        for name in names:
+            os.stat(name, dir_fd=fd, follow_symlinks=False)
+            if name in present:
+                raise Problem(f'« {name} » existe déjà dans le dossier de destination. Rien n’a été déplacé.', 409)
+        for name in names:
+            rename_noreplace(fd, name, target_fd, name)
+    return len(names)
 
 
 def smb_state():
@@ -582,7 +614,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise Problem('Ce lien de connexion a expiré ou a déjà été utilisé.', 401)
                 session_token, _ = make_session('admin')
                 return self.reply(303, b'', extra={'Location': '/', 'Set-Cookie': f'nas_session={session_token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800'})
-            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/timezone.js', '/desktop.js', '/bell.js', '/palette.js', '/updates.js', '/components.js', '/playback.js', '/detection.js', '/surveillance.js', '/search.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
+            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/timezone.js', '/desktop.js', '/bell.js', '/palette.js', '/updates.js', '/components.js', '/playback.js', '/detection.js', '/surveillance.js', '/files.js', '/search.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
                 path = STATIC / ('index.html' if url.path == '/' else url.path[1:])
                 return self.reply(200, path.read_bytes(), mimetypes.guess_type(path)[0] or 'text/plain')
             if post and url.path == '/api/login':
@@ -664,6 +696,10 @@ class Handler(BaseHTTPRequestHandler):
                 if (query.get('area') == 'restaurations' or query.get('area','').startswith('native_')) and session['role'] != 'admin':
                     raise Problem('Accès réservé aux administrateurs.', 403)
                 return self.download(query)
+            if url.path == '/api/archive':
+                if (query.get('area') == 'restaurations' or query.get('area','').startswith('native_')) and session['role'] != 'admin':
+                    raise Problem('Accès réservé aux administrateurs.', 403)
+                return self.archive(query, parse_qs(url.query).get('name', []), session)
             if url.path == '/api/storage':
                 import disks
                 return self.reply(200, disks.inventory(ROOT))
@@ -834,6 +870,10 @@ class Handler(BaseHTTPRequestHandler):
                         raise FileExistsError()
                     rename_noreplace(fd, old, fd, name)
                 audit(user, 'Fichier renommé', body['path'])
+            elif route == '/api/move':
+                area=body.get('area','fichiers')
+                count=move_entries(area,body.get('path',''),body.get('names'),body.get('target',''))
+                audit(user,'Éléments déplacés',f"{area}: /{body.get('path','')} → /{body.get('target','')} · {count}")
             elif route == '/api/trash':
                 token=secrets.token_hex(16)
                 area=body.get('area','fichiers')
@@ -1085,13 +1125,71 @@ class Handler(BaseHTTPRequestHandler):
             info = os.fstat(source.fileno())
             if not stat.S_ISREG(info.st_mode):
                 raise Problem('Choisir un fichier ordinaire.')
+            inline = query.get('inline') == '1'
+            kind = PREVIEW_TYPES.get(Path(name).suffix.lower()) if inline else 'application/octet-stream'
+            if not kind:
+                raise Problem('Pas d’aperçu pour ce type de fichier.', 415)
+            # Un aperçu de texte s'arrête aux premiers kilo-octets ; images et vidéos sont servies entières.
+            length = min(info.st_size, PREVIEW_TEXT) if inline and kind.startswith('text/') else info.st_size
             self.send_response(200)
-            self.send_header('Content-Type', 'application/octet-stream')
-            self.send_header('Content-Length', str(info.st_size))
-            self.send_header('Content-Disposition', "attachment; filename*=UTF-8''" + quote(name))
+            self.send_header('Content-Type', kind)
+            self.send_header('Content-Length', str(length))
+            self.send_header('Content-Disposition', ('inline' if inline else 'attachment') + "; filename*=UTF-8''" + quote(name))
+            self.send_header('X-Content-Type-Options', 'nosniff')
             self.send_header('Cache-Control', 'no-store')
             self.end_headers()
-            shutil.copyfileobj(source, self.wfile, 256 * 1024)
+            if length == info.st_size:
+                shutil.copyfileobj(source, self.wfile, 256 * 1024)
+            else:
+                self.wfile.write(source.read(length))
+
+    def archive(self, query, names, session):
+        """Archive ZIP produite à la volée, sans compression ni plafond de taille ; liens et fichiers spéciaux ignorés."""
+        area, path = query.get('area', 'fichiers'), query.get('path', '')
+        if not 1 <= len(names) <= ARCHIVE_NAMES:
+            raise Problem('Sélection invalide.')
+        names = [safe_name(name) for name in names]
+        if len(set(names)) != len(names):
+            raise Problem('Sélection invalide.')
+
+        def add(output, fd, name, label, depth):
+            info = os.stat(name, dir_fd=fd, follow_symlinks=False)
+            moment = time.localtime(max(info.st_mtime, 315532800))[:6]
+            if stat.S_ISDIR(info.st_mode):
+                if depth >= ARCHIVE_DEPTH:
+                    return
+                child = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+                try:
+                    output.writestr(zipfile.ZipInfo(label + '/', moment), b'')
+                    for entry in sorted(os.listdir(child)):
+                        if not entry.startswith('.'):
+                            add(output, child, entry, label + '/' + entry, depth + 1)
+                finally:
+                    os.close(child)
+            elif stat.S_ISREG(info.st_mode):
+                descriptor = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=fd)
+                entry = zipfile.ZipInfo(label, moment)
+                entry.file_size = info.st_size
+                # Le format étendu n'est annoncé que pour les fichiers qui l'exigent : les petites archives restent lisibles partout.
+                with os.fdopen(descriptor, 'rb') as source, output.open(entry, 'w', force_zip64=info.st_size >= 0x7fffffff) as target:
+                    shutil.copyfileobj(source, target, 256 * 1024)
+
+        with folder(area, path) as fd:
+            for name in names:
+                os.stat(name, dir_fd=fd, follow_symlinks=False)
+            title = (parts(path) or [area])[-1] if len(names) > 1 else names[0]
+            audit(session['name'], 'Archive téléchargée', f'{area}: /{path} · {len(names)}')
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/zip')
+            self.send_header('Content-Disposition', "attachment; filename*=UTF-8''" + quote(title + '.zip'))
+            self.send_header('X-Content-Type-Options', 'nosniff')
+            self.send_header('Cache-Control', 'no-store')
+            self.send_header('Connection', 'close')
+            self.end_headers()
+            self.close_connection = True
+            with zipfile.ZipFile(self.wfile, 'w', zipfile.ZIP_STORED, allowZip64=True) as output:
+                for name in names:
+                    add(output, fd, name, name, 0)
 
     def proxy_stream(self, path, content, filename=None):
         with video_get(path, headers={'Range': self.headers['Range']} if self.headers.get('Range') else {}, timeout=20) as upstream:

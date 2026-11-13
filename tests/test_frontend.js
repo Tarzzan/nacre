@@ -1340,3 +1340,105 @@ test('settings gather detection, retention and connection for the chosen camera,
  f.run('user.role="admin";');await f.run('runPalette({camera:"entry"})');assert.deepEqual([f.run('survView()'),f.run('survFocus'),f.run('selectedCamera')],['wall',true,'entry']);
  await f.run('runPalette({page:"camera",view:["cam","events"]})');assert.equal(f.run('survView()'),'events');
 });
+
+// Gestionnaire de fichiers du bureau : arborescence, sélection multiple, aperçu, déplacement, envoi.
+const fmAreas=[{id:'fichiers',name:'Fichiers <b>partagés</b>',writable:true,kind:'local'},{id:'video',name:'Vidéos',writable:false,kind:'local'}];
+const fmSample=[{name:'Docs & co',directory:true,link:false,size:4096,modified:1794182400},{name:'photo "été".jpg',directory:false,link:false,size:2048,modified:1794182500},
+ {name:'notes.txt',directory:false,link:false,size:10,modified:1794182600},{name:'clip.mp4',directory:false,link:false,size:900000,modified:1794182700},
+ {name:'<img src=x>.pdf',directory:false,link:false,size:5,modified:1794182800},{name:'raccourci',directory:true,link:true,size:9,modified:1794182900},null,{name:''}];
+function fmFixture(fetch,role='admin'){
+ const calls=[],mode={clean:false},reply=fetch||(async(url,options)=>{calls.push([url,options?.body]);return response(200,url.startsWith('/api/areas')?fmAreas:url.startsWith('/api/files')?{items:mode.clean?fmSample.filter(i=>i&&i.name):fmSample}:{ok:true});});
+ const f=deskFixture(reply,role);vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/files.js'),'utf8'),f.context);
+ f.calls=calls;f.mode=mode;f.run('shell();page="files";area="fichiers";currentPath="";');
+ f.mount=()=>{for(const id of ['fm','fm-list','fm-side','fm-tools'])f.elements.set('#'+id,{innerHTML:'',classList:{toggle(name,on){this[name]=on;}}});};
+ f.hit=(dataset,extra={})=>f.listeners.get('click').at(-1)({target:{closest:selector=>selector==='[data-action]'?(dataset.action?{dataset}:null):selector==='.fm-row'?(dataset.name?{dataset}:null):null},...extra});
+ f.names=()=>JSON.parse(JSON.stringify(f.run('[...fmSel].sort()')));return f;
+}
+test('file manager draws tree, list and preview in the desktop, without write actions for a reader, and leaves the classic page alone',async()=>{
+ const f=fmFixture();await f.run('renderFiles()');let html=String(f.elements.get('#content').innerHTML);
+ assert.deepEqual(f.calls.map(c=>c[0]),['/api/areas','/api/files?area=fichiers&path=']);
+ assert.match(html,/^<div class="fm " id="fm"><nav class="fm-tree"/);assert.doesNotMatch(html,/<b>partagés|<img src=x>|style=/);assert.match(html,/Fichiers &lt;b&gt;partagés/);assert.match(html,/&lt;img src=x&gt;\.pdf/);
+ assert.equal((html.match(/<tr class="fm-row /g)||[]).length,6);assert.match(html,/data-name="Docs &amp; co" draggable="true" data-fm-drop="Docs &amp; co"/);
+ assert.doesNotMatch(html,/data-name="raccourci"[^>]*data-fm-drop/);assert.match(html,/Vidéos<small>lecture seule<\/small>/);
+ assert.match(html,/data-action="mkdir"/);assert.match(html,/data-action="fm-send"/);assert.match(html,/id="fm-upload" multiple hidden/);
+ assert.deepEqual(JSON.parse(JSON.stringify(f.run('fmShown().map(i=>i.name)'))),['Docs & co','raccourci','<img src=x>.pdf','clip.mp4','notes.txt','photo "été".jpg']);
+ f.run('fmSort=["size",-1];');assert.deepEqual(JSON.parse(JSON.stringify(f.run('fmShown().slice(2).map(i=>i.name)'))),['clip.mp4','photo "été".jpg','notes.txt','<img src=x>.pdf']);
+ // Sous-dossier : l'arborescence déplie le chemin et garde les dossiers déjà vus.
+ f.run('fmSort=["name",1];currentPath="Docs & co/Sous";');await f.run('renderFiles()');const tree=f.run('fmTree()');
+ assert.match(tree,/data-path="Docs &amp; co" data-fm-drop="Docs &amp; co" data-depth="1">Docs &amp; co<\/button><button type="button" class="fm-node on"[^>]*data-path="Docs &amp; co\/Sous"[^>]*data-depth="2">Sous/);
+ assert.match(f.run('fmTools()'),/data-path="Docs &amp; co">Docs &amp; co<\/button><span aria-hidden="true">›<\/span><button type="button" data-action="fm-go" data-area="fichiers" data-path="Docs &amp; co\/Sous">Sous/);
+ // Espace en lecture seule ou compte lecteur : rien à écrire ni à glisser.
+ f.run('area="video";currentPath="";');await f.run('renderFiles()');html=String(f.elements.get('#content').innerHTML);assert.doesNotMatch(html,/draggable|data-action="mkdir"|fm-send/);
+ const g=fmFixture(null,'viewer');await g.run('renderFiles()');assert.doesNotMatch(String(g.elements.get('#content').innerHTML),/draggable|data-action="mkdir"|fm-send|fm-trash|fm-move/);
+ f.store['nacre-shell']='classic';f.mode.clean=true;f.run('area="fichiers";');await f.run('renderFiles()');assert.match(String(f.elements.get('#content').innerHTML),/Vos fichiers\. Simplement\./);
+});
+test('a vanished folder returns to the root, a missing volume to shared files, and late listings are discarded',async()=>{
+ let gone=true;const f=fmFixture(async url=>url.startsWith('/api/areas')?response(200,fmAreas):gone&&url.includes('path=perdu')?response(404,{error:'Fichier ou dossier introuvable.'}):response(200,{items:fmSample}));
+ f.run('currentPath="perdu";');await f.run('renderFiles()');assert.equal(f.run('currentPath'),'');assert.match(f.elements.get('#toast').textContent,/n’existe plus/);assert.match(String(f.elements.get('#content').innerHTML),/id="fm"/);
+ f.run('area="native_absent";');await f.run('renderFiles()');assert.equal(f.run('area'),'fichiers');
+ let release;const g=fmFixture(url=>url.startsWith('/api/areas')?Promise.resolve(response(200,fmAreas)):new Promise(resolve=>{release=()=>resolve(response(200,{items:fmSample}));}));
+ const pending=g.run('renderFiles()');await new Promise(resolve=>setImmediate(resolve));g.run('page="users";$("#content").innerHTML="autre page";');release();await pending;
+ assert.equal(g.elements.get('#content').innerHTML,'autre page');
+});
+test('selection follows clicks, Ctrl, Shift and checkboxes, and its bar offers the right download',async()=>{
+ const f=fmFixture();await f.run('renderFiles()');f.mount();
+ await f.hit({name:'notes.txt'});assert.deepEqual(f.names(),['notes.txt']);
+ await f.hit({name:'clip.mp4'},{ctrlKey:true});assert.deepEqual(f.names(),['clip.mp4','notes.txt']);
+ await f.hit({name:'clip.mp4'},{ctrlKey:true});assert.deepEqual(f.names(),['notes.txt']);
+ // La plage part du dernier élément cliqué, même s'il vient d'être retiré de la sélection.
+ await f.hit({name:'<img src=x>.pdf'},{shiftKey:true});assert.deepEqual(f.names(),['<img src=x>.pdf','clip.mp4']);
+ await f.hit({action:'fm-check',name:'Docs & co'});assert.equal(f.names().length,3);await f.hit({action:'fm-clear'});assert.deepEqual(f.names(),[]);
+ await f.hit({action:'fm-all'});assert.equal(f.names().length,6);await f.hit({action:'fm-all'});assert.equal(f.names().length,0);
+ assert.equal(f.run('fmBar()'),'');
+ f.run('fmSel=new Set(["notes.txt"]);');let bar=f.run('fmBar()');
+ assert.match(bar,/<a class="fm-link" href="\/api\/download\?area=fichiers&amp;path=notes\.txt">Télécharger<\/a>/);assert.match(bar,/data-action="rename" data-path="notes\.txt" data-name="notes\.txt"/);assert.match(bar,/fm-move/);assert.match(bar,/fm-trash/);
+ f.run('fmSel=new Set(["Docs & co","photo \\"été\\".jpg"]);');bar=f.run('fmBar()');
+ assert.match(bar,/href="\/api\/archive\?area=fichiers&amp;path=&amp;name=Docs%20%26%20co&amp;name=photo%20%22%C3%A9t%C3%A9%22\.jpg">Télécharger en archive/);assert.doesNotMatch(bar,/data-action="rename"/);
+ f.run('fmSel=new Set(["raccourci"]);');assert.doesNotMatch(f.run('fmBar()'),/fm-link/);
+ // Filtrer vide la sélection, pour ne jamais agir sur un élément masqué.
+ f.run('fmSel=new Set(["notes.txt"]);');f.listeners.get('input').at(-1)({target:{id:'fm-filter',value:'CLIP'}});
+ assert.deepEqual([f.names(),JSON.parse(JSON.stringify(f.run('fmShown().map(i=>i.name)')))],[[],['clip.mp4']]);
+ // Clavier : tout sélectionner, vider, sans effet derrière une boîte de dialogue ou dans un champ.
+ const key=(k,extra={})=>f.listeners.get('keydown').at(-1)({key:k,preventDefault(){},target:{tagName:'DIV'},...extra});
+ f.run('fmFilter="";');key('a',{ctrlKey:true});assert.equal(f.names().length,6);key('Escape');assert.equal(f.names().length,0);
+ key('a',{ctrlKey:true,target:{tagName:'INPUT'}});f.elements.get('#modal').open=true;key('a',{ctrlKey:true});assert.equal(f.names().length,0);
+});
+test('preview shows images and videos through the safe inline route and text as plain text',async()=>{
+ const texts=[],f=fmFixture(async url=>{if(url.includes('inline=1')){texts.push(url);return {ok:true,status:200,text:async()=>'<script>alert(1)</script>'};}return response(200,url.startsWith('/api/areas')?fmAreas:{items:fmSample});});
+ await f.run('renderFiles()');f.run('currentPath="Docs & co";');
+ const side=name=>{f.context.pick=name;return f.run('fmSel=new Set([pick]);fmSide()');};
+ assert.match(side('photo "été".jpg'),/<img class="fm-shot" src="\/api\/download\?area=fichiers&amp;path=Docs%20%26%20co%2Fphoto%20%22%C3%A9t%C3%A9%22\.jpg&amp;inline=1" alt="Aperçu de photo &quot;été&quot;\.jpg">/);
+ assert.match(side('clip.mp4'),/<video class="fm-shot" controls preload="metadata" src="[^"]*clip\.mp4&amp;inline=1">/);
+ const pdf=side('<img src=x>.pdf');assert.doesNotMatch(pdf,/<img src=x>|fm-shot/);assert.match(pdf,/se télécharge/);assert.match(pdf,/<dt>Type<\/dt><dd>PDF<\/dd>/);
+ assert.match(side('Docs & co'),/data-action="fm-open" data-name="Docs &amp; co"/);assert.match(side('Docs & co'),/href="\/api\/archive\?[^"]*name=Docs%20%26%20co">Télécharger en archive/);
+ assert.match(side('raccourci'),/Nacre ne le suit pas/);assert.doesNotMatch(side('raccourci'),/fm-link|fm-open/);
+ f.run('fmSel=new Set();');assert.match(f.run('fmSide()'),/Sélectionnez un élément/);f.run('fmSel=new Set(["notes.txt","clip.mp4"]);');assert.match(f.run('fmSide()'),/2 éléments sélectionnés/);
+ // Texte : lu par la route d'aperçu, posé comme du texte, et ignoré si la sélection a changé entre-temps.
+ const box={dataset:{name:'notes.txt'},textContent:'',innerHTML:'vide'};f.elements.set('#fm-text',box);await f.run('fmLoadText()');
+ assert.deepEqual([texts.length,box.textContent,box.innerHTML],[1,'<script>alert(1)</script>','vide']);assert.match(texts[0],/path=Docs%20%26%20co%2Fnotes\.txt&inline=1$/);
+ const late=f.run('fmLoadText()');box.dataset.name='autre.txt';box.textContent='inchangé';await late;assert.equal(box.textContent,'inchangé');
+});
+test('moving, trashing and sending act on the selection only, refuse a folder into itself and stop when the folder changes',async()=>{
+ const f=fmFixture();await f.run('renderFiles()');f.mount();const modal=f.elements.get('#modal');let shown=0;modal.showModal=()=>shown++;modal.innerHTML='';
+ const posts=()=>f.calls.filter(c=>c[1]).map(c=>[c[0],JSON.parse(c[1])]);
+ f.run('fmSel=new Set(["notes.txt","Docs & co"]);');await f.run('fmMove([...fmSel],"Docs & co/Sous")');
+ assert.deepEqual(posts().at(-1),['/api/move',{area:'fichiers',path:'',names:['notes.txt','Docs & co'],target:'Docs & co/Sous'}]);assert.match(f.elements.get('#toast').textContent,/2 éléments déplacés vers Sous/);assert.equal(f.names().length,0);
+ const before=posts().length;await f.run('fmMove(["notes.txt"],"")');await f.run('fmMove([],"x")');assert.equal(posts().length,before);
+ // Cible de dépôt : jamais le dossier courant, ni un élément glissé, ni l'un de ses sous-dossiers.
+ f.run('fmDrag=["Docs & co"];');const target=dest=>f.run('fmTarget')({target:{closest:()=>({dataset:{fmDrop:dest}})}});
+ assert.equal(target(''),null);assert.equal(target('Docs & co'),null);assert.equal(target('Docs & co/Sous'),null);assert.ok(target('Autre'));f.run('fmDrag=null;');assert.equal(target('Autre'),null);
+ // Corbeille : confirmation, puis un appel par élément.
+ f.run('fmSel=new Set(["notes.txt","clip.mp4"]);fmAskTrash();');assert.equal(shown,1);assert.match(modal.innerHTML,/Mettre 2 éléments en corbeille/);
+ const result=await f.run('modalSubmit(new Map())');assert.deepEqual(posts().slice(-2),[['/api/trash',{path:'notes.txt',area:'fichiers'}],['/api/trash',{path:'clip.mp4',area:'fichiers'}]]);assert.equal(result.message,'2 éléments en corbeille.');
+ // Déplacer par la boîte de dialogue : les dossiers connus, sauf le courant et la sélection.
+ f.run('fmDirs.set("fichiers|Docs & co",["Sous"]);fmSel=new Set(["Docs & co"]);fmAskMove();');assert.equal(shown,1);assert.match(f.elements.get('#toast').textContent,/Ouvrez d’abord le dossier de destination/);
+ f.run('fmDirs.set("fichiers|",["Docs & co","Archives <i>"]);fmSel=new Set(["notes.txt"]);fmAskMove();');assert.equal(shown,2);
+ assert.deepEqual([...modal.innerHTML.matchAll(/<option value="([^"]*)">/g)].map(m=>m[1]),['Archives &lt;i&gt;','Docs &amp; co','Docs &amp; co/Sous']);assert.doesNotMatch(modal.innerHTML,/<i>/);
+ await f.run('modalSubmit(new Map([["target","Docs & co"]]))');assert.deepEqual(posts().at(-1),['/api/move',{area:'fichiers',path:'',names:['notes.txt'],target:'Docs & co'}]);
+ // Envoi : un fichier après l'autre ; un changement de dossier arrête la suite ; un lecteur n'envoie rien.
+ f.run('sent=[];uploadFile=async file=>{sent.push([file.name,currentPath]);if(file.name==="b.txt")currentPath="ailleurs";if(file.name==="x.txt")throw new Error("Ce nom existe déjà.");};');
+ await f.run('fmSend([{name:"x.txt"},{name:"a.txt"},{name:"b.txt"},{name:"c.txt"}])');
+ assert.deepEqual(JSON.parse(JSON.stringify(f.run('sent'))),[['x.txt',''],['a.txt',''],['b.txt','']]);assert.match(f.elements.get('#toast').textContent,/^2 fichiers déposés\. Non envoyé : x\.txt : Ce nom existe déjà\. ; envoi arrêté/);assert.equal(f.run('fmBusy'),false);
+ const g=fmFixture(null,'viewer');await g.run('renderFiles()');g.run('sent=[];uploadFile=async file=>{sent.push(file.name);};');await g.run('fmSend([{name:"a.txt"}])');await g.run('fmMove(["notes.txt"],"x")');g.run('fmSel=new Set(["notes.txt"]);fmAskTrash();fmAskMove();');
+ assert.deepEqual([g.run('sent.length'),g.calls.filter(c=>c[1]).length],[0,0]);
+});
