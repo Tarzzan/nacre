@@ -1,5 +1,17 @@
 # Déploiements de la console sur Spark
 
+## 13 novembre 2026 — alpha.34, recherche d’événements par tranche horaire
+
+L’installation alpha.33 a reçu le paquet `nacre-0.8.0-alpha.34.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.34), construit depuis le commit [`2040ec2`](https://github.com/Tarzzan/nacre/commit/2040ec23219be36a9b869eea0213d55316509795) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
+
+Avant l’import : neuf modules figés identiques, aucune tâche active, répétition isolée alpha.33 → alpha.34 réussie. Fichier importé téléchargé depuis la release, empreinte contrôlée ; session administrateur temporaire refermée ; installation confirmée depuis la fenêtre Réglages du bureau et suivie jusqu’à **Mise à jour réussie**, session conservée.
+
+Validation enregistrée à 17 h 47 min 50 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Constaté dans le navigateur, sur les événements réels de la caméra et en lecture seule : 732 événements sur sept jours, dont 66 [entre 22:00 et 06:00](RECORDING-PLAYBACK.md#ne-garder-quune-tranche-horaire) et 666 entre 06:00 et 22:00, soit le compte entier sans recouvrement ; les soixante premiers résultats de la nuit ont tous leur heure de début dans la tranche ; une tranche à moitié remplie est refusée.
+
+Limites de ce contrôle : seuls des nombres et des heures ont été relevés, aucune vignette ni vidéo n’a été ouverte. Le fuseau de la console n’étant toujours pas choisi, ces heures sont en UTC sur cette installation : « 22:00 à 06:00 » y désigne 19 h à 3 h, heure de Guyane, tant que le fuseau n’est pas réglé. Le plafond de dix mille événements n’a été atteint que dans les essais.
+
 ## 13 novembre 2026 — alpha.33, recherche de fichiers par nom
 
 L’installation alpha.32 a reçu le paquet `nacre-0.8.0-alpha.33.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.33), construit depuis le commit [`de7e615`](https://github.com/Tarzzan/nacre/commit/de7e615c98dc8cd1aa6ee5a406a4f78e51455c82) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
