@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.35 — Période et tranche horaire dans l’onglet Événements
+
+L’onglet **Événements** de Surveillance, qui réunit toutes les caméras, reçoit les mêmes champs que la recherche d’une caméra : une **période** (les sept derniers jours par défaut) et une **tranche horaire** facultative. « Entre 22:00 et 06:00 » montre d’un coup ce que chaque caméra a vu la nuit. Un résumé donne le nombre d’événements comptés sur la période pour l’ensemble des caméras ; **Sept derniers jours** revient à l’affichage d’origine. Une période que le serveur refuse est expliquée une fois, sans mettre les caméras en cause. Aucun changement côté serveur, de schéma ni de module figé. 320 tests Python et 127 JavaScript. [Guide et limites](docs/DESKTOP.md#surveillance).
+
 ## 0.8.0-alpha.34 — Recherche d’événements par tranche horaire
 
 La carte **Recherche d’événements** d’une caméra accepte une **tranche horaire** facultative, appliquée à chaque jour de la période : « entre 22:00 et 06:00 » ne garde que les nuits, « entre 08:00 et 18:00 » les journées. Une tranche dont la fin précède le début enjambe minuit. Le total, les compteurs par type et par jour ne portent alors que sur la tranche ; le type choisi et **Afficher la suite** la conservent. C’est l’heure de début de l’événement, dans le fuseau de la console, qui décide. Le filtre est appliqué par Nacre : rien ne change dans les demandes faites au service vidéo. Aucun changement de schéma ni de module figé. 320 tests Python et 126 JavaScript. [Guide et limites](docs/RECORDING-PLAYBACK.md#ne-garder-quune-tranche-horaire).

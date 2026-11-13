@@ -144,19 +144,20 @@ Depuis la version 0.8.0-alpha.29, l’application Surveillance du bureau a quatr
 | Onglet | Ce qu’on y fait |
 | --- | --- |
 | **Mur** | Voir toutes les caméras d’un coup, avec leur état. Un clic agrandit une caméra : direct et pilotage pour elle seule. « Revenir au mur » la referme. |
-| **Événements** | Parcourir ce que toutes les caméras ont détecté sur sept jours, filtrer par caméra ou par type, ouvrir un événement dans la relecture. |
+| **Événements** | Parcourir ce que toutes les caméras ont détecté sur sept jours ou sur une période choisie, ne garder qu’une tranche horaire, filtrer par caméra ou par type, ouvrir un événement dans la relecture. |
 | **Relecture** | Choisir une caméra et un jour, lire depuis la frise. La frise commune, en dessous, montre le même jour pour chaque caméra. |
 | **Réglages** | Régler la détection et les types suivis, la durée de conservation et la connexion de la caméra choisie. |
 
 ![Événements de toutes les caméras](images/surveillance-events.jpg)
 
-*Banc local : vignettes synthétiques.*
+*Banc local : vignettes synthétiques, recherche limitée à la nuit.*
 
 Ce qu’il faut savoir :
 
 - **Le mur n’ouvre aucun direct.** Chaque caméra montre sa dernière image, redemandée toutes les dix secondes tant que l’onglet du navigateur est visible. Seule la caméra agrandie reçoit le flux en direct.
 - **Une image reçue ne prouve pas l’enregistrement.** La frise de l’onglet Relecture fait foi.
-- **Événements : les soixante plus récents par caméra sur sept jours.** Pour remonter plus loin ou choisir une période, la recherche de l’onglet Relecture reste l’outil.
+- **Événements : période et tranche horaire pour toutes les caméras** (depuis la version 0.8.0-alpha.35). **Du**, **au** et les deux heures facultatives **entre** et **et** s’appliquent à chaque caméra, avec les mêmes règles que la [recherche d’une caméra](RECORDING-PLAYBACK.md#ne-garder-quune-tranche-horaire) : de 22:00 à 06:00, seules les nuits sont gardées. **Sept derniers jours** revient à l’affichage d’origine.
+- **Événements : les soixante plus récents par caméra sont listés.** Le résumé donne le nombre compté sur la période pour toutes les caméras ; les pastilles comptent ce qui est listé. Pour remonter plus loin, la recherche de l’onglet Relecture reste l’outil.
 - **Frise commune : une seule caméra lue à la fois.** Cliquer sur la ligne d’une autre caméra change de caméra et lit à l’heure cliquée ; s’il n’y a rien à cette heure, la lecture reprend à la plage suivante et le dit.
 - **Si les événements d’une caméra sont indisponibles**, elle est nommée et les autres restent listées.
 - **Lecture seule** : tout est consultable ; l’ajout de caméra et les réglages sont réservés aux administrateurs.
@@ -229,6 +230,8 @@ Cinq essais JavaScript : coquille et repères attendus par les pages, onglets se
 Centre de notifications (alpha.27), cinq essais JavaScript : cloche à la place du bouton d’alertes et affichage classique intact ; compteurs, libellés et échappement de tout ce qui est listé ; page inconnue annoncée par le serveur renvoyée vers les alertes ; compte en lecture seule sans requête d’alertes ; annonce de fin de tâche, état conservé si une lecture échoue, réponses tardives et session expirée ; ouverture et fermetures du panneau. Sur le banc : alerte fictive prise en compte depuis le panneau, pastille retirée, panneau resté ouvert.
 
 Recherche globale (alpha.28), quatre essais JavaScript : index limité aux pages que le compte peut ouvrir, chaque réglage nommé rattaché à une page existante ; correspondance au début des mots sans accents ni casse, libellé le plus proche en tête, noms de caméras échappés ; clavier (ouverture, flèches, Entrée, Échap, rien derrière une boîte de dialogue) ; ouverture d’une caméra, d’un espace de fichiers ou de l’affichage classique, lectures en échec ou tardives sans effet. Sur le banc : Ctrl+K, « gar », Entrée ouvre la fiche de la caméra Garage.
+
+Événements par période et tranche horaire (alpha.35), un essai JavaScript : aucune période envoyée par défaut, formulaire prérempli par la réponse, total additionné sur les caméras lues ; période à l’envers, tranche incomplète ou identique refusées sans requête ; période et tranche envoyées à chaque caméra et reprises dans le résumé ; refus du serveur expliqué une fois sans accuser les caméras ; retour aux sept derniers jours. Sur le banc à deux caméras simulées : 50 événements par défaut, 7 entre 22:00 et 06:00, refus d’une tranche à moitié remplie et d’une date trop ancienne.
 
 Surveillance (alpha.29), cinq essais JavaScript : mur en images fixes sans aucun direct, noms échappés, page classique conservée ; caméra agrandie seule à recevoir le direct, caméras inconnues et réponses tardives sans effet ; événements fusionnés du plus récent au plus ancien, caméra en échec nommée, filtres sans nouvelle requête, ouverture de la relecture au bon événement ; une ligne de frise par caméra et lecture à l’heure cliquée ; réglages sans boutons pour la lecture seule. Sur le banc à deux caméras simulées : mur, agrandissement avec direct et pilotage, 48 événements synthétiques filtrés, ouverture d’un événement dans la relecture avec lecture de l’extrait, clic sur la ligne de l’autre caméra, onglet Réglages.
 

@@ -26,7 +26,7 @@ Liste des copies de retour arrière dans la page Mises à jour, conservation aut
 
 ## Recherche d’événements 0.8.0-alpha.23
 
-Recherche des événements d’une caméra sur une période de jours, par type d’objet, avec ouverture du résultat dans la relecture. [Guide et limites](RECORDING-PLAYBACK.md#rechercher-sur-plusieurs-jours). La [tranche horaire](RECORDING-PLAYBACK.md#ne-garder-quune-tranche-horaire) est arrivée en alpha.34. Restent ouverts : recherche sur plusieurs caméras, par nom reconnu, filtre par zone.
+Recherche des événements d’une caméra sur une période de jours, par type d’objet, avec ouverture du résultat dans la relecture. [Guide et limites](RECORDING-PLAYBACK.md#rechercher-sur-plusieurs-jours). La [tranche horaire](RECORDING-PLAYBACK.md#ne-garder-quune-tranche-horaire) est arrivée en alpha.34, puis, avec la période, dans l’onglet Événements de toutes les caméras en alpha.35. Restent ouverts : recherche sur plusieurs caméras, par nom reconnu, filtre par zone.
 
 ## Détection et objets suivis 0.8.0-alpha.22
 

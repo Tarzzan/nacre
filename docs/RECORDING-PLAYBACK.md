@@ -87,7 +87,7 @@ Au-delà de la durée de conservation continue, Frigate ne garde que certains pa
 - **Jour en cours.** La frise reflète l’inventaire au chargement. **Actualiser** relit les enregistrements récents.
 - **Période consultable.** Dates jusqu’à 400 jours en arrière pour la frise et la recherche, extraits jusqu’à 31 jours : la conservation réglable s’arrête à 30 jours.
 - **Comptes en lecture seule.** Ils consultent et téléchargent les extraits, comme ils consultaient déjà les clips. Les réglages et le pilotage restent réservés aux administrateurs.
-- **Non couvert.** Recherche par tranche horaire sur plusieurs caméras à la fois (l’onglet Événements du bureau n’a pas ce filtre), par nom reconnu, par jour de la semaine, filtre par zone ou par score, export de longues périodes, lecture synchronisée de plusieurs caméras, protection d’un passage contre la suppression et contrôle d’intégrité des fichiers vidéo.
+- **Non couvert.** Recherche par nom reconnu, par jour de la semaine, filtre par zone ou par score, export de longues périodes, lecture synchronisée de plusieurs caméras, protection d’un passage contre la suppression et contrôle d’intégrité des fichiers vidéo.
 
 ## Erreurs affichées
 

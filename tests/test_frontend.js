@@ -1388,6 +1388,49 @@ test('enlarging a camera opens its live view alone, and unknown cameras or late 
  g.run('selectedCamera="entry";survFocus=true;');const pending=g.run('renderCamera()');await new Promise(resolve=>setImmediate(resolve));g.run('deskSetView("cam","events");$("#content").innerHTML="autre vue";');release();await pending;
  assert.equal(g.content(),'autre vue');
 });
+test('events tab takes a period and a time slot for every camera, sums what the server counted and explains a refusal',async()=>{
+ const calls=[],toasts=[],state={refuse:false};
+ const sample=(url,extra={})=>({...JSON.parse(JSON.stringify(searchSample)),hours:url.includes('time_from')?{from:'22:00',to:'06:00'}:null,...(url.includes('from=2026-11-01')?{from:'2026-11-01',to:'2026-11-05'}:{}),...extra});
+ const f=survFixture(async url=>{calls.push(url);
+  if(url==='/api/cameras')return response(200,survCameras);
+  if(!url.startsWith('/api/camera/search'))return response(200,overviewSample);
+  if(state.refuse)return response(400,{error:'Date hors de la période consultable.'});
+  if(url.includes('camera=garage'))return response(500,{error:'Indisponible.'});
+  return response(200,url.includes('camera=entry')?sample(url):sample(url,{camera:'x',events:[],facets:{total:4,matched:4,more:url.includes('camera=yard'),types:[],days:[]}}));});
+ f.context.toast=(text,bad)=>toasts.push([text,!!bad]);
+ const searches=()=>calls.filter(u=>u.startsWith('/api/camera/search')).sort(),html=()=>String(f.elements.get('#surv-events')?.innerHTML??f.run('survEventsHtml()'));
+ f.run('deskSetView("cam","events");');await f.run('renderCamera()');
+ // Par défaut : aucune période envoyée, formulaire prérempli par la réponse, total additionné sur les caméras lues.
+ assert.deepEqual(searches(),['entry','garage','pause','yard'].map(id=>'/api/camera/search?camera='+id));
+ let page=f.run('survEventsHtml()');
+ assert.match(page,/id="surv-from" type="date" value="2026-11-03" max="2026-11-09"/);assert.match(page,/id="surv-to" type="date" value="2026-11-09" max="2026-11-09"/);assert.match(page,/id="surv-after" type="time" value="" aria-describedby="surv-hours"/);
+ assert.match(page,/id="surv-summary" role="status">17 événements parmi les plus récents, du mardi 3 novembre au lundi 9 novembre</);assert.doesNotMatch(page,/surv-reset|style=/);assert.match(page,/Événements indisponibles pour Garage/);
+ // Saisies refusées sur place : aucune requête.
+ const fields={from:{value:'2026-11-05'},to:{value:'2026-11-01'},after:{value:''},before:{value:''}};for(const [key,el] of Object.entries(fields))f.elements.set('#surv-'+key,el);
+ const before=calls.length;
+ await f.act('surv-search');assert.match(toasts.at(-1)[0],/début de la période suit sa fin/);
+ fields.from.value='2026-11-01';fields.to.value='2026-11-05';fields.after.value='22:00';await f.act('surv-search');assert.match(toasts.at(-1)[0],/début et la fin de la tranche/);
+ fields.before.value='22:00';await f.act('surv-search');assert.match(toasts.at(-1)[0],/identiques/);
+ fields.from.value='';await f.act('surv-search');assert.match(toasts.at(-1)[0],/début et la fin de la période/);
+ assert.equal(calls.length,before);assert.equal(f.run('survAsk'),null);
+ // Période et tranche valides : envoyées à chaque caméra, reprises dans le formulaire et le résumé.
+ fields.from.value='2026-11-01';fields.before.value='06:00';calls.length=0;await f.act('surv-search');
+ assert.deepEqual(searches(),['entry','garage','pause','yard'].map(id=>`/api/camera/search?camera=${id}&from=2026-11-01&to=2026-11-05&time_from=22%3A00&time_to=06%3A00`));
+ page=f.run('survEventsHtml()');
+ assert.match(page,/id="surv-from" type="date" value="2026-11-01"/);assert.match(page,/id="surv-after" type="time" value="22:00"/);assert.match(page,/id="surv-before" type="time" value="06:00"/);
+ assert.match(page,/17 événements parmi les plus récents, du dimanche 1 novembre au jeudi 5 novembre, entre 22:00 et 06:00/);assert.match(page,/data-action="surv-reset" ><span>Sept derniers jours/);
+ assert.equal((page.match(/data-action="surv-open"/g)||[]).length,searchSample.events.length);
+ // Sans événement : le message dit la tranche. Les filtres en place ne relancent rien.
+ f.run('survEvents.items=[];');assert.match(f.run('survEventsHtml()'),/Aucun événement dans cette tranche horaire sur cette période\./);
+ f.run('survEvents.hours=null;');assert.match(f.run('survEventsHtml()'),/Aucun événement sur cette période\./);
+ // Refus du serveur pour toutes les caméras : expliqué une fois, formulaire gardé pour corriger, caméras non accusées.
+ state.refuse=true;await f.act('surv-search');page=f.run('survEventsHtml()');
+ assert.match(page,/<div class="notice neutral">Date hors de la période consultable\.<\/div>/);assert.match(page,/id="surv-from" type="date" value="2026-11-01"/);assert.doesNotMatch(page,/indisponibles pour|pb-chip|surv-summary/);
+ // Retour aux sept derniers jours : plus rien n'est envoyé.
+ state.refuse=false;calls.length=0;await f.act('surv-reset');
+ assert.deepEqual(searches(),['entry','garage','pause','yard'].map(id=>'/api/camera/search?camera='+id));assert.equal(f.run('survAsk'),null);assert.doesNotMatch(f.run('survEventsHtml()'),/surv-reset/);
+ f.run('survEvents.items=[];');assert.match(f.run('survEventsHtml()'),/Aucun événement sur les sept derniers jours\./);
+});
 test('events of every camera merge newest first, filter in place and open the replay at the event',async()=>{
  const calls=[],f=survFixture(survReply(calls));f.run('deskSetView("cam","events");');await f.run('renderCamera()');
  assert.deepEqual(calls.filter(u=>u.startsWith('/api/camera/search')).sort(),['entry','garage','pause','yard'].map(id=>'/api/camera/search?camera='+id));
