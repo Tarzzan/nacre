@@ -625,7 +625,8 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == '/api/updates':
                 if session['role'] != 'admin':raise Problem('Accès réservé aux administrateurs.',403)
                 from updates import status
-                return self.reply(200,status(sys.modules[__name__]))
+                from update_copies import listing
+                return self.reply(200,{**status(sys.modules[__name__]),'copies':listing(ROOT)})
             if url.path == '/api/control-panel':
                 if session['role'] != 'admin':raise Problem('Accès réservé aux administrateurs.',403)
                 from control_panel import read
@@ -808,6 +809,9 @@ class Handler(BaseHTTPRequestHandler):
             if route == '/api/updates/apply':
                 from updates import apply
                 return apply(sys.modules[__name__],body,session)
+            if route == '/api/updates/copies/delete':
+                from update_copies import remove
+                return remove(sys.modules[__name__],body,session)
             if route in ('/api/control-panel/configure','/api/control-panel/revoke'):
                 from control_panel import configure, revoke
                 return (configure if route.endswith('/configure') else revoke)(sys.modules[__name__],body,session)
@@ -1158,6 +1162,8 @@ if __name__ == '__main__':
             probation_thread.start()
             while maintenance(sys.modules[__name__]):time.sleep(.2)
         protection().recover()
+        from update_copies import tidy
+        tidy(sys.modules[__name__])
         protection().start_scheduler()
         shares().start_watch()
         from alerts import start as start_alerts

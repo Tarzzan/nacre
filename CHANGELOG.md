@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.24 — Purge des copies de mise à jour
+
+La page **Mises à jour** liste les **copies de retour arrière** : version copiée, date, version installée ensuite, taille, et place totale occupée sur le NAS. Nacre conserve les trois copies les plus récentes et supprime les plus anciennes au démarrage de la console, donc après chaque mise à jour réussie ; un paquet vérifié puis remplacé et un import interrompu sont effacés de la même façon. Un administrateur peut supprimer une copie ancienne après confirmation ; celle de la dernière mise à jour reste protégée. Rien n’est modifié pendant qu’une mise à jour est engagée, et les suppressions sont inscrites au journal. Module séparé du superviseur : aucun changement de schéma ni de module figé. 305 tests Python et 86 JavaScript. [Guide et limites](docs/BROWSER-UPDATES.md#copies-de-retour-arrière).
+
 ## 0.8.0-alpha.23 — Recherche d’événements sur plusieurs jours
 
 La fiche d’une caméra comporte une carte **Recherche d’événements** : une période de jours, puis les événements Frigate de cette période en vignettes, du plus récent au plus ancien, regroupés par jour avec leur nombre. Un filtre par type d’objet porte sur toute la période ; les résultats se chargent par pages de soixante. Un clic ouvre le jour de l’événement dans la **Relecture** et lance la lecture cinq secondes avant. Un événement dont la vidéo n’est plus conservée reste visible et l’indique. Lecture seule de Frigate ; aucun changement de schéma ni de module figé. 299 tests Python et 84 JavaScript. [Guide et limites](docs/RECORDING-PLAYBACK.md#rechercher-sur-plusieurs-jours).

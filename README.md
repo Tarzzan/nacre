@@ -19,7 +19,7 @@ Nacre réunit l’administration des fichiers, des partages réseau, des volumes
 
 ### Mettre Nacre à jour avec retour arrière
 
-Importez un paquet signé depuis **Panneau de configuration → Mises à jour Nacre**, vérifiez la version puis confirmez. Un superviseur indépendant conserve le code et la base précédents et les restaure si le contrôle de démarrage échoue. Le navigateur retrouve le résultat après reconnexion. [Guide, installation initiale et limites](docs/BROWSER-UPDATES.md).
+Importez un paquet signé depuis **Panneau de configuration → Mises à jour Nacre**, vérifiez la version puis confirmez. Un superviseur indépendant conserve le code et la base précédents et les restaure si le contrôle de démarrage échoue. Le navigateur retrouve le résultat après reconnexion. La même page liste les copies de retour arrière : les trois plus récentes sont conservées, les autres supprimées automatiquement. [Guide, installation initiale et limites](docs/BROWSER-UPDATES.md).
 
 ![Mise à jour réussie sur le banc isolé](docs/images/update-success.jpg)
 

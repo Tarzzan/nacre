@@ -42,6 +42,9 @@ def upload(app,handler):
     except engine.UpdateError as error:raise app.Problem(str(error),409) from None
     except (ValueError,KeyError,OSError,EOFError,tarfile.TarError):raise app.Problem('Paquet de mise à jour non valide.') from None
     finally:path.unlink(missing_ok=True)
+    # Le paquet vérifié remplace le précédent : l'ancien et les copies hors règle sont effacés sans attendre.
+    from update_copies import tidy
+    tidy(app)
     return status(app)
 
 def apply(app,body,session):
