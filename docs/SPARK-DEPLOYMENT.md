@@ -1,5 +1,17 @@
 # Déploiements de la console sur Spark
 
+## 13 novembre 2026 — alpha.30, gestionnaire de fichiers
+
+L’installation alpha.29 a reçu le paquet `nacre-0.8.0-alpha.30.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.30), construit depuis le commit [`9674a31`](https://github.com/Tarzzan/nacre/commit/9674a312894f0a90703272760853b3a7a29901ff) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
+
+Avant l’import : neuf modules figés identiques, aucune tâche active, répétition isolée alpha.29 → alpha.30 réussie. Le tunnel local vers la console était tombé et a été rétabli avant l’import. Fichier importé téléchargé depuis la release, empreinte contrôlée ; session administrateur temporaire refermée ; installation confirmée et suivie dans le navigateur, session conservée.
+
+Préparation enregistrée à 13 h 47 min 03 s, validation à 13 h 47 min 33 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Constaté dans le navigateur : le [gestionnaire de fichiers](DESKTOP.md#fichiers) s’affiche sur les espaces réels, avec ses actions d’écriture pour l’administrateur ; les nouvelles routes répondent (archive sans sélection refusée, aperçu d’un fichier absent introuvable).
+
+Limites de ce contrôle : aucun fichier réel n’a été ouvert, prévisualisé, déplacé, archivé ni téléchargé. Ces gestes n’ont été exercés que sur le banc et sur espace temporaire.
+
 ## 13 novembre 2026 — alpha.29, le Bureau
 
 L’installation alpha.25 a reçu le paquet `nacre-0.8.0-alpha.29.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.29), construit depuis le commit [`2f6903f`](https://github.com/Tarzzan/nacre/commit/2f6903feb60d7632996ab9ee7da271fbc96c2269) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md). Cette mise à jour apporte d’un coup les quatre lots du [Bureau](DESKTOP.md), d’alpha.26 à alpha.29.

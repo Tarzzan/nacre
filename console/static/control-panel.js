@@ -34,6 +34,7 @@ async function saveControlPreferences(form){
   const saved=await api('control-panel/configure',values);
   if(generation!==sessionGeneration)return;
   user.nas_name=saved.name;user.timezone=saved.timezone;user.timezone_unset=false;if(typeof drawZonePrompt==='function')drawZonePrompt();
+  if(typeof deskEmbedded==='function'&&deskEmbedded())deskParent('deskChildPrefs',saved);
   const host=$('#side-host'),clock=$('#topclock');if(host)host.textContent=saved.name;if(clock)clock.textContent=date(Date.now()/1000);
   if(page==='settings'&&$('#control-preferences')===form){
    controlState={...controlState,...saved};toast('Préférences enregistrées.');

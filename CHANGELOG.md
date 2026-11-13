@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.31 — Plusieurs fenêtres
+
+Le bureau ouvre désormais **une fenêtre par application, plusieurs à la fois** : suivre un envoi de fichiers en regardant une caméra, garder le journal ouvert à côté des réglages. Chaque fenêtre se déplace, se redimensionne par son coin, s’agrandit, se réduit dans le dock et se ferme sans toucher aux autres ; un clic la met devant. Une page ouverte depuis une fenêtre (un lien du panneau de réglages, une alerte, un résultat de recherche) arrive dans la fenêtre de la bonne application. Sur téléphone, la fenêtre de devant occupe l’écran et le dock fait passer de l’une à l’autre. Chaque fenêtre héberge la console elle-même dans un cadre de même origine : les pages ne sont pas réécrites et gardent chacune leur état. La console accepte donc d’être encadrée par elle-même, et par elle seule. Aucun changement de schéma ni de module figé. 313 tests Python et 119 JavaScript. [Guide et limites](docs/DESKTOP.md#plusieurs-fenêtres).
+
 ## 0.8.0-alpha.30 — Gestionnaire de fichiers
 
 Dans le bureau, Fichiers devient un vrai gestionnaire : arborescence des espaces et des dossiers à gauche, contenu au centre en liste triable ou en grille, aperçu à droite. La sélection multiple (cases, Ctrl, Maj, Ctrl+A) fait apparaître une barre d’actions : télécharger, renommer, déplacer, mettre en corbeille. On glisse des fichiers depuis l’ordinateur pour les envoyer, plusieurs à la fois, et une sélection vers un dossier pour la déplacer. L’aperçu montre les images, les vidéos et le début des textes sans quitter la page. Deux opérations nouvelles côté serveur : **déplacer** des éléments dans un même espace, sans jamais remplacer ni suivre un lien, et **télécharger une sélection en archive ZIP**, produite à la volée sans plafond de taille. L’affichage classique garde sa page. Aucun changement de schéma ni de module figé. 312 tests Python et 117 JavaScript. [Guide et limites](docs/DESKTOP.md#fichiers).

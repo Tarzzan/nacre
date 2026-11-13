@@ -39,7 +39,7 @@ async function saveZone(zone){
  const clock=$('#topclock');if(clock)clock.textContent=date(Date.now()/1000);
  drawZonePrompt();
  // Les dates déjà affichées sont redessinées, et le panneau reprend la révision enregistrée.
- if(!user.timezone_unset)await go(page);
+ if(!user.timezone_unset){if(typeof deskReload==='function')deskReload();await go(page);}
 }
 
 // Champ de fuseau avec la liste du serveur réduite aux noms que ce navigateur sait afficher, et l’heure correspondante.

@@ -152,6 +152,16 @@ class ControlPanelTests(unittest.TestCase):
         code,raw=self.request('GET','/files.js')
         self.assertEqual(code,200);self.assertIn('renderFileManager',raw if isinstance(raw,str) else raw.decode())
 
+    def test_console_can_be_framed_by_itself_only(self):
+        # Les fenêtres du bureau encadrent la console elle-même ; aucune autre origine ne le peut.
+        import http.client
+        connection=http.client.HTTPConnection('127.0.0.1',self.http.server_port,timeout=4)
+        connection.request('GET','/');response=connection.getresponse();response.read();headers=dict(response.getheaders());connection.close()
+        self.assertEqual(headers['X-Frame-Options'],'SAMEORIGIN')
+        policy=headers['Content-Security-Policy']
+        self.assertIn("frame-ancestors 'self'",policy);self.assertIn("default-src 'self'",policy);self.assertIn("script-src 'self'",policy)
+        self.assertNotIn('*',policy);self.assertNotIn('unsafe',policy)
+
     def test_revocation_targets_one_account_and_preserves_current_session(self):
         self.ready();other,_=app.make_session('admin')
         with app.database() as db:
