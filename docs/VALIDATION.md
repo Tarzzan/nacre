@@ -1,5 +1,9 @@
 # Validation
 
+## Recherche de fichiers par critères, sans nom — 0.8.0-alpha.37
+
+322 tests Python et 129 JavaScript. Détail dans le [guide du Bureau](DESKTOP.md#validation).
+
 ## Filtres de la recherche de fichiers — 0.8.0-alpha.36
 
 321 tests Python et 128 JavaScript. Détail dans le [guide du Bureau](DESKTOP.md#validation).

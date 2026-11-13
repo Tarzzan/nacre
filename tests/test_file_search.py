@@ -1,4 +1,4 @@
-"""Recherche de fichiers par nom : portée, droits, liens jamais suivis et bornes, sur un espace temporaire et un serveur HTTP local."""
+"""Recherche de fichiers par nom ou par critères : portée, droits, liens jamais suivis et bornes, sur un espace temporaire et un serveur HTTP local."""
 import json
 import unittest
 from unittest.mock import patch
@@ -108,6 +108,55 @@ class FileSearchTests(unittest.TestCase):
         for query in ({'kind': 'exe'}, {'kind': 'Image'}, {'kind': 'image,video'}, {'days': '0'}, {'days': '-1'}, {'days': 'abc'}, {'days': '1.5'}, {'days': '36501'},
                       {'days': '٣'}, {'min_size': '0'}, {'min_size': '1e3'}, {'min_size': str((1 << 50) + 1)}):
             self.assertEqual(self.find('été', **query)[0], 400, query)
+
+    def test_criteria_alone_rank_the_biggest_or_the_latest_within_bounds(self):
+        import file_search, os, time
+        self.tree()
+        for name, size in (('Photos/énorme.bin', 9000), ('Photos/Été 2026/moyen.jpg', 5000), ('Factures/petit.pdf', 700)):
+            (self.files / name).write_bytes(b'x' * size)
+        (server.ROOT / 'data/video/extraits/film.mp4').write_bytes(b'x' * 7000)
+        (server.ROOT / 'data/restaurations/ancien/copie.bin').write_bytes(b'x' * 99000)
+        now = time.time()
+        for index, path in enumerate(('Photos/énorme.bin', 'Factures/petit.pdf', 'Photos/Été 2026', 'Photos')):
+            os.utime(self.files / path, (now + 100 - index, now + 100 - index))
+        # Sans nom : les plus gros fichiers d'abord, tous espaces confondus ; ni dossier, ni lien, ni caché, ni restauration.
+        status, value = self.find('', sort='size')
+        self.assertEqual(status, 200, value)
+        self.assertEqual([(i['area'], i['name'], i['size']) for i in value['items']][:4],
+                         [('fichiers', 'énorme.bin', 9000), ('video', 'film.mp4', 7000), ('fichiers', 'moyen.jpg', 5000), ('fichiers', 'petit.pdf', 700)])
+        self.assertEqual((value['sort'], value['partial'], value['query'], value['matched']), ('size', None, '', len(value['items'])))
+        self.assertFalse(any(i['directory'] or i['link'] for i in value['items'])); self.assertNotIn('rank', value['items'][0])
+        self.assertNotIn('restaurations', json.dumps(value)); self.assertNotIn('cach', json.dumps(value))
+        # Un critère suffit, et classe par taille ; des dossiers seuls sont classés par date, faute de taille propre.
+        self.assertEqual([i['name'] for i in self.find('', kind='image')[1]['items']], ['moyen.jpg', 'plage été.jpg'])
+        self.assertEqual(self.find('', min_size='6000')[1]['sort'], 'size')
+        self.assertEqual([name for _, _, name in self.found('', min_size='6000')], ['énorme.bin', 'film.mp4'])
+        status, value = self.find('', kind='folder')
+        self.assertEqual((value['sort'], [i['name'] for i in value['items']][:2]), ('recent', ['Été 2026', 'Photos']))
+        self.assertEqual(self.found('', kind='folder', sort='size'), [])
+        # Les plus récents d'abord : dossiers compris.
+        self.assertEqual([name for _, _, name in self.found('', sort='recent')][:4], ['énorme.bin', 'petit.pdf', 'Été 2026', 'Photos'])
+        # La portée et les droits restent ceux de la recherche par nom.
+        self.assertEqual(self.found('', sort='size', area='fichiers', path='Photos/Été 2026'), [('fichiers', 'Photos/Été 2026', 'moyen.jpg'), ('fichiers', 'Photos/Été 2026', 'plage été.jpg')])
+        self.assertEqual(self.found('', sort='size', area='restaurations')[0], ('restaurations', 'ancien', 'copie.bin'))
+        token, _ = self.reader()
+        self.assertEqual(self.find('', token=token, sort='size', area='restaurations')[0], 403)
+        self.assertEqual(self.find('', token=token, sort='size')[0], 200)
+        # Avec un nom, le classement s'applique aux noms qui correspondent.
+        (self.files / 'Factures/facture ÉTÉ.pdf').write_bytes(b'x' * 800)
+        self.assertEqual([name for _, _, name in self.found('été', sort='size')][:2], ['facture ÉTÉ.pdf', 'été.md'])
+        self.assertEqual(self.find('été')[1]['sort'], None)
+        # Le classement lit tout et ne garde que les meilleurs : au-delà de la limite, le total rencontré est dit.
+        with patch.object(file_search, 'RESULTS', 2):
+            status, value = self.find('', sort='size')
+            self.assertEqual(([i['name'] for i in value['items']], value['partial'], value['limit']), (['énorme.bin', 'film.mp4'], None, 2))
+            self.assertGreater(value['matched'], 2)
+        with patch.object(file_search, 'VISITED', 3):
+            status, value = self.find('', sort='size')
+            self.assertEqual((status, value['partial'], value['visited']), (200, 'count', 4))
+        # Ni nom ni critère, un seul caractère avec un critère, un classement inconnu : refusés.
+        for text, query in (('', {}), (' ', {}), ('', {'sort': ''}), ('e', {'sort': 'size'}), ('', {'sort': 'name'}), ('été', {'sort': 'Size'}), ('', {'sort': 'size', 'path': 'Photos'})):
+            self.assertEqual(self.find(text, **query)[0], 400, (text, query))
 
     def test_search_stops_at_its_bounds_and_says_so(self):
         import file_search

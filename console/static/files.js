@@ -6,7 +6,7 @@ const FM_KINDS=[[/\.(jpe?g|png|gif|webp)$/i,'img','Image'],[/\.(mp4|webm)$/i,'vi
 const FM_MARK={dir:'D',lnk:'↗',img:'IMG',vid:'VID',pdf:'PDF',txt:'TXT',zip:'ZIP',file:'·'};
 let fmItems=[],fmSel=new Set(),fmLast='',fmView='list',fmPreview=true,fmFilter='',fmSort=['name',1],fmRequest=0,fmDrag=null,fmBusy=false;
 // Recherche par nom : null hors recherche ; sinon la demande, sa portée et ses résultats (items null tant qu’elle court).
-let fmFound=null,fmHit=-1,fmFindRequest=0,fmPending='';
+let fmFound=null,fmHit=-1,fmFindRequest=0,fmPending='',fmPendingBig=false;
 // Sous-dossiers déjà vus, par « espace|chemin » : l’arborescence se construit en naviguant.
 const fmDirs=new Map();
 
@@ -38,7 +38,7 @@ function fmTree(){
 function fmTools(){
  const chain=currentPath?currentPath.split('/'):[],name=fileAreas.find(a=>a.id===area)?.name||area,write=fmWritable();
  const crumbs=[`<button type="button" data-action="fm-go" data-area="${esc(area)}" data-path="">${esc(name)}</button>`,...chain.map((part,i)=>`<button type="button" data-action="fm-go" data-area="${esc(area)}" data-path="${esc(chain.slice(0,i+1).join('/'))}">${esc(part)}</button>`)].join('<span aria-hidden="true">›</span>');
- return `<div class="fm-crumbs" aria-label="Emplacement">${crumbs}</div><span class="fm-grow"></span><input id="fm-filter" type="search" placeholder="Filtrer ou rechercher" value="${esc(fmFilter)}" aria-label="Filtrer ce dossier ou rechercher un nom" title="Filtre ce dossier pendant la saisie ; Entrée cherche dans tout le NAS">${button('fm-view',fmView==='list'?'Grille':'Liste',null,'small')}${button('fm-preview','Aperçu',null,'small',`aria-pressed="${fmPreview}"`)}${write?button('mkdir','Nouveau dossier','plus','small')+button('fm-send','Déposer des fichiers','upload','primary small'):''}`;
+ return `<div class="fm-crumbs" aria-label="Emplacement">${crumbs}</div><span class="fm-grow"></span><input id="fm-filter" type="search" placeholder="Filtrer ou rechercher" value="${esc(fmFilter)}" aria-label="Filtrer ce dossier ou rechercher un nom" title="Filtre ce dossier pendant la saisie ; Entrée cherche dans tout le NAS">${button('fm-criteria','Par critères',null,'small','title="Chercher sans nom, ici et dans les sous-dossiers : les plus gros fichiers, les plus récents, par type"')}${button('fm-view',fmView==='list'?'Grille':'Liste',null,'small')}${button('fm-preview','Aperçu',null,'small',`aria-pressed="${fmPreview}"`)}${write?button('mkdir','Nouveau dossier','plus','small')+button('fm-send','Déposer des fichiers','upload','primary small'):''}`;
 }
 function fmBar(){
  const chosen=fmSelected(),write=fmWritable();if(!chosen.length)return '';
@@ -55,23 +55,30 @@ function fmAsk(){
 // Filtres des résultats : [paramètre de la recherche, libellé, choix]. Le choix vide ne filtre pas.
 const FM_REFINE=[['kind','Type',[['','Tous les types'],['folder','Dossiers'],['image','Images'],['video','Vidéos'],['audio','Sons'],['document','Documents'],['archive','Archives']]],
  ['days','Modifié',[['','À toute date'],['1','Depuis 24 heures'],['7','Depuis 7 jours'],['30','Depuis 30 jours'],['365','Depuis un an']]],
- ['min_size','Taille',[['','Toute taille'],['1048576','Plus de 1 Mio'],['104857600','Plus de 100 Mio'],['1073741824','Plus de 1 Gio']]]];
-function fmRefined(filters){return FM_REFINE.some(([key])=>filters?.[key]);}
-function fmRefineRow(filters,busy){
- return `<div class="fm-find fm-refine" role="group" aria-label="Affiner les résultats">${FM_REFINE.map(([key,label,choices])=>`<label for="fm-ref-${key}">${label}</label><select id="fm-ref-${key}" data-refine="${key}"${busy?' disabled':''}>${choices.map(([value,text])=>`<option value="${value}"${(filters?.[key]||'')===value?' selected':''}>${text}</option>`).join('')}</select>`).join('')}<span class="fm-grow"></span>${fmRefined(filters)&&!busy?button('fm-refine-clear','Retirer les filtres',null,'small'):''}</div>`;
+ ['min_size','Taille',[['','Toute taille'],['1048576','Plus de 1 Mio'],['104857600','Plus de 100 Mio'],['1073741824','Plus de 1 Gio']]],
+ ['sort','Ordre',[['','Par pertinence'],['size','Les plus gros'],['recent','Les plus récents']]]];
+// Un classement n’est pas un filtre : « Retirer les filtres » le garde.
+function fmRefined(filters){return FM_REFINE.some(([key])=>key!=='sort'&&filters?.[key]);}
+// Choix d’ordre proposés : pas de pertinence sans nom (« bare »), pas de taille pour des dossiers, qui n’en ont pas en propre.
+function fmOrders(filters,bare){return FM_REFINE[3][2].filter(([value])=>!(bare&&!value)&&!(filters?.kind==='folder'&&value==='size'));}
+function fmRefineRow(filters,busy,bare){
+ return `<div class="fm-find fm-refine" role="group" aria-label="Affiner les résultats">${FM_REFINE.map(([key,label,choices])=>`<label for="fm-ref-${key}">${label}</label><select id="fm-ref-${key}" data-refine="${key}"${busy?' disabled':''}>${(key==='sort'?fmOrders(filters,bare):choices).map(([value,text])=>`<option value="${value}"${(filters?.[key]||'')===value?' selected':''}>${text}</option>`).join('')}</select>`).join('')}<span class="fm-grow"></span>${fmRefined(filters)&&!busy?button('fm-refine-clear','Retirer les filtres',null,'small'):''}</div>`;
 }
 function fmFoundList(){
- const {query,where,items,partial,visited,skipped,limit,filters}=fmFound;
+ const {query,where,items,partial,visited,skipped,limit,filters,matched}=fmFound;
+ const bare=!query,order=filters.sort==='recent'?'plus récents':'plus gros';
  const place=where?(where.path?`dans « ${where.path.split('/').pop()} » et ses sous-dossiers`:`dans ${fmAreaName(where.area)}`):'dans tout le NAS';
- const head=text=>`<div class="fm-find"><span>${text}</span><span class="fm-grow"></span>${button('fm-find-close','Fermer la recherche',null,'small')}</div>`;
- if(!items)return head(`Recherche de « ${esc(query)} » ${esc(place)}…`)+fmRefineRow(filters,true)+'<p class="fm-hint">Recherche en cours…</p>';
+ const head=text=>`<div class="fm-find"><span>${text}</span><span class="fm-grow"></span>${where&&items?button('fm-find-wide','Étendre à tout le NAS',null,'small'):''}${button('fm-find-close','Fermer la recherche',null,'small')}</div>`;
+ if(!items)return head(bare?`Recherche des ${order} ${esc(place)}…`:`Recherche de « ${esc(query)} » ${esc(place)}…`)+fmRefineRow(filters,true,bare)+'<p class="fm-hint">Recherche en cours…</p>';
  const notes=[];
  if(partial==='results')notes.push(`Seuls les ${limit} premiers résultats sont affichés : précisez le nom, ou affinez par type, date ou taille.`);
- else if(partial)notes.push(`Recherche arrêtée après ${visited.toLocaleString('fr-FR')} éléments parcourus : tout n’a pas été vu. Cherchez depuis un dossier pour aller plus loin.`);
+ else if(partial)notes.push(`Recherche arrêtée après ${visited.toLocaleString('fr-FR')} éléments parcourus : ${filters.sort?'le classement ne porte que sur ce qui a été vu':'tout n’a pas été vu'}. Cherchez depuis un dossier pour aller plus loin.`);
+ if(filters.sort&&matched>items.length)notes.push(`Seuls les ${items.length} ${order} sont affichés, sur ${matched.toLocaleString('fr-FR')} correspondances.`);
  if(skipped.length)notes.push(`Espace indisponible, non parcouru : ${skipped.map(fmAreaName).join(', ')}.`);
  const note=notes.map(text=>`<p class="fm-note">${esc(text)}</p>`).join('');
- const title=head(`<strong>${items.length} résultat${items.length>1?'s':''}</strong> pour « ${esc(query)} » ${esc(place)}`)+fmRefineRow(filters,false);
- if(!items.length)return title+note+empty(fmRefined(filters)?'Aucun résultat avec ces filtres.':where?'Aucun nom ne correspond ici. Essayez dans tout le NAS.':'Aucun fichier ni dossier ne porte ce nom. Les restaurations ne sont parcourues que depuis leur espace.','folder');
+ const count=`<strong>${items.length} ${bare?'élément':'résultat'}${items.length>1?'s':''}</strong>`;
+ const title=head(bare?`${count} ${esc(place)}, les ${order} d’abord`:`${count} pour « ${esc(query)} » ${esc(place)}`)+fmRefineRow(filters,false,bare);
+ if(!items.length)return title+note+empty(fmRefined(filters)?'Aucun résultat avec ces filtres.':bare?'Rien à classer ici.':where?'Aucun nom ne correspond ici. Essayez dans tout le NAS.':'Aucun fichier ni dossier ne porte ce nom. Les restaurations ne sont parcourues que depuis leur espace.','folder');
  return title+note+`<table class="fm-table fm-hits"><thead><tr><th>Nom</th><th>Emplacement</th><th>Taille</th><th>Modifié</th></tr></thead><tbody>${items.map((item,index)=>`<tr class="fm-hit ${index===fmHit?'sel':''}" data-hit="${index}"><td>${fmIcon(item)}${esc(item.name)}</td><td>${esc(fmAreaName(item.area)+(item.path?' › '+item.path.split('/').join(' › '):''))}</td><td>${item.directory?'—':sizes(item.size)}</td><td>${date(item.modified)}</td></tr>`).join('')}</tbody></table>`;
 }
 function fmList(){
@@ -120,7 +127,7 @@ function fmRedraw(tools=false){
 async function renderFileManager(){
  const generation=sessionGeneration,request=++fmRequest,current=()=>generation===sessionGeneration&&page==='files'&&request===fmRequest;
  // Une recherche demandée depuis la recherche globale : le nom arrive dans le champ, puis elle part sur tout le NAS.
- const asked=fmPending;fmPending='';if(asked){fmFilter=asked;fmFound=null;}
+ const asked=fmPending,big=fmPendingBig;fmPending='';fmPendingBig=false;if(asked||big){fmFilter=asked;fmFound=null;}
  const areas=await api('areas');if(!current())return;
  fileAreas=areas;
  if(!fileAreas.some(a=>a.id===area)){area='fichiers';currentPath='';toast('Le volume est indisponible. Retour aux fichiers partagés.',true);}
@@ -137,17 +144,29 @@ async function renderFileManager(){
  fmSel=new Set([...fmSel].filter(name=>fmItems.some(i=>i.name===name)));
  $('#content').innerHTML=`<div class="fm ${fmPreview?'':'fm-nopreview'}" id="fm"><nav class="fm-tree" id="fm-tree" aria-label="Espaces et dossiers">${fmTree()}</nav><div class="fm-main"><div class="fm-tools" id="fm-tools">${fmTools()}</div><div class="fm-list" id="fm-list">${fmList()}</div></div><aside class="fm-side" id="fm-side" aria-label="Aperçu">${fmSide()}</aside><input type="file" id="fm-upload" multiple hidden><div class="fm-drop" id="fm-drop" hidden></div></div>`;
  fmLoadText();
- if(asked)fmFind('all').catch(error=>{if(error.name!=='AbortError')toast(error.message,true);});
+ if(asked||big)(asked?fmFind('all'):fmCriteria('all')).catch(error=>{if(error.name!=='AbortError')toast(error.message,true);});
 }
-function fmQueue(text){fmPending=String(text||'').trim().slice(0,80);}
+// Recherche à lancer à la prochaine ouverture de Fichiers : un nom, ou « big » pour les plus gros fichiers du NAS.
+function fmQueue(text,big=false){fmPending=String(text||'').trim().slice(0,80);fmPendingBig=!!big&&!fmPending;}
 // Recherche par nom, lancée à la demande : dans le dossier ouvert et ses sous-dossiers (« here ») ou dans tous les espaces.
 // Avec « refine », la même recherche est relancée avec d’autres filtres : nom et portée ne changent pas.
-async function fmFind(scope,refine=null){
- const before=refine?fmFound:null;
- if(refine?!before?.items:!fmFindable())return refine?undefined:toast('Saisissez au moins deux caractères du nom recherché.',true);
- const text=before?before.query:fmFilter.trim(),where=before?before.where:scope==='here'?{area,path:currentPath}:null;
- // Seuls les filtres réellement choisis sont gardés.
- const filters=Object.fromEntries(FM_REFINE.map(([key])=>[key,String(refine?.[key]||'')]).filter(([,value])=>value));
+function fmFind(scope,refine=null){
+ if(refine)return fmFound?.items?fmSearch(fmFound.query,fmFound.where,refine,fmFound):undefined;
+ if(!fmFindable())return toast('Saisissez au moins deux caractères du nom recherché.',true);
+ return fmSearch(fmFilter.trim(),scope==='here'?{area,path:currentPath}:null,{},null);
+}
+// Recherche par critères seuls, sans nom : d’abord les plus gros fichiers, puis type, date, taille et ordre s’ajustent.
+function fmCriteria(scope){
+ fmFilter='';const box=$('#fm-filter');if(box)box.value='';
+ return fmSearch('',scope==='all'?null:{area,path:currentPath},{sort:'size'},null);
+}
+// La même recherche, étendue du dossier ou de l’espace à tout le NAS.
+function fmWiden(){return fmFound?.items&&fmFound.where?fmSearch(fmFound.query,null,fmFound.filters,fmFound):undefined;}
+async function fmSearch(text,where,chosen,before){
+ // Seuls les filtres réellement choisis sont gardés. Sans nom, la recherche est toujours classée.
+ const filters=Object.fromEntries(FM_REFINE.map(([key])=>[key,String(chosen?.[key]||'')]).filter(([,value])=>value));
+ if(filters.sort&&!fmOrders(filters,!text).some(([value])=>value===filters.sort))delete filters.sort;
+ if(!text&&!filters.sort)filters.sort=fmOrders(filters,true)[0][0];
  const generation=sessionGeneration,request=++fmFindRequest;
  const current=()=>generation===sessionGeneration&&request===fmFindRequest&&page==='files'&&!!fmFound;
  fmSel.clear();fmHit=-1;fmFound={query:text,where,filters,items:null};fmRedraw();
@@ -158,7 +177,7 @@ async function fmFind(scope,refine=null){
  if(!current())return;
  // Ne sont gardés que les résultats bien formés, dans un espace que ce compte voit.
  const items=(Array.isArray(data?.items)?data.items:[]).filter(i=>i&&typeof i.name==='string'&&i.name&&typeof i.path==='string'&&fileAreas.some(a=>a.id===i.area));
- fmFound={query:text,where,filters,items,partial:typeof data?.partial==='string'?data.partial:'',visited:Number(data?.visited)||0,skipped:(Array.isArray(data?.skipped)?data.skipped:[]).filter(x=>typeof x==='string'),limit:Number(data?.limit)||items.length};
+ fmFound={query:text,where,filters,items,partial:typeof data?.partial==='string'?data.partial:'',visited:Number(data?.visited)||0,matched:Math.max(Number(data?.matched)||0,items.length),skipped:(Array.isArray(data?.skipped)?data.skipped:[]).filter(x=>typeof x==='string'),limit:Number(data?.limit)||items.length};
  fmRedraw();
 }
 function fmFindClose(){fmFindRequest++;fmFound=null;fmHit=-1;fmRedraw();}
@@ -227,7 +246,9 @@ document.addEventListener('click',async e=>{
    if(action==='fm-move')return fmAskMove();
    if(action==='fm-find')return await fmFind(el.dataset.scope==='here'?'here':'all');
    if(action==='fm-find-close')return fmFindClose();
-   if(action==='fm-refine-clear')return await fmFind('',{});
+   if(action==='fm-refine-clear')return await fmFind('',{sort:fmFound?.filters?.sort});
+   if(action==='fm-criteria')return await fmCriteria('here');
+   if(action==='fm-find-wide')return await fmWiden();
    if(action==='fm-reveal')return await fmReveal(fmFound?.items?.[fmHit],el.dataset.inside==='1');
    return;
   }
@@ -254,7 +275,7 @@ document.addEventListener('input',e=>{if(e.target?.id==='fm-filter'&&page==='fil
 document.addEventListener('change',e=>{
  const key=e.target?.dataset?.refine;if(!key||page!=='files'||!fmFound?.items)return;
  const value=String(e.target.value||''),id=e.target.id;
- if(!FM_REFINE.find(r=>r[0]===key)?.[2].some(choice=>choice[0]===value))return;
+ if(!(key==='sort'?fmOrders(fmFound.filters,!fmFound.query):FM_REFINE.find(r=>r[0]===key)?.[2])?.some(choice=>choice[0]===value))return;
  return fmFind('',{...fmFound.filters,[key]:value}).then(()=>$('#'+id)?.focus?.()).catch(error=>{if(error.name!=='AbortError')toast(error.message,true);});
 });
 document.addEventListener('change',e=>{if(e.target?.id==='fm-upload'){const files=[...(e.target.files||[])];e.target.value='';fmSend(files).catch(error=>toast(error.message,true));}});

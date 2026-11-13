@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.37 — Recherche de fichiers par critères, sans nom
+
+**Fichiers** répond à « qu’est-ce qui prend de la place ? ». Le bouton **Par critères** de la barre d’outils lance une recherche sans nom dans le dossier ouvert et ses sous-dossiers : les **plus gros fichiers d’abord**, que les listes Type, Modifié et Taille resserrent ensuite (« les vidéos de plus de 1 Gio », « les documents modifiés depuis 7 jours »). Une quatrième liste, **Ordre**, classe aussi par modification la plus récente, et sert de la même façon à une recherche par nom. **Étendre à tout le NAS** relance la même recherche partout, et la recherche globale (Ctrl+K) propose **Les plus gros fichiers** pour tout le NAS. Un classement lit tout ce que les bornes de parcours permettent et n’affiche que les 200 premiers, en donnant le nombre de correspondances rencontrées. Aucun changement de schéma ni de module figé. 322 tests Python et 129 JavaScript. [Guide et limites](docs/DESKTOP.md#chercher-sans-nom-par-critères).
+
 ## 0.8.0-alpha.36 — Filtres de la recherche de fichiers
 
 Les résultats d’une recherche par nom dans **Fichiers** s’affinent par trois listes : **Type** (dossiers, images, vidéos, sons, documents, archives), **Modifié** (depuis 24 heures, 7 jours, 30 jours, un an) et **Taille** (plus de 1 Mio, 100 Mio, 1 Gio). Un choix relance la même recherche, même nom et même portée ; les filtres se combinent et **Retirer les filtres** les enlève tous. Ils permettent aussi de dépasser le plafond de 200 résultats d’un nom très courant. Le type se déduit de l’extension, jamais du contenu ; date et taille ne sont lues que pour les éléments dont le nom correspond. Aucun changement de schéma ni de module figé. 321 tests Python et 128 JavaScript. [Guide et limites](docs/DESKTOP.md#affiner-les-résultats).
