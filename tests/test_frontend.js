@@ -691,8 +691,9 @@ function deskFixture(fetch=async()=>response(200,overviewSample),role='admin'){
 }
 test('desktop shell replaces the sidebar, keeps the anchors pages rely on and escapes the NAS name',()=>{
  const f=deskFixture();
- assert.match(f.html,/^<div class="dk">/);assert.doesNotMatch(f.html,/class="sidebar"|<b>Atelier|style=/);assert.match(f.html,/&lt;b&gt;Atelier/);
- for(const id of ['content','crumb','topclock','side-host','side-version','alert-summary','zone-prompt','dk-win','dk-tabs','dk-widgets'])assert.match(f.html,new RegExp(`id="${id}"`),id);
+ assert.match(f.html,/^<div class="dk">/);assert.doesNotMatch(f.html,/class="sidebar"|<b>Atelier|style=|<iframe/);assert.match(f.html,/&lt;b&gt;Atelier/);
+ for(const id of ['content','crumb','topclock','side-host','side-version','alert-summary','zone-prompt','dk-stage','dk-wins','dk-widgets'])assert.match(f.html,new RegExp(`id="${id}"`),id);
+ assert.match(f.html,/<main class="content dk-solo" id="content" hidden>/);assert.match(f.html,/class="dk-brand" data-action="desk-home"/);
  assert.equal((f.html.match(/class="dk-dockapp"/g)||[]).length,7);assert.equal((f.html.match(/class="dk-app"/g)||[]).length,7);
  assert.match(f.html,/data-action="shell-classic"/);assert.match(f.html,/data-action="logout"/);
  // Lecture seule : ni alertes ni onglets d'administration, et les applications gardent leurs pages ouvertes à tous.
@@ -713,36 +714,100 @@ test('classic display stays one click away and the first-run assistant never use
  const g=deskFixture();g.context.localStorage={getItem(){throw new Error('bloqué');},setItem(){throw new Error('bloqué');}};
  assert.equal(g.run('deskMode()'),true);await g.click('shell-classic');assert.match(g.html,/^<div class="dk">/);
 });
-test('navigation opens the application window with its tabs and the desktop hides it',async()=>{
- const f=deskFixture();const win=()=>f.elements.get('#dk-win');
- assert.equal(win().hidden,true);
+// Gestionnaire de fenêtres : une fenêtre par application, chacune dans un cadre de même origine.
+function winFixture(fetch,role='admin'){
+ const f=deskFixture(fetch,role);f.frames={};f.removed=[];
+ const node=(id,extra={})=>{const el={hidden:false,innerHTML:'',src:'',style:{},dataset:{},classList:{toggle(name,on){this[name]=on;},add(name){this[name]=true;},remove(name){this[name]=false;}},remove(){f.removed.push(id);f.elements.delete('#'+id);},...extra};f.elements.set('#'+id,el);return el;};
+ f.arm=()=>{node('dk-stage');node('dk-widgets',{innerHTML:'déjà là'});node('dk-wins',{insertAdjacentHTML(_,html){this.innerHTML+=html;const app=html.match(/id="dk-win-(\w+)"/)[1];node('dk-win-'+app);node('dk-tabs-'+app);f.frames[app]=node('dk-frame-'+app,{src:html.match(/<iframe[^>]* src="([^"]+)"/)[1],contentWindow:null});}});};
+ for(const name of ['bell.js','palette.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static',name),'utf8'),f.context);
+ f.run('shell();');f.arm();
+ f.child=app=>{const calls=[],child={deskReady:true,calls,go(page){calls.push(['go',page]);},deskApply(intent){calls.push(['apply',JSON.parse(JSON.stringify(intent))]);},location:{reload(){calls.push(['reload']);}}};f.frames[app].contentWindow=child;return child;};
+ f.desk=(action,data={},cls='')=>f.listeners.get('click').find(fn=>String(fn).includes("action==='desk-open'"))({target:{closest:()=>({dataset:{action,...data},classList:{contains:name=>name===cls}})}});
+ f.wins=()=>JSON.parse(JSON.stringify(f.run('deskWins.map(w=>[w.app,w.page,w.min,w.max])')));return f;
+}
+test('pages open in one window per application, side by side, and the desktop keeps running behind them',async()=>{
+ const f=winFixture();
  await f.run('go("snapshots")');
- assert.equal(win().hidden,false);assert.equal(f.elements.get('#dk-name').textContent,'Protection');assert.match(f.elements.get('#dk-tile').innerHTML,/dk-protect/);
- const tabs=f.elements.get('#dk-tabs');assert.equal(tabs.hidden,false);
- assert.deepEqual([...tabs.innerHTML.matchAll(/data-page="(\w+)" aria-selected="(\w+)">([^<]+)</g)].map(m=>m.slice(1)),[['backups','false','Sauvegardes'],['snapshots','true','Points de restauration'],['retention','false','Conservation']]);
- assert.equal(f.elements.get('#crumb').textContent,'Snapshots');
- await f.run('go("camera")');assert.equal(f.elements.get('#dk-name').textContent,'Surveillance');
- // Application à page unique : ses onglets sont des vues, la première sélectionnée.
- assert.equal(tabs.hidden,false);assert.deepEqual([...tabs.innerHTML.matchAll(/data-action="desk-view" data-app="cam" data-view="(\w+)" aria-selected="(\w+)">([^<]+)</g)].map(m=>m.slice(1)),[['wall','true','Mur'],['events','false','Événements'],['replay','false','Relecture'],['settings','false','Réglages']]);
- await f.click('desk-view',{app:'cam',view:'replay'});assert.equal(f.run('deskViewOf("cam")'),'replay');assert.match(tabs.innerHTML,/data-view="replay" aria-selected="true"/);assert.equal(f.run('page'),'camera');
- await f.click('desk-view',{app:'cam',view:'nowhere'});await f.click('desk-view',{app:'files',view:'replay'});assert.equal(f.run('deskViewOf("cam")'),'replay');assert.equal(f.run('deskViewOf("files")'),'');
- await f.run('go("users")');assert.match(tabs.innerHTML,/data-page="users" aria-selected="true"/);await f.run('go("camera")');
- await f.run('go("home")');assert.equal(win().hidden,true);assert.equal(f.run('deskOpen'),'cam');
- // Page hors application (fin de l'assistant) : fenêtre simple, titrée par la page.
- f.run('page="setup";deskSync();');assert.equal(win().hidden,false);assert.equal(f.elements.get('#dk-name').textContent,'Première configuration');assert.equal(tabs.hidden,true);
- // Fenêtre agrandie et position mémorisée survivent aux changements d'onglet.
- await f.click('desk-max');assert.equal(win().classList.max,true);f.run('deskPos={left:40,top:12};');await f.run('go("backups")');
- assert.deepEqual([win().classList.max,win().style.left,win().style.top],[true,'40px','12px']);
+ assert.deepEqual(f.wins(),[['protect','snapshots',false,false]]);assert.deepEqual([f.run('page'),f.run('rendered.length'),f.run('location.hash')],['home',0,'snapshots']);
+ const html=f.elements.get('#dk-wins').innerHTML;
+ assert.match(html,/<section class="dk-win" id="dk-win-protect" data-app="protect" aria-label="Protection">/);assert.match(html,/<iframe class="dk-frame" id="dk-frame-protect" title="Protection" src="\/#snapshots"><\/iframe>/);assert.doesNotMatch(html,/style=/);
+ assert.deepEqual([...f.elements.get('#dk-tabs-protect').innerHTML.matchAll(/data-action="desk-tab" data-app="protect" data-target="(\w+)" aria-selected="(\w+)">([^<]+)</g)].map(m=>m.slice(1)),[['backups','false','Sauvegardes'],['snapshots','true','Points de restauration'],['retention','false','Conservation']]);
+ // Même application : la fenêtre existante change de page ; sans enfant prêt, par l'adresse du cadre.
+ await f.run('go("backups")');assert.deepEqual(f.wins(),[['protect','backups',false,false]]);assert.equal(f.frames.protect.src,'/#backups');
+ const child=f.child('protect');await f.desk('desk-tab',{app:'protect',target:'retention'});assert.deepEqual(child.calls,[['apply',{app:'protect'}],['go','retention']]);assert.equal(f.frames.protect.src,'/#backups');
+ // Autre application : seconde fenêtre, devant ; ses onglets sont des vues.
+ await f.run('go("camera")');assert.deepEqual(f.wins().map(w=>w[0]),['protect','cam']);assert.equal(f.run('deskFront().app'),'cam');
+ assert.equal(f.elements.get('#dk-win-cam').classList.front,true);assert.equal(f.elements.get('#dk-win-protect').classList.front,false);
+ assert.ok(Number(f.elements.get('#dk-win-cam').style.zIndex)>Number(f.elements.get('#dk-win-protect').style.zIndex));
+ assert.match(f.elements.get('#dk-tabs-cam').innerHTML,/data-action="desk-view" data-app="cam" data-view="wall" aria-selected="true">Mur</);
+ const cam=f.child('cam');await f.desk('desk-view',{app:'cam',view:'replay'});assert.deepEqual(cam.calls,[['apply',{app:'cam',view:'replay'}],['go','camera']]);assert.match(f.elements.get('#dk-tabs-cam').innerHTML,/data-view="replay" aria-selected="true"/);
+ await f.desk('desk-view',{app:'cam',view:'nowhere'});await f.desk('desk-view',{app:'protect',view:'replay'});assert.equal(cam.calls.length,2);
+ // Page inconnue ou interdite : aucune fenêtre.
+ await f.run('go("nowhere")');assert.equal(f.wins().length,2);
+ const g=winFixture(undefined,'viewer');await g.run('go("settings")');assert.deepEqual(g.wins(),[]);await g.run('go("services")');assert.deepEqual(g.wins(),[['settings','services',false,false]]);
 });
-test('dock reopens an application on its last tab, closing forgets it, and unknown applications are ignored',async()=>{
- const f=deskFixture();
- await f.click('desk-open',{app:'protect'});assert.equal(f.run('page'),'backups');
- await f.run('go("retention")');await f.click('desk-min');assert.deepEqual([f.run('page'),f.run('deskOpen')],['home','protect']);
- await f.click('desk-open',{app:'protect'});assert.equal(f.run('page'),'retention');
- await f.click('desk-close');assert.deepEqual([f.run('page'),f.run('deskOpen')],['home',null]);
- const before=f.run('rendered.length');await f.click('desk-open',{app:'nowhere'});await f.click('desk-open',{});assert.equal(f.run('rendered.length'),before);
- // Un onglet mémorisé devenu inaccessible (compte passé en lecture seule) retombe sur le premier onglet permis.
- f.run('user.role="viewer"');await f.click('desk-open',{app:'protect'});assert.equal(f.run('page'),'backups');
+test('dock, title bar and brand reduce, restore, enlarge and close windows without touching the others',async()=>{
+ const f=winFixture();await f.run('go("files")');await f.run('go("camera")');
+ await f.desk('desk-open',{app:'cam'},'dk-dockapp');assert.deepEqual(f.wins(),[['files','files',false,false],['cam','camera',true,false]]);assert.equal(f.elements.get('#dk-win-cam').hidden,true);assert.equal(f.run('deskFront().app'),'files');assert.equal(f.run('location.hash'),'files');
+ await f.desk('desk-open',{app:'cam'},'dk-dockapp');assert.equal(f.run('deskFront().app'),'cam');assert.equal(f.elements.get('#dk-win-cam').hidden,false);
+ // Une icône du bureau ramène devant, sans jamais réduire.
+ await f.desk('desk-open',{app:'cam'},'dk-app');assert.equal(f.wins()[1][2],false);await f.desk('desk-open',{app:'files'},'dk-app');assert.equal(f.run('deskFront().app'),'files');
+ await f.desk('desk-open',{app:'storage'},'dk-dockapp');assert.deepEqual(f.wins().at(-1),['storage','storage',false,false]);await f.desk('desk-open',{app:'nowhere'});assert.equal(f.wins().length,3);
+ await f.desk('desk-max',{app:'files'});assert.equal(f.elements.get('#dk-win-files').classList.max,true);assert.equal(f.run('deskFront().app'),'files');await f.desk('desk-max',{app:'files'});assert.equal(f.elements.get('#dk-win-files').classList.max,false);
+ await f.desk('desk-min',{app:'files'});assert.equal(f.wins()[0][2],true);
+ await f.desk('desk-home');assert.ok(f.wins().every(w=>w[2]));assert.equal(f.run('location.hash'),'home');assert.equal(f.run('deskFront()'),null);
+ await f.desk('desk-close',{app:'cam'});assert.deepEqual(f.wins().map(w=>w[0]),['files','storage']);assert.deepEqual(f.removed,['dk-win-cam']);
+ await f.desk('desk-close',{app:'cam'});await f.desk('desk-min',{app:'cam'});await f.desk('desk-max',{app:'cam'});assert.equal(f.wins().length,2);
+ // Rouvrir après fermeture repart de la première page de l'application.
+ await f.run('go("camera")');assert.deepEqual(f.wins().at(-1),['cam','camera',false,false]);
+ // Recherche globale : le résultat s'ouvre dans la fenêtre de son application, avec ce qu'il faut y montrer.
+ const cam=f.child('cam');await f.run('runPalette({camera:"garage"})');assert.deepEqual(cam.calls,[['apply',{view:'wall',camera:'garage',app:'cam'}],['go','camera']]);
+ await f.desk('desk-close',{app:'files'});await f.run('runPalette({area:"video"})');assert.deepEqual(JSON.parse(JSON.stringify(f.run('deskWindow("files").intent'))),{area:'video',app:'files'});
+ await f.run('runPalette({page:"camera",view:["cam","events"]})');assert.deepEqual(cam.calls.slice(-2),[['apply',{view:'events',app:'cam'}],['go','camera']]);
+ const before=f.wins().length;await f.run('runPalette({page:"nowhere"})');assert.equal(f.wins().length,before);
+});
+test('the desktop only listens to its own windows, and follows what they report',async()=>{
+ const f=winFixture(async url=>response(200,url.endsWith('/alerts')?{stale:false,attention:0,active:[],history:[]}:url.endsWith('/jobs')?[]:overviewSample));
+ await f.run('go("camera")');await f.run('go("settings")');const cam=f.child('cam'),settings=f.child('settings'),stranger={};
+ f.context.cam=cam;f.context.settings=settings;f.context.stranger=stranger;
+ assert.deepEqual([f.run('deskAppOf(cam)'),f.run('deskAppOf(stranger)')],['cam','']);
+ f.run('deskWindow("cam").intent={app:"cam",camera:"garage"};');assert.deepEqual(JSON.parse(JSON.stringify(f.run('deskIntent(cam)'))),{app:'cam',camera:'garage',view:'wall'});
+ assert.deepEqual(JSON.parse(JSON.stringify(f.run('deskIntent(cam)'))),{view:'wall'});assert.deepEqual(JSON.parse(JSON.stringify(f.run('deskIntent(stranger)'))),{});
+ // Page suivie seulement si elle appartient à l'application de la fenêtre.
+ f.run('deskChildAt(settings,"updates");deskChildAt(settings,"files");deskChildAt(stranger,"services");');assert.equal(f.run('deskWindow("settings").page'),'updates');
+ assert.match(f.elements.get('#dk-tabs-settings').innerHTML,/data-target="updates" aria-selected="true"/);
+ f.run('deskChildView(cam,"cam","replay");deskChildView(settings,"cam","events");deskChildView(stranger,"cam","events");');assert.equal(f.run('deskWindow("cam").view'),'replay');assert.match(f.elements.get('#dk-tabs-cam').innerHTML,/data-view="replay" aria-selected="true"/);
+ // Un appui dans une fenêtre la met devant et referme les panneaux du bureau.
+ assert.equal(f.run('deskFront().app'),'settings');f.run('bellOpen=true;deskChildFocus(cam);');assert.deepEqual([f.run('deskFront().app'),f.run('bellOpen')],['cam',false]);f.run('deskChildFocus(stranger)');assert.equal(f.run('deskFront().app'),'cam');
+ // Une page d'une autre application demandée par une fenêtre s'ouvre dans la sienne.
+ f.run('deskChildGo(cam,"storage");deskChildGo(stranger,"users");');assert.deepEqual(f.wins().map(w=>w[0]),['cam','settings','storage']);
+ // Préférences enregistrées dans une fenêtre : la barre suit, les autres fenêtres se rechargent.
+ f.elements.set('#side-host',{textContent:''});f.elements.set('#topclock',{textContent:''});f.run('user.timezone_unset=true;deskChildPrefs(settings,{name:"Maison",timezone:"Europe/Paris"});deskChildPrefs(stranger,{name:"Autre",timezone:"UTC"});');
+ assert.deepEqual([f.run('user.nas_name'),f.run('user.timezone'),f.run('user.timezone_unset'),f.elements.get('#side-host').textContent],['Maison','Europe/Paris',false,'Maison']);
+ assert.deepEqual([cam.calls.filter(c=>c[0]==='reload').length,settings.calls.filter(c=>c[0]==='reload').length],[1,0]);
+ // Changer d'affichage détruit les fenêtres et garde la page de devant.
+ f.run('render=async()=>{rendered.push(page);};');await f.desk('shell-classic');assert.match(f.html,/class="sidebar"/);assert.equal(f.run('page'),'storage');assert.deepEqual(f.wins(),[]);
+});
+test('a child window shows only its content, navigates inside its application and hands the rest to the desktop',async()=>{
+ const f=deskFixture();for(const name of ['bell.js','palette.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static',name),'utf8'),f.context);
+ const calls=[],parent={};for(const name of ['deskChildAt','deskChildGo','deskChildView','deskChildFocus','deskChildPrefs'])parent[name]=(child,...values)=>{calls.push([name,...values]);};
+ Object.assign(parent,{deskIntent:()=>({app:'cam',view:'replay'}),deskAppOf:()=>'cam',login:message=>{calls.push(['login',message]);},openPalette:()=>{calls.push(['openPalette']);}});
+ f.context.window.parent=parent;const fetched=[];f.context.fetch=async url=>{fetched.push(url);return response(200,[]);};
+ assert.equal(f.run('deskEmbedded()'),true);f.run('shell();');
+ assert.match(f.html,/^<div class="dk-child">/);assert.doesNotMatch(f.html,/dk-bar|dk-dock|sidebar|<iframe/);assert.match(f.html,/<main class="content" id="content"><\/main>/);
+ assert.deepEqual([f.run('deskViewOf("cam")'),f.context.window.deskReady],['replay',true]);
+ await f.run('go("camera")');assert.deepEqual([f.run('page'),f.run('rendered.at(-1)'),calls.at(-1)],['camera','camera',['deskChildAt','camera']]);
+ const local=f.run('rendered.length');await f.run('go("files")');await f.run('go("home")');
+ assert.deepEqual(calls.slice(-2),[['deskChildGo','files'],['deskChildGo','home']]);assert.deepEqual([f.run('page'),f.run('rendered.length')],['camera',local]);
+ f.run('deskSetView("cam","events")');assert.deepEqual([calls.at(-1),f.run('deskViewOf("cam")')],[['deskChildView','cam','events'],'events']);
+ f.run('deskApply({app:"files",area:"video"});deskApply(null);deskApply({view:"nowhere"});');assert.deepEqual([f.run('area'),f.run('currentPath'),f.run('deskViewOf("cam")')],['video','','events']);
+ // Session expirée, état de la barre et recherche : c'est le bureau qui s'en charge.
+ f.run('login("Session expirée.")');assert.deepEqual(calls.at(-1),['login','Session expirée.']);assert.notEqual(f.run('user'),null);
+ await f.run('refreshStatus()');assert.deepEqual(fetched,[]);
+ let prevented=0;f.listeners.get('keydown').at(-1)({key:'k',ctrlKey:true,preventDefault(){prevented++;}});assert.deepEqual([calls.at(-1),prevented],[['openPalette'],1]);
+ f.listeners.get('pointerdown').at(-1)({target:{closest:()=>null}});assert.deepEqual(calls.at(-1),['deskChildFocus']);
+ // Parent d'une autre nature (page tierce qui encadrerait la console) : jamais traité comme un bureau.
+ f.context.window.parent={};assert.equal(f.run('deskEmbedded()'),false);f.context.window.parent=f.context.window;assert.equal(f.run('deskEmbedded()'),false);
 });
 test('desktop widgets replace the overview, escape what the NAS reports and ignore late answers',async()=>{
  const calls=[];let release;const f=deskFixture(url=>{calls.push(url);return new Promise(resolve=>{release=()=>resolve(response(200,overviewSample));});});

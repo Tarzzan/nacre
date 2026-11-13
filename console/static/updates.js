@@ -55,7 +55,7 @@ async function uploadUpdate(form){
 document.addEventListener('submit',async e=>{if(e.target.getAttribute('id')==='update-upload'){e.preventDefault();await uploadUpdate(e.target);}});
 document.addEventListener('click',async e=>{
  const el=e.target.closest('[data-action]');if(!el)return;
- if(el.dataset.action==='update-reload'){location.reload();return;}
+ if(el.dataset.action==='update-reload'){(typeof deskEmbedded==='function'&&deskEmbedded()?window.parent:window).location.reload();return;}
  if(el.dataset.action==='update-copy-delete'&&user?.role==='admin'&&page==='updates'){
   const id=el.dataset.id,item=updateCopyItems(updateState).find(i=>i.id===id&&!i.current);if(!item)return;
   confirmAction('Supprimer cette copie ?',`La copie de Nacre ${item.previous||'version inconnue'} prise le ${date(item.created)} sera effacée du NAS. Le retour automatique ne s’en sert plus ; cette suppression est définitive.`,'Supprimer',async()=>{await api('updates/copies/delete',{id,confirm:true});return {message:'Copie supprimée.'};});

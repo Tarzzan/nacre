@@ -1,5 +1,9 @@
 # Validation
 
+## Plusieurs fenêtres — 0.8.0-alpha.31
+
+313 tests Python et 119 JavaScript. Détail dans le [guide du Bureau](DESKTOP.md#validation).
+
 ## Gestionnaire de fichiers — 0.8.0-alpha.30
 
 312 tests Python et 117 JavaScript. Détail dans le [guide du Bureau](DESKTOP.md#validation).

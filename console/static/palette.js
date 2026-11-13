@@ -70,7 +70,14 @@ async function loadPaletteExtra(){
 async function runPalette(entry){
  if(!entry||!user)return;
  closePalette();
- if(entry.shell){deskChoose(entry.shell);shell();refreshStatus().catch(()=>{});return go(page);}
+ if(entry.shell)return deskSwitch(entry.shell);
+ // Dans le bureau, le résultat s’ouvre dans la fenêtre de son application, avec ce qu’il faut y montrer.
+ if($('#dk-wins')){
+  if(entry.camera)return void deskOpenPage('camera',{view:'wall',camera:entry.camera});
+  if(entry.area)return void deskOpenPage('files',{area:entry.area});
+  if(entry.page&&deskApp(entry.page))return void deskOpenPage(entry.page,entry.view?{view:entry.view[1]}:{});
+  return;
+ }
  if(entry.camera){if(typeof survOpenCamera==='function')survOpenCamera(entry.camera);else if(typeof cameraCatalog!=='undefined'){selectedCamera=entry.camera;cameraDetail=true;}return go('camera');}
  if(entry.area){area=entry.area;currentPath='';return go('files');}
  if(entry.page&&deskApp(entry.page)){if(entry.view)deskSetView(...entry.view);return go(entry.page);}
@@ -87,7 +94,7 @@ document.addEventListener('input',e=>{
  palettePick=0;paletteFound=paletteSearch(e.target.value);drawPalette();
 });
 document.addEventListener('keydown',e=>{
- if((e.ctrlKey||e.metaKey)&&!e.altKey&&String(e.key).toLowerCase()==='k'){if(!$('#palette'))return;e.preventDefault?.();return paletteOpen?closePalette():openPalette();}
+ if((e.ctrlKey||e.metaKey)&&!e.altKey&&String(e.key).toLowerCase()==='k'){if(typeof deskEmbedded==='function'&&deskEmbedded()){e.preventDefault?.();try{window.parent.openPalette();}catch{}return;}if(!$('#palette'))return;e.preventDefault?.();return paletteOpen?closePalette():openPalette();}
  if(!paletteOpen)return;
  if(e.key==='Escape'){closePalette();$('#palette-open')?.focus?.();return;}
  if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault?.();if(paletteFound.length){palettePick=(palettePick+(e.key==='ArrowDown'?1:paletteFound.length-1))%paletteFound.length;drawPalette();}return;}

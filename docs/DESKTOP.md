@@ -2,18 +2,18 @@
 
 Depuis la version 0.8.0-alpha.26, Nacre s’ouvre sur un bureau, à la manière d’un système dans le navigateur. C’est la première étape d’un parcours en sept lots ; les pages de la console ne changent pas, seule leur organisation change.
 
-![Bureau de Nacre sur le banc de démonstration](images/desktop-shell.jpg)
+![Bureau de Nacre sur le banc de démonstration](images/desktop-windows.jpg)
 
-*Banc local à données synthétiques : l’application Fichiers ouverte, le dock en bas.*
+*Banc local à données synthétiques : Fichiers, Surveillance et Activité ouvertes ensemble, le dock en bas.*
 
 ## Ce que l’on trouve
 
 | Élément | Rôle |
 | --- | --- |
 | **Barre supérieure** | Le nom du NAS, les alertes, l’heure, le compte. Un clic sur « nacre » affiche le bureau. |
-| **Icônes et dock** | Les sept applications. Un trait sous une icône du dock signale l’application ouverte ou réduite. |
+| **Icônes et dock** | Les sept applications. Un trait sous une icône du dock signale une application ouverte ; il est plus long et vert pour celle de devant. |
 | **Widgets** | Stockage libre, services, surveillance, activité récente, mémoire. Un clic ouvre l’application concernée. |
-| **Fenêtre** | Elle se déplace par sa barre de titre, s’agrandit (bouton ou double-clic), se réduit ou se ferme. |
+| **Fenêtres** | Une par application, plusieurs à la fois. Chacune se déplace par sa barre de titre, se redimensionne par son coin, s’agrandit (bouton ou double-clic), se réduit ou se ferme. |
 | **Onglets** | Les pages de l’application. Rouvrir une application réduite ramène au dernier onglet consulté. |
 
 ## Les sept applications
@@ -29,6 +29,30 @@ Depuis la version 0.8.0-alpha.26, Nacre s’ouvre sur un bureau, à la manière 
 | **Activité** | Alertes, Journal | Alertes, Journal d’activité |
 
 La vue d’ensemble est devenue le bureau lui-même. Un compte en lecture seule ne voit pas les onglets réservés aux administrateurs.
+
+## Plusieurs fenêtres
+
+Depuis la version 0.8.0-alpha.31, chaque application s’ouvre dans sa propre fenêtre et plusieurs restent ouvertes ensemble.
+
+| Geste | Effet |
+| --- | --- |
+| Clic sur une icône du bureau ou du dock | Ouvre l’application, ou ramène sa fenêtre devant. |
+| Clic dans le dock sur l’application de devant | La réduit ; un nouveau clic la ramène. |
+| Clic n’importe où dans une fenêtre | La met devant. |
+| Glisser la barre de titre, ou le coin en bas à droite | Déplace, ou redimensionne. |
+| Clic sur « nacre », en haut à gauche | Réduit tout et montre le bureau. |
+| Fermer | Ferme cette application seulement ; elle repartira de sa première page. |
+
+Une page demandée depuis une fenêtre et qui appartient à une autre application s’ouvre dans la fenêtre de celle-ci : un raccourci du panneau de réglages, le bouton « Ouvrir » d’une alerte, un résultat de la recherche.
+
+Ce qu’il faut savoir :
+
+- **Une fenêtre par application.** Deux dossiers côte à côte dans deux fenêtres Fichiers, ce n’est pas possible.
+- **Chaque fenêtre est une console à part entière**, chargée dans un cadre : elle garde son état, ses rafraîchissements et ses boîtes de dialogue, qui restent à l’intérieur de sa fenêtre. Une application réduite continue de tourner, direct de caméra compris ; fermez-la pour l’arrêter.
+- **Position et taille ne sont pas mémorisées** : au rechargement de la page, seule l’application de devant est rouverte.
+- **Sur téléphone**, une seule fenêtre est visible à la fois, en plein écran ; le dock fait passer de l’une à l’autre.
+- **Session expirée ou préférences changées dans une fenêtre** : le bureau entier suit, et les autres fenêtres se rechargent pour prendre le nouveau fuseau.
+- **Sécurité** : la console n’accepte d’être encadrée que par elle-même. Une page d’une autre origine ne peut toujours pas l’afficher dans un cadre.
 
 ## Centre de notifications
 
@@ -149,9 +173,8 @@ Le bouton **Classique** de la barre supérieure rend le menu à gauche tel qu’
 
 ## Limites de cette étape
 
-- **Une fenêtre à la fois.** Ouvrir une application remplace la précédente. Plusieurs fenêtres côte à côte demandent de rendre chaque page indépendante : c’est un lot ultérieur.
 - **Widgets fixes**, non personnalisables, et sans image de caméra.
-- **Position et taille de la fenêtre** oubliées au rechargement de la page ; la fenêtre ne se redimensionne pas à la souris.
+- **Position et taille des fenêtres** oubliées au rechargement de la page.
 - **La taille des textes** n’a été relevée que pour les notes les plus petites.
 
 ## Validation
@@ -165,5 +188,7 @@ Recherche globale (alpha.28), quatre essais JavaScript : index limité aux pages
 Surveillance (alpha.29), cinq essais JavaScript : mur en images fixes sans aucun direct, noms échappés, page classique conservée ; caméra agrandie seule à recevoir le direct, caméras inconnues et réponses tardives sans effet ; événements fusionnés du plus récent au plus ancien, caméra en échec nommée, filtres sans nouvelle requête, ouverture de la relecture au bon événement ; une ligne de frise par caméra et lecture à l’heure cliquée ; réglages sans boutons pour la lecture seule. Sur le banc à deux caméras simulées : mur, agrandissement avec direct et pilotage, 48 événements synthétiques filtrés, ouverture d’un événement dans la relecture avec lecture de l’extrait, clic sur la ligne de l’autre caméra, onglet Réglages.
 
 Fichiers (alpha.30). Quatre essais Python sur espace temporaire : déplacement sans remplacement ni demi-mesure, refus des sélections et destinations invalides sans rien toucher, liens symboliques jamais suivis, lecteur et jeton absent refusés ; archive relue et vérifiée, sans liens ni fichiers cachés, noms accentués ; aperçu limité aux types sûrs et à un texte borné. Cinq essais JavaScript : arborescence, liste et aperçu, absence d’actions d’écriture pour un lecteur, dossier disparu, sélection au clic et au clavier, liens de téléchargement, texte jamais interprété, déplacement, corbeille et envoi limités à la sélection. Sur le banc, avec le vrai serveur : aperçu d’une image et d’une vidéo, archive de deux éléments relue, envoi de deux fichiers, déplacement par glisser-déposer, refus d’un dossier dans lui-même, corbeille de deux éléments, lignes de journal.
+
+Plusieurs fenêtres (alpha.31), quatre essais JavaScript : une fenêtre par application et le bureau qui continue derrière ; dock, barre de titre et marque (réduire, ramener, agrandir, fermer) sans effet sur les autres ; le bureau n’écoute que ses propres fenêtres ; une fenêtre enfant n’affiche que son contenu, navigue dans son application et confie le reste au bureau, y compris la session expirée. Un essai Python : la console ne peut être encadrée que par elle-même. Un défaut attrapé par ces essais avant la fusion : après un passage en affichage classique, les fenêtres fermées restaient en mémoire et faussaient la page rouverte. Sur le banc : quatre applications ouvertes ensemble, lien d’une fenêtre ouvrant la fenêtre d’une autre application, déplacement et redimensionnement par-dessus les cadres, téléphone, Ctrl+K depuis une fenêtre, session expirée dans une fenêtre.
 
 Parcours navigateur sur le banc local, avec la politique de sécurité réelle de la console : ouverture des sept applications, déplacement, agrandissement, réduction et fermeture de la fenêtre, bascule vers l’affichage classique et retour, largeur de téléphone sans défilement horizontal.
