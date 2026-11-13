@@ -1,5 +1,25 @@
 # Déploiements de la console sur Spark
 
+## 12 novembre 2026 — alpha.24
+
+L’installation alpha.23 a reçu le paquet `nacre-0.8.0-alpha.24.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.24), construit depuis le commit [`6ea9e74`](https://github.com/Tarzzan/nacre/commit/6ea9e74c8a8f26268bb9fb879c5eecd87b9d2cda) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
+
+Avant la fusion, l’inventaire des copies a été exécuté en lecture seule sur le répertoire réel des mises à jour de Spark, sans rien y installer ni y écrire : quatre copies décrites avec leurs versions, dates et tailles, 5,3 Mo au total.
+
+Avant l’import : neuf modules figés identiques entre Spark et le paquet, aucune tâche active. La mise à jour alpha.23 → alpha.24 a été répétée sur une console et son superviseur en répertoire temporaire, avec quatre copies fictives déjà présentes : trois dossiers après la mise à jour, deux anciennes copies supprimées et inscrites au journal, copie courante refusée à la suppression. Le fichier importé est celui téléchargé depuis la release, empreinte contrôlée. Il a été envoyé par une session administrateur temporaire, refermée ensuite ; l’installation a été confirmée et suivie dans le navigateur jusqu’à **Mise à jour réussie**, session conservée.
+
+Le superviseur a enregistré la préparation à 21 h 24 min 35 s et la validation à 21 h 24 min 57 s, heure de Guyane, confirmation humaine comprise. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configuration Samba et configuration Frigate identiques avant et après. Conteneurs Samba et Frigate inchangés (identifiants et heures de démarrage), service systemd non relancé. Samba a répondu à `smbcontrol smbd ping` ; les journaux de Frigate ne comptent aucune erreur sur les vingt minutes encadrant la mise à jour.
+
+La [purge des copies](BROWSER-UPDATES.md#copies-de-retour-arrière) s’est appliquée d’elle-même au démarrage de la nouvelle console, à 21 h 24 min 57 s :
+
+- Cinq copies existaient après l’installation : celles prises avant alpha.20, alpha.21, alpha.22, alpha.23 et alpha.24.
+- Les deux plus anciennes ont été supprimées. Le journal de la console porte une ligne « Anciennes copies de mise à jour supprimées » qui nomme les versions alpha.19 et alpha.20.
+- Trois copies restent : alpha.23 (dernière mise à jour, sans bouton de suppression), alpha.22 et alpha.21. Le répertoire des mises à jour occupe 4,1 Mo, superviseur compris.
+- Le superviseur, sa clé de vérification, son inventaire et ses verrous sont intacts ; l’installation suivante reste possible.
+- La page **Mises à jour** affiche ces trois copies avec leurs dates et tailles.
+
+Limites de ce contrôle : la suppression manuelle d’une copie n’a pas été déclenchée sur Spark ; elle l’a été sur le banc et dans la répétition isolée. Les copies de Spark n’ont pas servi à une reprise. Les dates de la carte sont en UTC, le fuseau de la console n’étant toujours pas réglé. Aucune panne n’a été injectée sur Spark.
+
 ## 12 novembre 2026 — alpha.23
 
 L’installation alpha.22 a reçu le paquet `nacre-0.8.0-alpha.23.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.23), construit depuis le commit [`6578550`](https://github.com/Tarzzan/nacre/commit/65785505d7dfd79a48edb0b3a9d6460e6fcf1408) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
