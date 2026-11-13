@@ -1,5 +1,9 @@
 # Validation
 
+## Filtres de la recherche de fichiers — 0.8.0-alpha.36
+
+321 tests Python et 128 JavaScript. Détail dans le [guide du Bureau](DESKTOP.md#validation).
+
 ## Période et tranche horaire dans l’onglet Événements — 0.8.0-alpha.35
 
 320 tests Python et 127 JavaScript. Détail dans le [guide du Bureau](DESKTOP.md#validation).

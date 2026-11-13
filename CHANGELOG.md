@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.36 — Filtres de la recherche de fichiers
+
+Les résultats d’une recherche par nom dans **Fichiers** s’affinent par trois listes : **Type** (dossiers, images, vidéos, sons, documents, archives), **Modifié** (depuis 24 heures, 7 jours, 30 jours, un an) et **Taille** (plus de 1 Mio, 100 Mio, 1 Gio). Un choix relance la même recherche, même nom et même portée ; les filtres se combinent et **Retirer les filtres** les enlève tous. Ils permettent aussi de dépasser le plafond de 200 résultats d’un nom très courant. Le type se déduit de l’extension, jamais du contenu ; date et taille ne sont lues que pour les éléments dont le nom correspond. Aucun changement de schéma ni de module figé. 321 tests Python et 128 JavaScript. [Guide et limites](docs/DESKTOP.md#affiner-les-résultats).
+
 ## 0.8.0-alpha.35 — Période et tranche horaire dans l’onglet Événements
 
 L’onglet **Événements** de Surveillance, qui réunit toutes les caméras, reçoit les mêmes champs que la recherche d’une caméra : une **période** (les sept derniers jours par défaut) et une **tranche horaire** facultative. « Entre 22:00 et 06:00 » montre d’un coup ce que chaque caméra a vu la nuit. Un résumé donne le nombre d’événements comptés sur la période pour l’ensemble des caméras ; **Sept derniers jours** revient à l’affichage d’origine. Une période que le serveur refuse est expliquée une fois, sans mettre les caméras en cause. Aucun changement côté serveur, de schéma ni de module figé. 320 tests Python et 127 JavaScript. [Guide et limites](docs/DESKTOP.md#surveillance).
