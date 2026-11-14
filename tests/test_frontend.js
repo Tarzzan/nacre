@@ -167,6 +167,67 @@ test('transport choice disables irrelevant inputs and preserves custom SMTP port
  assert.equal(port.value,'2465');
 });
 
+test('native point retention shows one rule per volume and simulates it without ever deleting a point',async()=>{
+ const calls=[];let refuse=0,hold=null;
+ const state={connected:true,volumes:[{id:'documents',name:'Docs <b>',family:'btrfs',ready:true},{id:'photos',name:'Photos',family:'zfs',ready:true}],points:[],actions:[],jobs:[],resources:[],provisioning:{enabled:false,devices:[],deployments:[]}};
+ const keep={connected:true,deletion:false,defaults:{keep_last:7,manual:false,calendar:{daily:0,weekly:0,monthly:0,timezone:'America/Cayenne'}},
+  policies:[{volume:'documents',saved:false,keep_last:7,manual:false,calendar:{daily:0,weekly:0,monthly:0,timezone:'America/Cayenne'}},{volume:'photos',saved:true,keep_last:12,manual:true,calendar:{daily:7,weekly:4,monthly:1,timezone:'UTC'}}]};
+ const preview={volume:'photos',name:'Photos <i>',rule:{},at:1794182400,deletion:false,busy:false,keep:[{id:'aaaaaaaa11111111',created:1794182400,manual:false,reasons:['Derniers points','Jour · 2026-11-10']}],
+  remove:[{id:'bbbbbbbb22222222',created:1794096000,manual:true},null,{created:3}],protected:[{id:'cccccccc33333333',created:1794009600,manual:true,reason:'État <à vérifier>.'}]};
+ const f=fixture(async(url,options)=>{
+  const body=options?.body?JSON.parse(options.body):null;calls.push([url,body]);
+  if(url.endsWith('/storage/native'))return response(200,state);
+  if(url.endsWith('/storage/profiles'))return response(200,[]);
+  if(url.endsWith('/storage/native-retention')&&!body)return response(200,keep);
+  if(hold)await hold;
+  if(refuse)return response(refuse,{error:'Volume natif inconnu.'});
+  return response(200,url.endsWith('-preview')?preview:{...body,saved:true});
+ });
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/native.js'),'utf8'),f.context);
+ f.run('user={name:"admin",role:"admin"};page="native";shell();');await f.run('renderNative()');
+ const content=()=>String(f.elements.get('#content').innerHTML),posts=()=>calls.filter(c=>c[1]);
+ const click=dataset=>f.listeners.get('click').at(-1)({target:{closest:s=>s==='[data-action]'?{dataset}:null}});
+ // Une ligne par volume, avec sa règle en clair ; rien d'ouvert, et l'annonce qu'aucun point n'est supprimé.
+ assert.match(content(),/<h2>Conservation des points natifs<\/h2><span class="muted">Simulation seulement · aucun point n’est supprimé<\/span>/);
+ assert.match(content(),/Docs &lt;b&gt;<br><small class="muted">documents<\/small><\/td><td>7 derniers points · captures programmées seulement<br><small class="muted">Règle proposée, non enregistrée/);
+ assert.match(content(),/12 derniers points \+ le dernier de 7 jours, 4 semaines, 1 mois · captures manuelles comprises<br><small class="muted">Règle enregistrée/);
+ assert.doesNotMatch(content(),/native-keep-form|style=/);assert.equal(posts().length,0);
+ // Ouvrir un volume montre sa règle dans un formulaire ; rouvrir le même le referme.
+ await click({action:'native-keep-open',volume:'photos'});
+ assert.match(content(),/data-volume="photos" aria-expanded="true"/);assert.match(content(),/<h3>Règle de « Photos »<\/h3>/);assert.match(content(),/id="native-keep-keep_last" name="keep_last" type="number" min="1" max="1000" step="1" value="12"/);
+ assert.match(content(),/id="native-keep-manual" name="manual" checked>/);assert.match(content(),/name="timezone" value="UTC"/);assert.match(content(),/comptés dans le fuseau UTC/);
+ await click({action:'native-keep-open',volume:'photos'});assert.doesNotMatch(content(),/native-keep-form/);
+ await click({action:'native-keep-open',volume:'documents'});assert.match(content(),/Règle de « Docs &lt;b&gt; »/);assert.match(content(),/id="native-keep-manual" name="manual" >/);assert.match(content(),/fuseau America\/Cayenne/);
+ // Simuler envoie la règle saisie, sans l'enregistrer, et montre les trois listes.
+ const form={getAttribute:()=> 'native-keep-form',values:{keep_last:'3',daily:'2',weekly:'0',monthly:'1',manual:'on',timezone:'America/Cayenne'}},error={textContent:'ancien'},result={innerHTML:''};
+ f.elements.set('#native-keep-form',form);f.elements.set('#native-keep-error',error);f.elements.set('#native-keep-result',result);
+ const submit=()=>f.listeners.get('submit').at(-1)({target:form,preventDefault(){}});
+ await submit();
+ assert.deepEqual(posts().at(-1),['/api/storage/native-retention-preview',{volume:'documents',keep_last:3,manual:true,calendar:{daily:2,weekly:0,monthly:1,timezone:'America/Cayenne'}}]);assert.equal(error.textContent,'');
+ assert.match(result.innerHTML,/SIMULATION · Photos &lt;i&gt;/);assert.match(result.innerHTML,/<strong>1<\/strong><span>Gardés par la règle<\/span>.*<strong>1<\/strong><span>Protégés hors règle<\/span>.*<strong>1<\/strong><span>Sortiraient<\/span>/);
+ assert.match(result.innerHTML,/<h3>Points qui sortiraient<\/h3>.*<code>bbbbbbbb<\/code><\/td><td>Manuelle<\/td><\/tr>/);assert.match(result.innerHTML,/<code>aaaaaaaa<\/code><\/td><td>Programmée<\/td><td>Derniers points · Jour · 2026-11-10<\/td>/);
+ assert.match(result.innerHTML,/État &lt;à vérifier&gt;\./);assert.match(result.innerHTML,/Rien n’a été supprimé et rien ne le sera/);assert.doesNotMatch(result.innerHTML,/restauration est en cours|style=/);
+ preview.busy=true;await submit();assert.match(result.innerHTML,/Une restauration est en cours ou à vérifier sur ce volume : tous ses points sont protégés\./);preview.busy=false;
+ // Retoucher la règle retire la simulation ; une saisie non entière ne part pas ; un refus du serveur s'affiche sous le formulaire.
+ f.listeners.get('input').at(-1)({target:{id:'native-keep-daily'}});assert.equal(result.innerHTML,'');
+ const sent=posts().length;form.values.daily='1.5';await submit();assert.equal(posts().length,sent);assert.equal(error.textContent,'Saisir des nombres entiers.');form.values.daily='2';
+ refuse=404;await submit();assert.equal(error.textContent,'Volume natif inconnu.');assert.equal(result.innerHTML,'');refuse=0;
+ // Une réponse arrivée après la fermeture du panneau n'est pas affichée.
+ const panel={innerHTML:'ouvert'};f.elements.set('#native-keep-panel',panel);
+ let release;hold=new Promise(resolve=>{release=resolve;});const late=submit();await click({action:'native-keep-close'});assert.equal(panel.innerHTML,'');release();await late;hold=null;assert.equal(result.innerHTML,'');assert.equal(f.run('nativeKeepResult'),null);
+ // Enregistrer envoie la même règle à l'autre adresse, l'annonce, et recharge la page ; aucune demande de suppression n'existe.
+ await click({action:'native-keep-open',volume:'documents'});f.elements.set('#native-keep-form',form);
+ await click({action:'native-keep-save'});
+ assert.deepEqual(posts().at(-1),['/api/storage/native-retention',{volume:'documents',keep_last:3,manual:true,calendar:{daily:2,weekly:0,monthly:1,timezone:'America/Cayenne'}}]);
+ assert.match(f.elements.get('#toast').textContent,/Règle enregistrée\. Aucun point n’est supprimé\./);
+ assert.deepEqual([...new Set(posts().map(c=>c[0]))].sort(),['/api/storage/native-retention','/api/storage/native-retention-preview']);
+ // Tant que la règle est ouverte, l'actualisation périodique ne redessine pas la page.
+ assert.equal(f.run('nativeEditing()'),true);f.elements.delete('#native-keep-form');assert.equal(f.run('nativeEditing()'),false);
+ // Sans volume inscrit, la carte n'apparaît pas ; un compte en lecture seule ne demande rien.
+ state.volumes=[];await f.run('renderNative()');assert.doesNotMatch(content(),/Conservation des points natifs/);assert.equal(f.run('nativeKeepOpen'),'');
+ const before=calls.length;f.run('user={name:"lecteur",role:"viewer"};');await f.run('renderNative()');assert.equal(calls.length,before);assert.match(content(),/réservée aux administrateurs/);
+});
+
 test('retention preview returning after navigation cannot paint another page',async()=>{
  let complete;const f=fixture(()=>new Promise(resolve=>{complete=resolve;}));
  vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/retention.js'),'utf8'),f.context);

@@ -151,7 +151,7 @@ La [reprise sur Linux neuf](docs/FRESH-LINUX.md) retrouve données, clés et com
 | Partages SMB | Comptes, permissions, lecture seule, volumes gérés, reprise après perte de montage | Une modification des montages peut interrompre les connexions SMB |
 | Protection | Restic chiffré et dédupliqué, sources multiples, restauration privée, plans horaires, rétention manuelle ou après réussite | Captures de fichiers non atomiques ; rétention calendaire et créneaux disponibles, quotas non gérés |
 | Volumes | Inventaire, diagnostic SMART selon droits, disque entier ext4/Btrfs, miroir RAID1 | Opérations privilégiées validées en VM ; reconstruction RAID1 Btrfs qualifiée en VM ; pas de partitionnement |
-| Snapshots natifs | Btrfs, ZFS, LVM classique/thin ; clones Btrfs/ZFS, copie LVM ext4/XFS | Clone ZFS non monté ; pas de programmation native |
+| Snapshots natifs | Btrfs, ZFS, LVM classique/thin ; clones Btrfs/ZFS, copie LVM ext4/XFS | Clone ZFS non monté ; [règle de conservation simulée](docs/NATIVE-SNAPSHOT-POLICY.md), pas encore de programmation ni de suppression |
 | Surveillance | Inventaire multi-caméra, ajout et correction Tapo/RTSP, direct sélectionné, relecture par jour avec frise, événements en vignettes filtrables par type et extraits téléchargeables, détection et objets suivis réglables par caméra, PTZ ONVIF | Une Tapo C530WS validée historiquement ; extraits de 5 minutes, sans recherche sur plusieurs jours ; charge et compatibilité multi-caméra réelles à qualifier |
 | Composants | Installation web de restic, Samba et Frigate, progression persistante | Docker et droits natifs à préparer sur Linux |
 | Administration | Panneau de configuration, préférences versionnées, révocation des sessions, rôles, CSRF, services, journal d’activité | Pas de MFA ni d’orchestration multi-NAS |
@@ -207,6 +207,7 @@ La CI rejoue les tests ordinaires ; **les tests privilégiés QEMU et matériels
 | [Vision](docs/VISION.md) | Positionnement, principes et ambition reformulée |
 | [Composants et caméras](docs/COMPONENTS-CAMERAS.md) | Installation web, connexions, protection des secrets et limites |
 | [Relecture des enregistrements](docs/RECORDING-PLAYBACK.md) | Frise par jour, événements en vignettes, recherche sur plusieurs jours, extraits et limites |
+| [Conservation des points natifs](docs/NATIVE-SNAPSHOT-POLICY.md) | Règle par volume, simulation sans suppression, lots suivants de la programmation |
 | [Détection et objets suivis](docs/CAMERA-DETECTION.md) | Activation, types suivis par caméra, application sans redémarrage et limites |
 | [Premier démarrage](docs/FIRST-RUN.md) | Assistant, composants optionnels et reprise du parcours |
 | [Installation](docs/INSTALLATION.md) | Prérequis, accès, configuration et mise à jour |

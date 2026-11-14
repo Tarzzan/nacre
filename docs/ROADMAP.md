@@ -12,6 +12,10 @@ Les versions futures sont des objectifs sans date promise. Chaque étape demande
 | **1.0 — cible à qualifier** | Version exploitable avec périmètre de support précis | Revue de sécurité, endurance, mises à jour et reprise éprouvées ; aucun défaut critique connu |
 | **Après stabilisation** | Gestion de plusieurs NAS | Identités inter-hôtes, révocation, fonctionnement déconnecté et politiques de groupe spécifiés |
 
+## Conservation des points natifs 0.8.0-alpha.39
+
+Premier des quatre lots de l’issue 4 : règle par volume et simulation, sans suppression. [Guide, limites et lots suivants](NATIVE-SNAPSHOT-POLICY.md) : programmation des captures, suppression explicite sur banc VM, conservation automatique.
+
 ## Bureau 0.8.0-alpha.26
 
 Premier lot du cap « un bureau dans le navigateur » : coquille, sept applications à onglets, dock, widgets, affichage classique conservé. [Guide et limites](DESKTOP.md). Le [centre de notifications](DESKTOP.md#centre-de-notifications) a suivi en alpha.27. La [recherche globale](DESKTOP.md#recherche-globale) est arrivée en alpha.28. [Surveillance en application](DESKTOP.md#surveillance) a suivi en alpha.29. Le [gestionnaire de fichiers](DESKTOP.md#fichiers) est arrivé en alpha.30. Les [fenêtres multiples](DESKTOP.md#plusieurs-fenêtres) sont arrivées en alpha.31. Le [bureau personnalisable](DESKTOP.md#personnaliser-le-bureau) a clos le cap en alpha.32. La [recherche de fichiers par nom](DESKTOP.md#rechercher-un-fichier-par-son-nom) l’a prolongé en alpha.33, avec ses [filtres](DESKTOP.md#affiner-les-résultats) en alpha.36 la [recherche par critères, sans nom](DESKTOP.md#chercher-sans-nom-par-critères) en alpha.37 et le [poids des dossiers](DESKTOP.md#peser-les-dossiers) en alpha.38. Prolongements possibles : Surveillance en application (mur de caméras), plusieurs fenêtres, gestionnaire de fichiers, bureau personnalisable.
