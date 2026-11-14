@@ -1,6 +1,15 @@
 # Déploiements de la console sur Spark
 
-## 14 novembre 2026 — alpha.52, personnes, groupes et espaces
+## 14 novembre 2026 — alpha.53, liens de partage
+
+L’installation alpha.52 a reçu le paquet `nacre-0.8.0-alpha.53.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.53), construit depuis le commit [`61307d6`](https://github.com/Tarzzan/nacre/commit/61307d61ccab43f92735e5cd15bcd48381a4b7ea) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
+
+Avant l’import : neuf modules figés identiques, aucune tâche active, répétition isolée alpha.52 → alpha.53 réussie. Fichier importé identique à celui de la release, empreinte contrôlée ; session administrateur temporaire refermée ; installation confirmée depuis la fenêtre Réglages du bureau et suivie jusqu’à **Mise à jour réussie**, session conservée.
+
+Validation enregistrée à 16 h 17 min 41 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Constaté en lecture seule : aucun lien de partage ; les quatre durées proposées ; un jeton inconnu reçoit le refus commun ; la page publique est servie. **Aucun lien n’a été créé ici**, pour ne partager aucun fichier réel : la création, l’usage et l’extinction sont prouvés sur le banc et par les essais. Sur cette installation, un lien ne sortirait de toute façon pas de la machine.
+
 
 L’installation alpha.51 a reçu le paquet `nacre-0.8.0-alpha.52.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.52), construit depuis le commit [`dc9d843`](https://github.com/Tarzzan/nacre/commit/dc9d843c8063b1ab44cbbd17f30e8a6d26fb58c1) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.54 — Espaces dans les sauvegardes
+
+Les plans de sauvegarde proposent une nouvelle source, **Espaces personnels et d’équipe** : tous les espaces d’un coup, présents et à venir, sans leurs corbeilles. Un nouveau plan la coche d’office avec l’espace commun ; un plan existant garde ses choix. Une restauration les rend sous `espaces/<identifiant>` dans les restaurations privées, donc lisibles par l’administrateur qui restaure. La brique « comptes, groupes, espaces » est ainsi complète pour l’usage par le navigateur ; l’exposition des espaces en SMB reste à faire. Aucun changement de schéma ni de module figé. 381 tests Python, 149 JavaScript. [Guide](docs/SPACES.md#sauvegarder-les-espaces).
+
 ## 0.8.0-alpha.53 — Liens de partage
 
 Dans **Fichiers**, **Partager par lien** ouvre un fichier ou un dossier à quelqu’un qui n’a pas de compte, en lecture, pour 1, 7, 30 ou 90 jours, avec un mot de passe facultatif. Le destinataire arrive sur une page sobre : il télécharge le fichier, ou parcourt le dossier et le récupère en archive. Un nouvel onglet **Liens** liste ce que chacun partage, compte les téléchargements et révoque. Le lien n’est affiché qu’une fois et n’est jamais conservé : seule son empreinte l’est. Il s’éteint à l’échéance, à la révocation, si sa cible disparaît, ou dès que son auteur perd l’accès à l’espace ; la réponse est alors la même dans tous les cas. Le visiteur passe par les mêmes contrôles que tout le monde, borné à la cible du lien. Un lien ne fonctionne que là où la console est joignable. Aucun changement de schéma ni de module figé. 380 tests Python, 148 JavaScript. [Guide](docs/SPACES.md#partager-par-lien).

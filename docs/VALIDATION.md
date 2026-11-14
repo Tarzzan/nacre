@@ -1,5 +1,9 @@
 # Validation
 
+## Espaces dans les sauvegardes — 0.8.0-alpha.54
+
+381 tests Python et 149 JavaScript. Un essai Python avec le vrai restic : source proposée juste après l’espace commun, sauvegarde réussie alors qu’aucun espace n’existe, puis sauvegarde d’un espace d’équipe, écrasement du fichier, restauration qui rend la version sauvegardée sous `espaces/<identifiant>`, sans la corbeille, sans toucher au fichier en place. Un essai JavaScript : un nouveau plan coche les espaces, un plan existant garde ses choix. Non prouvé : une installation qui a déjà des plans actifs ; ils ne changent pas d’eux-mêmes.
+
 ## Liens de partage — 0.8.0-alpha.53
 
 380 tests Python et 148 JavaScript. Six essais Python sur le vrai serveur : lien de fichier lu sans compte puis révoqué, jeton absent de la base, réponse identique pour un lien révoqué et un jeton inconnu ; lien de dossier parcouru, téléchargé et archivé, **dix-huit tentatives de sortie du dossier refusées** (remontées, chemin absolu, fichiers cachés, dossier interne), console fermée au visiteur ; mot de passe exigé, preuve valable pour ce seul lien, neuvième essai refusé ; création réservée à qui écrit, treize cibles ou réglages invalides refusés, lien symbolique refusé, plafond par personne ; extinction quand l’auteur perd l’accès, quand son compte est désactivé, quand la cible disparaît et à l’échéance, puis disparition de la liste après trente jours ; liste propre à chacun, noms d’un espace personnel jamais montrés à l’administrateur ni au journal. Trois essais JavaScript : partage proposé seulement là où l’on écrit, lien montré une fois, liste et révocation, page publique dans ses quatre états. Sur le banc local, dans le navigateur : création avec mot de passe, page du destinataire verrouillée, mauvais mot de passe refusé, ouverture puis téléchargement, lien de dossier. Non prouvé : l’usage depuis une autre machine, la console n’écoutant que la machine elle-même.

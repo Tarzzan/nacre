@@ -65,8 +65,12 @@ class Protection:
                 'upload_size_limit': None, 'backup_size_limit': None, 'file_count_limit': None,
                 'note': 'Snapshots chiffrés et dédupliqués de fichiers. Ils ne figent pas atomiquement tout un volume.'}
 
+    # Tous les espaces personnels et d'équipe d'un coup : une personne n'a pas à demander que son espace soit sauvegardé.
+    SPACES={'id':'espaces','name':'Espaces personnels et d’équipe','kind':'spaces','writable':False}
+
     def sources(self):
-        return [a for a in self.app.file_areas(True) if a['id']=='fichiers' or a['kind']=='volume']
+        found=[a for a in self.app.file_areas(True) if a['id']=='fichiers' or a['kind']=='volume']
+        return found[:1]+[dict(self.SPACES)]+found[1:] if found and found[0]['id']=='fichiers' else [dict(self.SPACES)]+found
 
     def validate_sources(self,values=None,allow_unavailable=False):
         values=['fichiers'] if values is None else values
@@ -348,14 +352,18 @@ class Protection:
                 source_map={}
                 selected=self.validate_sources(options.get('sources'))
                 for area in selected:
-                    resource=self.app.resolve_area(area)
+                    if area=='espaces':
+                        import spaces
+                        spaces.root(self.app).mkdir(mode=0o750,exist_ok=True)
+                        resource={'path':str(spaces.root(self.app)),'name':'espaces'}
+                    else:resource=self.app.resolve_area(area)
                     path=resource['path']
                     fd=os.open(path,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
                     meta=os.fstat(fd);identity={'dev':meta.st_dev,'ino':meta.st_ino}
                     if resource.get('identity') and identity!=resource['identity']:
                         os.close(fd);raise self.app.Problem('Un volume source a changé pendant son ouverture.',503)
                     guards.append((fd,path,identity));sources.append(path)
-                    if area=='fichiers':label='fichiers'
+                    if area in ('fichiers','espaces'):label=area
                     else:
                         label='volume-'+re.sub(r'[^A-Za-z0-9_-]','-',resource['name'])[:40]+'-'+area[-8:]
                     source_map[path]=label

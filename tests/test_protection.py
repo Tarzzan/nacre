@@ -233,3 +233,26 @@ class ProtectionTests(unittest.TestCase):
         self.assertEqual(source.read_text(),'version deux')
         self.assertTrue((destination/'configuration/console.db').is_file())
         self.assertEqual(os.stat(destination).st_mode & 0o777,0o700)
+
+    def test_spaces_are_a_backup_source_restored_under_a_stable_name_without_their_trash(self):
+        import spaces
+        self.assertEqual([s['id'] for s in self.manager.sources()][:2],['fichiers','espaces'])
+        self.assertEqual(self.manager.validate_sources(['fichiers','espaces']),['fichiers','espaces'])
+        repo=self.manager.create_repository({'name':'Dépôt des espaces','target':'local','password':'mot-de-passe-uniquement-de-test'},'test')['id']
+        # Aucun espace encore créé : la source existe quand même, vide.
+        self.assertEqual(self.wait(self.manager.submit('snapshot','test',{'repo':repo,'sources':['espaces'],'configuration':False}))['status'],'done')
+        with app.database() as db:
+            spaces.put(db,'space:'+'c0'*6,{'id':'c0'*6,'kind':'team','name':'Chantier','members':{},'groups':{}})
+        folder=Path(spaces.resource(app,'espace_'+'c0'*6)['path'])
+        (app.ROOT/'data/fichiers/commun.txt').write_text('commun')
+        (folder/'devis.txt').write_text('devis en cours');(folder/'.nacre-trash').mkdir();(folder/'.nacre-trash/jete.txt').write_text('corbeille')
+        row=self.wait(self.manager.submit('snapshot','test',{'repo':repo,'sources':['fichiers','espaces'],'configuration':False}))
+        self.assertEqual(row['status'],'done',row['result'])
+        (folder/'devis.txt').write_text('devis écrasé')
+        restored=self.manager.submit('snapshot_restore','test',{'repo':repo,'snapshot':json.loads(row['result'])['snapshot']})
+        self.assertEqual(self.wait(restored)['status'],'done')
+        destination=app.ROOT/'data/restaurations'/restored
+        self.assertEqual((destination/'espaces'/('c0'*6)/'devis.txt').read_text(),'devis en cours')
+        self.assertFalse((destination/'espaces'/('c0'*6)/'.nacre-trash').exists())
+        self.assertEqual((destination/'fichiers/commun.txt').read_text(),'commun')
+        self.assertEqual((folder/'devis.txt').read_text(),'devis écrasé')

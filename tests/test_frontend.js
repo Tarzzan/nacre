@@ -2461,4 +2461,12 @@ test('public link page shows a file, a folder, a lock or a refusal, and escapes 
  html=run('pubLocked({name:"Secret <b>"},"Mot de passe refusé.")');assert.match(html,/id="pub-unlock"/);assert.match(html,/Secret &lt;b&gt;/);assert.match(html,/role="alert">Mot de passe refusé\./);
  html=run('pubGone()');assert.match(html,/Lien indisponible/);assert.match(html,/n’existe pas ou n’est plus valable/);assert.match(run('pubGone("<x>")'),/&lt;x&gt;/);
 });
+test('a new backup plan protects the common space and the spaces of people, and an existing plan keeps its choices',()=>{
+ const f=fixture(async()=>response(200,{}));
+ f.run('protectionSources=[{id:"fichiers",name:"Fichiers partagés"},{id:"espaces",name:"Espaces <b>"},{id:"native_x",name:"Volume"}];');
+ let html=f.run('dataChoices()');
+ assert.match(html,/value="fichiers" checked/);assert.match(html,/value="espaces" checked>Espaces &lt;b&gt;/);assert.doesNotMatch(html,/value="native_x" checked/);
+ html=f.run('dataChoices({sources:["fichiers"],configuration:true,video:false})');assert.match(html,/value="fichiers" checked/);assert.doesNotMatch(html,/value="espaces" checked/);
+ f.run('protectionSources=[{id:"fichiers",name:"Fichiers partagés"}];');assert.doesNotMatch(f.run('dataChoices()'),/value="espaces"/);
+});
 
