@@ -3,7 +3,7 @@
 // de même origine, en mode « enfant » : les pages existantes y tournent sans modification, chacune avec son propre état.
 // L’affichage classique reste disponible, au choix de chaque navigateur.
 const DESK_APPS=[
- {id:'files',name:'Fichiers',pages:[['files','Parcourir'],['trash','Corbeille']]},
+ {id:'files',name:'Fichiers',pages:[['files','Parcourir'],['trash','Corbeille'],['links','Liens','write']]},
  {id:'cam',name:'Surveillance',pages:[['camera','Caméras']],views:[['wall','Mur'],['events','Événements'],['replay','Relecture'],['settings','Réglages']]},
  {id:'storage',name:'Stockage',pages:[['storage','Disques'],['native','Volumes et snapshots']]},
  {id:'protect',name:'Protection',pages:[['backups','Sauvegardes'],['snapshots','Points de restauration'],['retention','Conservation',true]]},
@@ -42,7 +42,8 @@ function deskParent(name,...values){try{return window.parent[name](window,...val
 // Les onglets réservés aux administrateurs disparaissent pour un compte en lecture seule, et l’application avec eux si elle est vide.
 function deskPages(app){
  if(user?.role==='member'&&!DESK_MEMBER.includes(app.id)&&!(app.id==='cam'&&user.camera))return [];
- return app.pages.filter(p=>!p[2]||user?.role==='admin');
+ // Troisième valeur d’une page : true la réserve aux administrateurs, 'write' la retire aux comptes en lecture seule.
+ return app.pages.filter(p=>!p[2]||user?.role==='admin'||(p[2]==='write'&&user?.role==='member'));
 }
 function deskApps(){return DESK_APPS.filter(a=>deskPages(a).length);}
 function deskApp(name){return deskApps().find(a=>deskPages(a).some(p=>p[0]===name))||null;}

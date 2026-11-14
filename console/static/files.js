@@ -51,7 +51,7 @@ function fmTools(){
 function fmBar(){
  const chosen=fmSelected(),write=fmWritable();if(!chosen.length)return '';
  const one=chosen.length===1?chosen[0]:null,href=one&&!one.directory&&!one.link?fmUrl(one.name):fmArchive(chosen.map(i=>i.name));
- return `<div class="fm-bar"><strong>${chosen.length} élément${chosen.length>1?'s':''}</strong><span class="fm-grow"></span>${chosen.some(i=>i.link)?'':`<a class="fm-link" href="${esc(href)}">${one&&!one.directory?'Télécharger':'Télécharger en archive'}</a>`}${write?(one?button('rename','Renommer',null,'small',`data-path="${esc(fmJoin(one.name))}" data-name="${esc(one.name)}"`):'')+button('fm-move','Déplacer',null,'small')+button('fm-trash','Corbeille',null,'small'):''}${button('fm-clear','Désélectionner',null,'small')}</div>`;
+ return `<div class="fm-bar"><strong>${chosen.length} élément${chosen.length>1?'s':''}</strong><span class="fm-grow"></span>${chosen.some(i=>i.link)?'':`<a class="fm-link" href="${esc(href)}">${one&&!one.directory?'Télécharger':'Télécharger en archive'}</a>`}${one&&!one.link&&typeof linkAllowed==='function'&&linkAllowed()?button('fm-share','Partager par lien',null,'small'):''}${write?(one?button('rename','Renommer',null,'small',`data-path="${esc(fmJoin(one.name))}" data-name="${esc(one.name)}"`):'')+button('fm-move','Déplacer',null,'small')+button('fm-trash','Corbeille',null,'small'):''}${button('fm-clear','Désélectionner',null,'small')}</div>`;
 }
 function fmAreaName(id){return fileAreas.find(a=>a.id===id)?.name||id;}
 function fmFindable(){return fmFilter.replace(/\s/g,'').length>=2;}
@@ -329,6 +329,7 @@ document.addEventListener('click',async e=>{
    if(action==='fm-check'){const name=row?.dataset.name;if(!name)return;fmSel.has(name)?fmSel.delete(name):fmSel.add(name);fmLast=name;return fmRedraw();}
    if(action==='fm-clear'){fmSel.clear();return fmRedraw();}
    if(action==='fm-send')return $('#fm-upload')?.click();
+   if(action==='fm-share'){const chosen=fmSelected();if(chosen.length!==1||chosen[0].link||typeof linkAsk!=='function'||!linkAllowed())return;return linkAsk(fmJoin(chosen[0].name),chosen[0]);}
    if(action==='fm-trash')return fmAskTrash();
    if(action==='fm-move')return fmAskMove();
    if(action==='fm-find')return await fmFind(el.dataset.scope==='here'?'here':'all');

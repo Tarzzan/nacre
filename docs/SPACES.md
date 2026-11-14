@@ -45,6 +45,30 @@ Dans **Fichiers**, l’arbre les range dans cet ordre : Mon espace, **Équipes**
 - **Un espace ne se supprime que vide**, corbeille comprise. Rien n’est effacé à votre place.
 - **Un espace personnel se reprend une fois le compte désactivé** : il devient un espace d’équipe ouvert aux administrateurs, sans déplacer un fichier, et la reprise est au journal.
 
+## Partager par lien
+
+Depuis **0.8.0-alpha.53**, un fichier ou un dossier s’ouvre à quelqu’un qui n’a pas de compte.
+
+1. Dans **Fichiers**, sélectionner un seul élément, puis **Partager par lien**.
+2. Choisir la durée : 1, 7, 30 ou 90 jours. Ajouter un **mot de passe** si le lien doit voyager par un canal peu sûr.
+3. La fenêtre passe à l’onglet **Liens** : le lien y est affiché une fois, à copier aussitôt.
+
+![Liens de partage](images/share-links.jpg)
+
+*Banc local : comptes et fichiers fictifs.*
+
+Le destinataire ouvre une page sobre, sans compte : il télécharge le fichier, ou parcourt le dossier et le récupère en archive.
+
+À savoir :
+
+- **Qui peut partager** : qui écrit dans l’espace. Un compte en lecture seule ne crée pas de lien. Les vidéos, les sauvegardes et les restaurations ne se partagent pas par lien.
+- **Lecture seulement, et rien d’autre** : le lien ne montre que sa cible. Un lien de dossier ne sort pas de son dossier et ne montre aucun fichier caché.
+- **Le lien n’est jamais conservé** : seule son empreinte l’est. Perdu, il faut en créer un autre.
+- **Il s’éteint** à son échéance, à sa révocation, si sa cible est renommée ou supprimée, et dès que son auteur perd l’accès à l’espace ou que son compte est désactivé. Dans tous ces cas la réponse est la même : « ce lien n’existe pas ou n’est plus valable ».
+- **Mot de passe** : huit caractères au moins, conservé sous forme d’empreinte ; les essais sont limités à huit par minute.
+- **Suivi** : l’onglet Liens compte les téléchargements, et chacun est inscrit au journal. Un administrateur voit tous les liens, sans les noms de fichiers d’un espace personnel qui n’est pas le sien, et peut les révoquer.
+- **Un lien ne fonctionne que là où la console est joignable.** Tant que la console n’écoute que la machine elle-même, il ne sort pas de la machine.
+
 ## Ce que le journal garde
 
 Les gestes faits dans un espace d’équipe portent le nom de l’espace et du fichier. Ceux d’un espace personnel sont notés « espace personnel », sans aucun nom de fichier ou de dossier.
@@ -56,6 +80,7 @@ Les gestes faits dans un espace d’équipe portent le nom de l’espace et du f
 - **Pas encore par le réseau.** Les espaces ne sont pas exposés en SMB ; les partages SMB existants ne changent pas.
 - **Pas de quota par espace.** La [pesée des espaces](DESKTOP.md#comparer-les-espaces) dit ce que chacun occupe.
 - **Les espaces ne sont pas encore proposés aux plans de sauvegarde.**
+- **Pas de dépôt par lien** : un visiteur ne peut rien envoyer.
 - **Pas encore d’invitation** : l’administrateur choisit le premier mot de passe et le transmet.
 
 ## Sous le capot

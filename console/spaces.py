@@ -21,9 +21,9 @@ LEVELS = ('read', 'write')
 COMMON = 'space:fichiers'
 # Ce qu'un membre peut lire et écrire dans la console ; tout le reste lui est refusé par défaut.
 MEMBER_READS = ('/api/me', '/api/desk', '/api/areas', '/api/files', '/api/files/search', '/api/files/usage', '/api/files/usage-spaces',
-                '/api/download', '/api/archive', '/api/trash', '/api/overview', '/api/account')
+                '/api/download', '/api/archive', '/api/trash', '/api/overview', '/api/account', '/api/links')
 MEMBER_WRITES = ('/api/logout', '/api/desk', '/api/upload', '/api/folder', '/api/rename', '/api/move', '/api/trash', '/api/restore',
-                 '/api/account/password')
+                 '/api/account/password', '/api/links/create', '/api/links/revoke')
 CAMERA_READS = ('/api/cameras', '/api/camera/')
 
 
@@ -90,6 +90,9 @@ def level(app, session, area):
     role, name = session.get('role'), session.get('name')
     if not isinstance(area, str):
         return None
+    if role == 'link':
+        # Visiteur d'un lien de partage : lecture, dans le seul espace du lien. Le chemin est borné par le module des liens.
+        return 'read' if area == session.get('link', {}).get('area') else None
     match = SPACE.fullmatch(area)
     if match:
         with app.database() as db:

@@ -658,9 +658,15 @@ class Handler(BaseHTTPRequestHandler):
                     raise Problem('Ce lien de connexion a expiré ou a déjà été utilisé.', 401)
                 session_token, _ = make_session('admin')
                 return self.reply(303, b'', extra={'Location': '/', 'Set-Cookie': f'nas_session={session_token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800'})
-            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/timezone.js', '/desktop.js', '/desk-prefs.js', '/bell.js', '/palette.js', '/updates.js', '/components.js', '/playback.js', '/detection.js', '/surveillance.js', '/kept.js', '/people.js', '/files.js', '/search.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
+            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/timezone.js', '/desktop.js', '/desk-prefs.js', '/bell.js', '/palette.js', '/updates.js', '/components.js', '/playback.js', '/detection.js', '/surveillance.js', '/kept.js', '/people.js', '/links.js', '/public.js', '/files.js', '/search.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
                 path = STATIC / ('index.html' if url.path == '/' else url.path[1:])
                 return self.reply(200, path.read_bytes(), mimetypes.guess_type(path)[0] or 'text/plain')
+            if not post and url.path.startswith('/p/'):
+                # Page d'un lien de partage : la même pour tout jeton, le contenu vient ensuite par l'API publique.
+                return self.reply(200, (STATIC / 'public.html').read_bytes(), 'text/html; charset=utf-8')
+            if url.path.startswith('/api/public/'):
+                from links import public
+                return public(sys.modules[__name__], self, url.path, query, post)
             if post and url.path == '/api/login':
                 origin = self.headers.get('Origin')
                 if origin and origin not in (f'http://127.0.0.1:{self.server.server_port}', f'http://localhost:{self.server.server_port}'):
@@ -689,7 +695,7 @@ class Handler(BaseHTTPRequestHandler):
             if maintenance(sys.modules[__name__]) and (post or url.path not in ('/api/me','/api/updates')):
                 raise Problem('Mise à jour en cours. La console sera bientôt disponible.',503)
             if post:
-                self.authorize_write(session, require_admin=url.path not in ('/api/logout', '/api/desk', '/api/account/password') and not (session['role'] == 'member' and url.path in spaces.MEMBER_WRITES))
+                self.authorize_write(session, require_admin=url.path not in ('/api/logout', '/api/desk', '/api/account/password') and not (session['role'] in ('member', 'admin') and url.path in spaces.MEMBER_WRITES))
                 if url.path == '/api/updates/upload':
                     from updates import upload
                     return self.reply(200,upload(sys.modules[__name__],self))
@@ -740,6 +746,10 @@ class Handler(BaseHTTPRequestHandler):
                     from onboarding import read as setup_read
                     return self.reply(200, {'services_available': False, 'host': setup_read(sys.modules[__name__])['name'], 'time': time.time(), 'services': [], 'camera': {}, 'events': []})
                 return self.reply(200, overview())
+            if url.path == '/api/links':
+                if session['role'] == 'viewer':raise Problem('Les liens de partage demandent un compte qui écrit.',403)
+                from links import listing as shared_links
+                return self.reply(200, shared_links(sys.modules[__name__], session))
             if url.path == '/api/account':
                 return self.reply(200, {'name': session['name'], 'role': session['role']})
             if url.path == '/api/spaces':
@@ -940,6 +950,9 @@ class Handler(BaseHTTPRequestHandler):
                         'common':spaces.save_common,'person':spaces.save_person,'adopt':spaces.adopt}.get(route[len('/api/spaces/'):])
                 if not action:raise Problem('Ressource inconnue.',404)
                 return action(sys.modules[__name__],body,user)
+            if route in ('/api/links/create','/api/links/revoke'):
+                import links
+                return (links.create if route.endswith('/create') else links.revoke)(sys.modules[__name__],body,session)
             if route == '/api/account/password':
                 return spaces.change_password(sys.modules[__name__],body,session)
             if route in ('/api/camera/keep','/api/camera/unkeep'):

@@ -88,7 +88,7 @@ class SpaceTests(unittest.TestCase):
     def test_member_reaches_only_file_and_account_routes(self):
         self.people(camille='member')
         source = (Path(app.__file__).parent / 'server.py').read_text()
-        routes = sorted(set(re.findall(r"'(/api/[a-z0-9/_-]+)'", source)) - {'/api/login', '/api/update-health'})
+        routes = sorted(set(re.findall(r"'(/api/[a-z0-9/_-]+)'", source)) - {'/api/login', '/api/update-health', '/api/public/'})
         self.assertGreater(len(routes), 80)
         for route in routes:
             if route not in spaces.MEMBER_READS:
