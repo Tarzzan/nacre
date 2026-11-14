@@ -16,6 +16,7 @@ tout ce qu'il contient. Mêmes bornes, mêmes deux parcours à la fois ; un doss
 est donné comme un minimum, et ceux qui n'ont pas été commencés sont signalés.
 """
 import heapq
+import json
 import os
 import threading
 import time
@@ -39,6 +40,7 @@ KINDS = {
 }
 # Deux parcours à la fois au plus : une recherche ne doit pas monopoliser les disques.
 _slots = threading.BoundedSemaphore(2)
+KEPT = 'usage-kept:'  # dernière pesée de la racine de chaque espace, pour les comparer sans relire le disque
 
 
 class _Stop(Exception):
@@ -282,5 +284,36 @@ def usage(app, query, session):
     # Pesés d'abord, du plus lourd au plus léger ; ce qui n'a pas pu être commencé vient ensuite.
     items.sort(key=lambda item: (item['state'] == 'waiting', -item['size'], item['name'].casefold()))
     rest = items[RESULTS:]
+    if partial:
+        # Pesée arrêtée avant la fin : le total est un minimum, même si tout ce qui a été lu l'a été en entier.
+        total['state'] = 'partial'
+    if not app.parts(path):
+        keep(app, area, total)
     return {'area': area, 'path': path, 'items': items[:RESULTS], 'total': total, 'hidden': hidden,
             'others': {'count': len(rest), 'size': sum(item['size'] for item in rest)}, 'partial': partial, 'visited': state['visited'], 'limit': RESULTS}
+
+
+def keep(app, area, total):
+    """Garder le poids d'un espace entier, avec son heure. Ne fait jamais échouer la pesée qui vient d'aboutir."""
+    try:
+        value = json.dumps({'at': time.time(), 'size': total['size'], 'count': total['count'], 'state': total['state']})
+        with app.database() as db:
+            db.execute('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', (KEPT + area, value))
+    except Exception:
+        pass
+
+
+def spaces(app, session):
+    """Les espaces que ce compte peut voir, chacun avec sa dernière pesée gardée. Aucune lecture du disque."""
+    found = []
+    with app.database() as db:
+        kept = {row['key'][len(KEPT):]: row['value'] for row in db.execute('SELECT key,value FROM settings WHERE key LIKE ?', (KEPT + '%',))}
+    for item in app.file_areas(session['role'] == 'admin'):
+        try:
+            value = json.loads(kept[item['id']])
+            last = {'at': float(value['at']), 'size': int(value['size']), 'count': int(value['count']), 'state': 'whole' if value['state'] == 'whole' else 'partial'}
+        except (KeyError, ValueError, TypeError):
+            last = None
+        found.append({'id': item['id'], 'name': item['name'], 'kept': last})
+    return {'spaces': found}
+

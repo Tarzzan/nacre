@@ -1,5 +1,25 @@
 # Déploiements de la console sur Spark
 
+## 14 novembre 2026 — alpha.47, suite des événements
+
+L’installation alpha.46 a reçu le paquet `nacre-0.8.0-alpha.47.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.47), construit depuis le commit [`7587cf8`](https://github.com/Tarzzan/nacre/commit/7587cf8470b46405a1b4ec7636a43749769ff6a6) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
+
+Avant l’import : neuf modules figés identiques, aucune tâche active, répétition isolée alpha.46 → alpha.47 réussie. Fichier importé identique à celui de la release, empreinte contrôlée ; session administrateur temporaire refermée ; installation confirmée depuis la fenêtre Réglages du bureau et suivie jusqu’à **Mise à jour réussie**, session conservée.
+
+Validation enregistrée à 4 h 20 min 33 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Constaté en lecture seule, en nombres seulement : 774 événements sur les sept derniers jours pour la caméra, 60 dans la première page et une suite annoncée, 60 dans la deuxième et une suite encore ; le script de l’onglet Événements servi porte le bouton de [suite](DESKTOP.md). Aucun événement ni vignette n’a été ouvert ou affiché, et le bouton lui-même n’a pas été actionné ici : son comportement est prouvé sur le banc.
+
+## 14 novembre 2026 — alpha.46, restaurations natives « à vérifier » relues
+
+L’installation alpha.45 a reçu le paquet `nacre-0.8.0-alpha.46.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.46), construit depuis le commit [`deb0895`](https://github.com/Tarzzan/nacre/commit/deb0895663929d02b5c1de0e68f95437ae710d6f) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
+
+Avant l’import : neuf modules figés identiques, aucune tâche active, répétition isolée alpha.45 → alpha.46 réussie. Fichier importé identique à celui de la release, empreinte contrôlée ; session administrateur temporaire refermée ; installation confirmée depuis la fenêtre Réglages du bureau et suivie jusqu’à **Mise à jour réussie**, session conservée.
+
+Validation enregistrée à 4 h 12 min 17 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Cette installation n’a pas de service natif : la [relecture des restaurations](NATIVE-SNAPSHOT-POLICY.md#une-restauration-restée--à-vérifier-) n’y a rien à relire, et sa preuve vient du banc VM.
+
 ## 14 novembre 2026 — alpha.45, dossiers de données protégés
 
 L’installation alpha.44 a reçu le paquet `nacre-0.8.0-alpha.45.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.45), construit depuis le commit [`f5f48de`](https://github.com/Tarzzan/nacre/commit/f5f48de246c56eb7798b81ce8db080082d76d6ac) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).

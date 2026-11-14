@@ -281,6 +281,29 @@ Ce qu’il faut savoir :
 
 Limites de cette étape : pas de recherche dans le contenu, pas de dates ni de tailles libres, pas de poids gardé d’une pesée à l’autre, pas de copie, pas de liens de partage, pas d’envoi de dossiers entiers par glisser-déposer, pas d’avance rapide dans l’aperçu vidéo. L’arborescence montre les dossiers déjà ouverts, pas tout le disque d’avance.
 
+#### Comparer les espaces
+
+Depuis la version 0.8.0-alpha.48, la dernière pesée de chaque espace entier est gardée, et une vue les met côte à côte.
+
+![Poids des espaces sur le banc de démonstration](images/space-weights.jpg)
+
+On y arrive par **Comparer les espaces**, dans le titre d’une pesée, ou par **Poids des espaces** dans la recherche globale (Ctrl+K).
+
+| Colonne | Ce qu’elle dit |
+| --- | --- |
+| **Contenu**, **Poids** | Ce que l’espace contenait à sa dernière pesée ; « au moins » si elle s’était arrêtée avant la fin ; « non pesé » s’il ne l’a jamais été. |
+| **Part** | Sa part parmi les espaces pesés. |
+| **Pesé le** | La date de cette pesée. |
+
+**Peser** ou **Repeser** pèse l’espace entier et met sa ligne à jour ; **Peser tous les espaces** le fait pour chacun, l’un après l’autre ; **Détail** ouvre l’espace et pèse ses dossiers.
+
+Ce qu’il faut savoir :
+
+- **Un poids gardé ne suit pas ce qui change ensuite** : c’est une photographie, datée. Rien n’est repesé tout seul.
+- **Seule la pesée d’un espace entier est gardée**, pas celle d’un sous-dossier. Peser la racine d’un espace depuis la vue habituelle la met aussi à jour.
+- **Mêmes bornes que la pesée** : un très grand espace peut s’arrêter avant la fin, et son poids est alors un minimum.
+- **Chacun ne voit que ses espaces** : les restaurations privées et les volumes natifs restent réservés aux administrateurs.
+
 ## Revenir à l’affichage classique
 
 Le bouton **Classique** de la barre supérieure rend le menu à gauche tel qu’il était ; le bouton **Bureau** y ramène. Le choix est mémorisé dans le navigateur, pas sur le NAS : chaque poste garde le sien. L’assistant de première configuration utilise toujours l’affichage classique.

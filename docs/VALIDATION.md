@@ -1,5 +1,9 @@
 # Validation
 
+## Poids des espaces — 0.8.0-alpha.48
+
+357 tests Python et 136 JavaScript. Un essai Python : rien de gardé avant une pesée ; sous-dossier pesé, rien de gardé ; espace entier pesé, total, décompte et heure gardés ; nouvelle pesée qui remplace l’ancienne ; pesée arrêtée gardée comme un minimum ; compte en lecture seule limité à ses espaces ; valeur gardée illisible ignorée. Un essai JavaScript : vue ouverte depuis une pesée sans rien peser, lignes pesées et non pesées, part entre espaces pesés, espace inconnu écarté ; peser un espace puis relire ; minimum affiché « au moins » ; refus dit et suite poursuivie ; « tous » à la suite ; « Détail » ; ouverture directe depuis la recherche globale. Sur le banc local, avec le vrai serveur : quatre espaces non pesés, un pesé puis tous, parts et dates affichées, sans débordement.
+
 ## Suite des événements — 0.8.0-alpha.47
 
 356 tests Python et 135 JavaScript. Un essai JavaScript : liste arrêtée au dernier événement chargé de la caméra qui a une suite ; filtre sur une caméra sans suite, liste complète, sur celle qui en a une, bouton conservé ; refus du serveur dit sans rien changer à l’affichage ; suite demandée à la caméra qui borne la liste, sur la période exacte de la première réponse, jusqu’à épuisement ; ordre du plus récent au plus ancien, aucun doublon ; plus rien à demander, aucun appel ; nouvelle recherche repartie de la première page. Sur le banc local, avec le vrai serveur et des pages raccourcies à huit événements : huit affichés, puis quarante-six après un clic, dans l’ordre et sans doublon, bouton disparu et mention « tous les événements de la période sont listés ».
