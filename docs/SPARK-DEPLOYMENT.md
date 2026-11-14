@@ -1,5 +1,15 @@
 # Déploiements de la console sur Spark
 
+## 14 novembre 2026 — alpha.51, alerte du volume vidéo
+
+L’installation alpha.50 a reçu le paquet `nacre-0.8.0-alpha.51.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.51), construit depuis le commit [`b800419`](https://github.com/Tarzzan/nacre/commit/b8004198895f99727c0f368b6c966f26f5ba912b) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
+
+Avant l’import : neuf modules figés identiques, aucune tâche active, aucun incident actif, répétition isolée alpha.50 → alpha.51 réussie. Fichier importé identique à celui de la release, empreinte contrôlée ; session administrateur temporaire refermée ; installation confirmée depuis la fenêtre Réglages du bureau et suivie jusqu’à **Mise à jour réussie**, session conservée.
+
+Validation enregistrée à 14 h 48 min 26 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Constaté en lecture seule, en nombres seulement : la surveillance interroge désormais Frigate sur son volume à chaque passage (six lectures en quatre minutes) ; le domaine « stockage vidéo » est vérifié, aucun incident ouvert ni en attente, ce qui est attendu avec environ 68 jours d’autonomie. **L’ouverture de l’incident n’a pas été exercée ici** : il aurait fallu remplir le volume ou changer la durée de conservation, ce qui redémarre le service vidéo. Elle est prouvée sur mesures simulées.
+
 ## 14 novembre 2026 — alpha.50, passages conservés : liste à jour aussitôt
 
 L’installation alpha.49 a reçu le paquet `nacre-0.8.0-alpha.50.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.50), construit depuis le commit [`edabf87`](https://github.com/Tarzzan/nacre/commit/edabf875173e4c9d6d0a92e48e3530c2be880dd5) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
