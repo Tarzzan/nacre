@@ -88,7 +88,8 @@ class ServiceAgentTests(unittest.TestCase):
         kind, args, options = self.last()
         self.assertEqual((kind, args[:2], args[-2:]), ('command', ('docker', 'compose'), ('config', '--quiet')))
         self.assertEqual(args[2:6], ('-f', '/srv/nacre/compose.yaml', '-f', str(override)))
-        self.assertEqual({name for name in service_agent.OPERATIONS}, {operation for (operation, _), _ in expected} | {'samba_password', 'samba_mounts_check', 'video_address', 'engine'})
+        self.assertEqual({name for name in service_agent.OPERATIONS}, {operation for (operation, _), _ in expected} | {'samba_password', 'samba_mounts_check', 'video_address', 'engine', 'protection'})
+        self.assertEqual(self.ask('protection'), {'agent': False, 'sources': [], 'protected': False, 'required': False})   # sans agent, rien à dire
 
     def test_video_address_gives_only_the_address_and_engine_only_three_answers(self):
         self.assertIsNone(self.ask('video_address'))
@@ -185,7 +186,10 @@ class AgentTests(unittest.TestCase):
         for folder in (self.root / 'state/samba', self.root / 'state/console', self.runtime, self.approved / 'volume-a', self.outside):
             folder.mkdir(parents=True)
         self.description = base / 'compose.yaml'
-        self.description.write_text('name: nas-autonome-lab\nservices:\n  video: {}\n')
+        self.description.write_text('name: nas-autonome-lab\nservices:\n  video:\n    volumes:\n      - ./state/frigate:/config\n      - ./data/video:/media/frigate\n'
+                                    '  fichiers:\n    volumes:\n      - ./data/fichiers:/shares/fichiers\n      - ./data/video:/shares/video:ro\n      - ./state/samba:/etc/nas-autonome:ro\n      - samba-state:/var/lib/samba\n')
+        for folder in ('state/frigate', 'data/video', 'data/fichiers'):
+            (self.root / folder).mkdir(parents=True)
         (self.root / '.env').write_text('NACRE_FRIGATE_IMAGE=ghcr.io/blakeblackshear/frigate:0.16.2\nNACRE_UID=1000\nNACRE_GID="1000"\nCOMPOSE_FILE=/tmp/piège.yaml\nDOCKER_HOST=tcp://ailleurs:2375\n')
         self.policy = {'version': 1, 'allowed_uid': 1000, 'root': str(self.root), 'mount_roots': [str(self.approved)]}
         self.docker = Storage()
@@ -194,6 +198,8 @@ class AgentTests(unittest.TestCase):
         real = service_agent.os.stat
         patcher = patch.object(service_agent.os, 'stat', side_effect=lambda path, *a, **k: type('Meta', (), {'st_uid': 0, 'st_mode': 0o100644})() if Path(path) == self.description else real(path, *a, **k))
         patcher.start(); self.addCleanup(patcher.stop)
+        quiet = patch.object(service_agent, 'print', create=True)     # le journal root de l'agent n'a rien à faire dans la sortie des essais
+        quiet.start(); self.addCleanup(quiet.stop)
         self.assertNotEqual(owner, -1)
         self.host = service_agent.Host(self.policy, self.description, self.runtime, self.docker)
         self.mounts_file = self.root / 'state/samba/volumes.compose.json'
@@ -348,31 +354,95 @@ class AgentTests(unittest.TestCase):
 
     def test_installer_stages_the_agent_its_own_description_and_an_empty_policy(self):
         import install_services
-        (self.root / 'compose.yaml').write_text('name: nas-autonome-lab\nservices: {}\n')
+        described = 'name: nas-autonome-lab\nservices:\n  video:\n    build:\n      context: ./frigate\n  fichiers:\n    build:\n      context: ./samba\n'
+        (self.root / 'compose.yaml').write_text(described)
+        for image, names in (('samba', ('Dockerfile', 'entrypoint.sh')), ('frigate', ('Dockerfile',))):
+            (self.root / image / '__pycache__').mkdir(parents=True)
+            for name in names:
+                (self.root / image / name).write_text(image + ' ' + name)
+        (self.root / 'samba/lien').symlink_to('/etc/passwd')
         target = Path(self.temp.name) / 'racine'
         prepared = install_services.stage(target, 1000, self.root)
-        self.assertEqual(sorted(prepared), ['etc/nacre-services/policy.json', 'etc/systemd/system/nacre-services.service', 'usr/local/lib/nacre-services/compose.yaml',
-                                            'usr/local/lib/nacre-services/native_storage.py', 'usr/local/lib/nacre-services/service_agent.py'])
+        library = 'usr/local/lib/nacre-services/'
+        self.assertEqual(sorted(prepared), ['etc/nacre-services/policy.json', 'etc/systemd/system/nacre-services.service', library + 'compose.yaml', library + 'frigate/Dockerfile',
+                                            library + 'native_storage.py', library + 'samba/Dockerfile', library + 'samba/entrypoint.sh', library + 'service_agent.py'])
+        # Les sources des images sont copiées, et la description de l'agent y renvoie : celles de l'installation ne servent plus.
+        self.assertEqual((target / library / 'compose.yaml').read_text(), described.replace('./frigate', '/usr/local/lib/nacre-services/frigate').replace('./samba', '/usr/local/lib/nacre-services/samba'))
+        self.assertEqual((target / library / 'samba/entrypoint.sh').read_text(), 'samba entrypoint.sh')
+        # Montages protégés : préparés seulement sur demande, un par dossier où les conteneurs écrivent, au nom que systemd attend.
+        self.assertFalse(any(name.endswith('.mount') for name in prepared))
+        units = install_services.protections('/home/ubuntu/nacre-agent-lab')
+        self.assertEqual(sorted(units), ['etc/systemd/system/home-ubuntu-nacre\\x2dagent\\x2dlab-data.mount', 'etc/systemd/system/home-ubuntu-nacre\\x2dagent\\x2dlab-state.mount'])
+        self.assertIn('What=/home/ubuntu/nacre-agent-lab/data\nWhere=/home/ubuntu/nacre-agent-lab/data\nType=none\nOptions=bind,nosuid,nodev\n', units[sorted(units)[0]])
+        self.assertEqual(install_services.unit_name('/srv/.caché/é'), 'srv-.cach\\xc3\\xa9-\\xc3\\xa9.mount')
+        self.assertEqual(len([name for name in install_services.stage(target, 1000, self.root, protect=True) if name.endswith('.mount')]), 2)
         self.assertEqual(json.loads((target / 'etc/nacre-services/policy.json').read_text()), {'version': 1, 'allowed_uid': 1000, 'root': str(self.root.resolve()), 'mount_roots': []})
-        self.assertEqual((target / 'usr/local/lib/nacre-services/compose.yaml').read_text(), (self.root / 'compose.yaml').read_text())
         self.assertEqual((target / 'usr/local/lib/nacre-services/service_agent.py').read_text(), (SOURCE / 'console/service_agent.py').read_text())
         self.assertIn('ExecStart=/usr/bin/python3 -I /usr/local/lib/nacre-services/service_agent.py\n', prepared['etc/systemd/system/nacre-services.service'])
         self.assertEqual((target / 'etc/nacre-services/policy.json').stat().st_mode & 0o777, 0o600)
         # Réinstaller met le code et la description à jour, jamais la politique.
         (target / 'etc/nacre-services/policy.json').write_text('{"gardée": true}')
-        (self.root / 'compose.yaml').write_text('name: nas-autonome-lab\nservices: {video: {}}\n')
+        (self.root / 'compose.yaml').write_text(described + '# mise à jour\n')
         install_services.stage(target, 1000, self.root)
         self.assertEqual((target / 'etc/nacre-services/policy.json').read_text(), '{"gardée": true}')
-        self.assertIn('video', (target / 'usr/local/lib/nacre-services/compose.yaml').read_text())
+        self.assertIn('# mise à jour', (target / 'usr/local/lib/nacre-services/compose.yaml').read_text())
+        (self.root / 'compose.yaml').write_text('name: nas-autonome-lab\nservices: {}\n')
+        with self.assertRaises(ValueError):
+            install_services.stage(target, 1000, self.root)                     # description sans les sources attendues
+        (self.root / 'compose.yaml').write_text(described)
         for uid, root in ((0, self.root), (1000, self.outside)):
             with self.assertRaises(ValueError):
                 install_services.stage(target, uid, root)
+
+    def test_folders_written_by_containers_are_checked_for_nosuid_and_nodev(self):
+        flags = {}
+        real = service_agent.os.statvfs
+        patcher = patch.object(service_agent.os, 'statvfs', side_effect=lambda path: type('Flags', (), {'f_flag': flags[str(path)]})() if str(path) in flags else real(path))
+        patcher.start(); self.addCleanup(patcher.stop)
+        safe = service_agent.os.ST_NOSUID | service_agent.os.ST_NODEV
+        written = [str(self.root / name) for name in ('state/frigate', 'data/video', 'data/fichiers')]
+        flags.update({written[0]: safe, written[1]: service_agent.os.ST_NOSUID, written[2]: 0})
+        # Seuls les dossiers où un conteneur écrit comptent : les montages en lecture seule et les volumes Docker n'en sont pas.
+        reply = self.ask('protection')['result']
+        self.assertEqual((reply['agent'], reply['protected'], reply['required']), (True, False, False))
+        self.assertEqual(reply['sources'], [{'path': written[0], 'nosuid': True, 'nodev': True}, {'path': written[1], 'nosuid': True, 'nodev': False}, {'path': written[2], 'nosuid': False, 'nodev': False}])
+        # Sans exigence dans la politique, l'agent le dit et démarre quand même ; avec, il refuse de démarrer tant qu'un dossier est exposé.
+        self.assertIn('result', self.ask('control', name='video', action='restart'))
+        self.host.policy = {**self.policy, 'require_protected_mounts': True}
+        before = len(self.docker.calls)
+        for operation, parameters in (('control', {'name': 'video', 'action': 'restart'}), ('control', {'name': 'video', 'action': 'start'}), ('recreate_files', {}), ('start_component', {'component': 'fichiers'})):
+            reply = self.ask(operation, **parameters)
+            self.assertEqual(reply['status'], 400, operation)
+            self.assertIn(written[1] + ', ' + written[2], reply['error'])
+            self.assertNotIn(written[0], reply['error'])
+        self.assertEqual(len(self.docker.calls), before)
+        for operation, parameters in (('status', {}), ('control', {'name': 'video', 'action': 'stop'}), ('samba_reload', {})):
+            self.assertIn('result', self.ask(operation, **parameters), operation)       # lire et arrêter restent possibles
+        flags.update(dict.fromkeys(written, safe))
+        self.assertEqual(self.ask('protection')['result']['protected'], True)
+        self.assertIn('result', self.ask('recreate_files'))
+        # Un partage approuvé en écriture compte aussi ; en lecture seule, non. Un dossier absent n'est jamais « protégé ».
+        flags[service_agent.os.path.realpath(self.approved / 'volume-a')] = 0
+        self.mounts(self.mount(self.approved / 'volume-a'))
+        self.assertEqual(self.ask('recreate_files')['status'], 400)
+        self.mounts(self.mount(self.approved / 'volume-a', read_only=True))
+        self.assertIn('result', self.ask('recreate_files'))
+        flags[written[2]] = safe
+        service_agent.shutil.rmtree(self.root / 'data/fichiers'); del flags[written[2]]
+        reply = self.ask('protection')['result']
+        self.assertEqual((reply['protected'], reply['sources'][-1]), (False, {'path': written[2], 'nosuid': False, 'nodev': False, 'missing': True}))
+        # Une image fixée par root l'emporte sur celle que la console a écrite.
+        self.host.policy = {**self.policy, 'frigate_image': 'ghcr.io/blakeblackshear/frigate:approuvee'}
+        self.ask('status')
+        arguments = self.docker.calls[-1][0]
+        self.assertIn('NACRE_FRIGATE_IMAGE=ghcr.io/blakeblackshear/frigate:approuvee\n', Path(arguments[arguments.index('--env-file') + 1]).read_text())
 
     def test_policy_and_description_must_belong_to_root(self):
         with self.assertRaises(service_agent.AgentError):
             service_agent.read_policy(Path(self.temp.name) / 'policy.json')        # absente
         for policy in ({}, {**self.policy, 'version': 2}, {**self.policy, 'allowed_uid': 0}, {**self.policy, 'root': 'relatif'}, {**self.policy, 'root': '/srv/../etc'},
-                       {**self.policy, 'mount_roots': ['/']}, {**self.policy, 'mount_roots': ['relatif']}, {**self.policy, 'mount_roots': '/srv'}):
+                       {**self.policy, 'mount_roots': ['/']}, {**self.policy, 'mount_roots': ['relatif']}, {**self.policy, 'mount_roots': '/srv'},
+                       {**self.policy, 'require_protected_mounts': 'oui'}, {**self.policy, 'frigate_image': 'image; rm -rf /'}, {**self.policy, 'frigate_image': 7}):
             target = Path(self.temp.name) / 'policy.json'
             target.write_text(json.dumps(policy))
             with self.assertRaises(service_agent.AgentError, msg=policy):

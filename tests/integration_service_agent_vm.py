@@ -107,7 +107,7 @@ def main():
     out['direct_before'] = True
 
     # 2. L'agent s'installe et démarre ; le compte ubuntu QUITTE le groupe docker.
-    from install_services import stage
+    from install_services import protections, stage
     stage('/', 1000, ROOT)
     assert json.loads(POLICY.read_text()) == {'version': 1, 'allowed_uid': 1000, 'root': str(ROOT), 'mount_roots': []}
     run('systemctl', 'daemon-reload')
@@ -203,6 +203,59 @@ def main():
             break
         time.sleep(.2)
     assert 'result' in one('samba_ping')
+
+    # 7. Le chemin qui restait : un conteneur tourne en root et écrit dans un dossier de l'hôte. Démonstration, puis fermeture.
+    share = ROOT / 'data/fichiers'
+    proof = share / 'preuve'
+
+    def as_console(*args):
+        return subprocess.run(['runuser', '-u', 'ubuntu', '--', *args], capture_output=True, text=True, errors='replace')
+    shutil.copy('/usr/bin/id', proof)
+    run('chown', 'ubuntu:ubuntu', str(proof))
+    major, minor = (int(value, 16) for value in run('stat', '-c', '%t %T', '/dev/vda').split())
+    # Ce que ferait une image ou une configuration détournée : root dans le conteneur marque un programme et crée un périphérique.
+    run('docker', 'exec', CONTAINER, 'sh', '-c', f'chown 0:0 /shares/fichiers/preuve && chmod 4755 /shares/fichiers/preuve && mknod /shares/fichiers/disque b {major} {minor} && chmod 666 /shares/fichiers/disque')
+    exposed = one('protection')['result']
+    assert exposed['agent'] is True and exposed['protected'] is False and exposed['required'] is False, exposed
+    assert 'euid=0(root)' in as_console(str(proof)).stdout, 'Démonstration attendue : droits de root par le dossier partagé'
+    assert as_console('head', '-c', '16', str(share / 'disque')).returncode == 0, 'Démonstration attendue : lecture brute du disque'
+    out['before_protection'] = {'console_account_gets_root': True, 'console_account_reads_raw_disk': True}
+    # Root remonte les dossiers de données sans programmes privilégiés ni périphériques ; rien n'est redémarré.
+    shutil.copy(SOURCE / 'compose.yaml', ROOT / 'compose.yaml')     # root installe depuis un code de confiance, pas depuis la description trafiquée plus haut
+    run('chown', 'ubuntu:ubuntu', str(ROOT / 'compose.yaml'))
+    identity = inspect()['Id']
+    stage('/', 1000, ROOT, protect=True)
+    run('systemctl', 'daemon-reload')
+    run('systemctl', 'enable', '--now', *[Path(name).name for name in protections(ROOT)])
+    shielded = one('protection')['result']
+    assert shielded['protected'] is True and len(shielded['sources']) == 3 and all(item['nosuid'] and item['nodev'] for item in shielded['sources']), shielded
+    again = as_console(str(proof))
+    assert again.returncode == 0 and 'uid=1000' in again.stdout and 'euid=0' not in again.stdout, again.stdout
+    assert as_console('head', '-c', '16', str(share / 'disque')).returncode != 0
+    assert inspect()['Id'] == identity and running()
+    # Le conteneur en marche peut encore déposer ce qu'il veut : cela ne vaut plus rien sur l'hôte.
+    run('docker', 'exec', CONTAINER, 'sh', '-c', 'cp /shares/fichiers/preuve /shares/fichiers/preuve2 && chown 0:0 /shares/fichiers/preuve2 && chmod 4755 /shares/fichiers/preuve2')
+    assert 'euid=0' not in as_console(str(share / 'preuve2')).stdout
+    assert 'result' in one('recreate_files') and running()
+    assert 'euid=0' not in as_console(str(proof)).stdout and (share / 'preuve').exists()
+    out['after_protection'] = {'console_account_gets_root': False, 'console_account_reads_raw_disk': False, 'container_kept_running': True}
+    # Exigée par la politique : un partage approuvé mais posé sur un dossier exposé n'est plus monté.
+    POLICY.write_text(json.dumps({**json.loads(POLICY.read_text()), 'require_protected_mounts': True}))
+    refusal = demand(APPROVED / 'volume')
+    assert refusal['status'] == 400 and 'non protégé' in refusal['error'] and str(APPROVED / 'volume') in refusal['error'], refusal
+    mounts.unlink()
+    assert 'result' in one('recreate_files') and running()
+    out['required_by_policy'] = refusal['error']
+
+    # 8. Sources des images : celles de l'agent, pas celles que le compte de la console peut modifier.
+    recipe = ROOT / 'samba/Dockerfile'
+    recipe.write_text(recipe.read_text() + 'RUN touch /piege\n')
+    built = one('build', component='fichiers')
+    assert 'result' in built, built
+    assert 'result' in one('recreate_files') and running()
+    assert subprocess.run(['docker', 'exec', CONTAINER, 'test', '-e', '/piege']).returncode != 0
+    assert Path('/usr/local/lib/nacre-services/samba/Dockerfile').read_text() == (SOURCE / 'samba/Dockerfile').read_text()
+    out['tampered_image_source_ignored'] = True
     assert run('systemctl', 'is-active', 'nacre-services.service') == 'active'
     RESULTS.write_text(json.dumps(out, indent=1, ensure_ascii=False))
     print(json.dumps(out, ensure_ascii=False))

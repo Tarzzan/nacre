@@ -103,8 +103,10 @@ def finish(app, body, session):
 ACCESS = {
     'direct': {True: 'Docker et Compose accessibles. Démarrez les services lorsque vous êtes prêt.',
                False: 'Installer Docker Engine et Compose v2, puis autoriser le compte de console.'},
-    'agent': {True: 'Docker est piloté par l’agent de services ; le compte de la console n’y a plus d’accès direct.',
+    'agent': {True: 'Docker est piloté par l’agent de services ; le compte de la console n’y a plus d’accès direct, et les dossiers de données sont protégés.',
               False: 'L’agent de services ne joint pas Docker. Consulter son journal système.'},
+    'exposed': {True: 'Docker est piloté par l’agent de services, mais les dossiers de données ne sont pas protégés contre les programmes privilégiés : la réduction de privilèges reste à terminer.',
+                False: 'L’agent de services ne joint pas Docker. Consulter son journal système.'},
     'mixed': {True: 'L’agent de services est actif, mais le compte de la console garde un accès direct à Docker : la réduction de privilèges reste à terminer.',
               False: 'L’agent de services ne joint pas Docker. Consulter son journal système.'},
 }
@@ -126,6 +128,13 @@ def status(app):
     from service_agent import agent_present
     direct = os.access('/var/run/docker.sock', os.W_OK)
     access = ('mixed' if direct else 'agent') if agent_present() else 'direct'
+    # Avec l'agent seul aux commandes, reste à savoir si les dossiers où les conteneurs écrivent sont protégés.
+    try:
+        shielded = access == 'agent' and app.service_op('protection').get('protected') is True
+    except (app.Problem, OSError):
+        shielded = False
+    if access == 'agent' and not shielded:
+        access = 'exposed'
     protection = app.protection().capabilities()
     from native_storage import SOCKET
     native_socket = os.path.exists(SOCKET)
