@@ -1,5 +1,15 @@
 # Déploiements de la console sur Spark
 
+## 14 novembre 2026 — alpha.42, conservation automatique des points natifs
+
+L’installation alpha.41 a reçu le paquet `nacre-0.8.0-alpha.42.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.42), construit depuis le commit [`4f2f873`](https://github.com/Tarzzan/nacre/commit/4f2f873a11970f3ff66a8448de3df4b7c3cc2b29) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
+
+Avant l’import : neuf modules figés identiques, aucune tâche active, répétition isolée alpha.41 → alpha.42 réussie. Fichier importé identique à celui de la release, empreinte contrôlée ; session administrateur temporaire refermée ; installation confirmée depuis la fenêtre Réglages du bureau et suivie jusqu’à **Mise à jour réussie**, session conservée.
+
+Validation enregistrée à 2 h 32 min 18 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Cette installation n’a pas de service natif : la [conservation automatique](NATIVE-SNAPSHOT-POLICY.md#lot-4--conservation-automatique) n’y a rien à appliquer, et sa preuve sur de vrais volumes vient du banc VM, pas d’ici. Constaté dans le navigateur : la page Volumes et snapshots s’affiche comme avant, douze cartes, sans carte de conservation ni bouton « Automatique… » ; aucun réglage natif n’est enregistré.
+
 ## 14 novembre 2026 — alpha.41, suppression explicite des points natifs
 
 L’installation alpha.40 a reçu le paquet `nacre-0.8.0-alpha.41.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.41), construit depuis le commit [`f555ef1`](https://github.com/Tarzzan/nacre/commit/f555ef1dc1b7ad690a82ec2b8bfaa0710f5aa7a4) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
