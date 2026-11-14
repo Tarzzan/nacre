@@ -69,6 +69,14 @@ Le destinataire ouvre une page sobre, sans compte : il télécharge le fichier, 
 - **Suivi** : l’onglet Liens compte les téléchargements, et chacun est inscrit au journal. Un administrateur voit tous les liens, sans les noms de fichiers d’un espace personnel qui n’est pas le sien, et peut les révoquer.
 - **Un lien ne fonctionne que là où la console est joignable.** Tant que la console n’écoute que la machine elle-même, il ne sort pas de la machine.
 
+## Sauvegarder les espaces
+
+Depuis **0.8.0-alpha.54**, les plans de sauvegarde proposent une source **Espaces personnels et d’équipe** : tous les espaces d’un coup, présents et à venir. Un nouveau plan la coche d’office avec l’espace commun ; **un plan existant garde ses choix**, il faut l’y ajouter.
+
+- **Tout ou rien** : on ne choisit pas espace par espace. Personne n’a à demander que son espace soit protégé.
+- **Les corbeilles ne sont pas sauvegardées.**
+- **Une restauration arrive dans les restaurations privées**, sous `espaces/<identifiant>` : l’administrateur qui restaure y lit donc aussi les espaces personnels. C’est le propre d’une sauvegarde ; la restauration est inscrite au journal.
+
 ## Ce que le journal garde
 
 Les gestes faits dans un espace d’équipe portent le nom de l’espace et du fichier. Ceux d’un espace personnel sont notés « espace personnel », sans aucun nom de fichier ou de dossier.
@@ -79,7 +87,6 @@ Les gestes faits dans un espace d’équipe portent le nom de l’espace et du f
 - **Droits par espace, pas par dossier.** Pour des droits différents, créer un autre espace.
 - **Pas encore par le réseau.** Les espaces ne sont pas exposés en SMB ; les partages SMB existants ne changent pas.
 - **Pas de quota par espace.** La [pesée des espaces](DESKTOP.md#comparer-les-espaces) dit ce que chacun occupe.
-- **Les espaces ne sont pas encore proposés aux plans de sauvegarde.**
 - **Pas de dépôt par lien** : un visiteur ne peut rien envoyer.
 - **Pas encore d’invitation** : l’administrateur choisit le premier mot de passe et le transmet.
 
