@@ -1,6 +1,13 @@
 # Déploiements de la console sur Spark
 
-## 14 novembre 2026 — alpha.57, sur un téléphone
+## 14 novembre 2026 — alpha.58, icônes d’installation servies
+
+L’installation alpha.57 a reçu le paquet `nacre-0.8.0-alpha.58.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.58), par le même [parcours de mise à jour](BROWSER-UPDATES.md) : neuf modules figés identiques, répétition isolée alpha.57 → alpha.58 réussie, fichier importé identique à celui de la release, installation confirmée depuis la fenêtre Réglages et suivie jusqu’à **Mise à jour réussie**.
+
+Validation enregistrée à 18 h 21 min 51 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Constaté en lecture seule, **le défaut d’alpha.57 est corrigé sur place** : le manifeste répond avec son type, et les quatre icônes sont servies au bon format et à la bonne taille (192, 512, 512 et 180 points).
+
 
 L’installation alpha.56 a reçu le paquet `nacre-0.8.0-alpha.57.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.57), par le même [parcours de mise à jour](BROWSER-UPDATES.md) : neuf modules figés identiques, répétition isolée alpha.56 → alpha.57 réussie, fichier importé identique à celui de la release, installation confirmée depuis la fenêtre Réglages et suivie jusqu’à **Mise à jour réussie**.
 

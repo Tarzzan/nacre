@@ -145,7 +145,9 @@ function fmSide(){
  const chosen=fmSelected();
  if(chosen.length!==1)return `<div class="fm-hint">${chosen.length?`${chosen.length} éléments sélectionnés.`:'Sélectionnez un élément pour le voir ici.'}</div>`;
  const item=chosen[0],write=fmWritable();
- return fmCard(item,currentPath,area,{before:item.directory&&!item.link?button('fm-open','Ouvrir',null,'primary small',`data-name="${esc(item.name)}"`)+button('fm-weigh','Peser ce dossier',null,'small',`data-name="${esc(item.name)}"`):'',after:write?button('rename','Renommer',null,'small',`data-path="${esc(fmJoin(item.name))}" data-name="${esc(item.name)}"`)+button('fm-trash','Corbeille',null,'small'):''});
+ if(fmVers&&(fmVers.area!==area||fmVers.path!==fmJoin(item.name)))fmVers=null;
+ if(fmVers)return fmVersionsHtml();
+ return fmCard(item,currentPath,area,{before:item.directory&&!item.link?button('fm-open','Ouvrir',null,'primary small',`data-name="${esc(item.name)}"`)+button('fm-weigh','Peser ce dossier',null,'small',`data-name="${esc(item.name)}"`):'',after:(write?button('rename','Renommer',null,'small',`data-path="${esc(fmJoin(item.name))}" data-name="${esc(item.name)}"`)+button('fm-trash','Corbeille',null,'small'):'')+(item.directory||item.link?'':button('fm-versions','Versions',null,'small'))});
 }
 // Aperçu d’un texte : les premiers kilo-octets, lus comme du texte et jamais interprétés.
 async function fmLoadText(){
@@ -281,15 +283,36 @@ function fmGo(space,path){fmFindRequest++;fmFound=null;fmHit=-1;area=space;curre
 // Envoi de plusieurs fichiers, l’un après l’autre, par le transfert existant. Changer de dossier arrête la suite.
 async function fmSend(files){
  if(fmBusy||!files.length||!fmWritable())return;
- fmBusy=true;const space=area,path=currentPath,failed=[];let done=0;
+ fmBusy=true;const space=area,path=currentPath,failed=[],taken=[];let done=0;
  try{
   for(const file of files){
    if(area!==space||currentPath!==path||page!=='files'){failed.push('envoi arrêté : vous avez changé de dossier');break;}
-   try{await uploadFile(file);done++;}catch(error){failed.push(`${file.name} : ${error.message}`);}
+   try{await uploadFile(file);done++;}catch(error){if(error.status===409&&fmItems.some(i=>i.name===file.name&&!i.directory&&!i.link))taken.push(file);else failed.push(`${file.name} : ${error.message}`);}
   }
  }finally{fmBusy=false;}
- toast(`${done} fichier${done>1?'s':''} déposé${done>1?'s':''}.${failed.length?' Non envoyé : '+failed.join(' ; ')+'.':''}`,failed.length>0);
+ if(done||failed.length||!taken.length)toast(`${done} fichier${done>1?'s':''} déposé${done>1?'s':''}.${failed.length?' Non envoyé : '+failed.join(' ; ')+'.':''}`,failed.length>0);
  if(page==='files'&&$('#fm'))await renderFileManager();
+ // Noms déjà pris : rien n’est remplacé sans le demander, et l’ancien contenu devient une version.
+ if(taken.length&&area===space&&currentPath===path&&page==='files')confirmAction(taken.length>1?`Remplacer ${taken.length} fichiers ?`:'Remplacer ce fichier ?',
+  `${taken.length>1?taken.length+' fichiers portent déjà ces noms':'« '+taken[0].name+' » existe déjà'} dans ce dossier. ${taken.length>1?'Leur contenu actuel est gardé':'Son contenu actuel est gardé'} parmi les versions, et peut être remis en place.`,'Remplacer',
+  async()=>{let replaced=0;const refused=[];for(const file of taken){try{await uploadFile(file,true);replaced++;}catch(error){refused.push(`${file.name} : ${error.message}`);}}
+   if(refused.length&&!replaced)throw new Error(refused.join(' ; '));
+   return {message:`${replaced} fichier${replaced>1?'s':''} remplacé${replaced>1?'s':''}.${refused.length?' Non remplacé : '+refused.join(' ; ')+'.':''}`};});
+}
+// Versions d’un fichier : ce qu’il contenait avant d’être remplacé. Affichées à la place de l’aperçu.
+let fmVers=null;
+function fmVersionsHtml(){
+ const v=fmVers,write=fmWritable(),base=`/api/files/version?area=${encodeURIComponent(v.area)}&path=${encodeURIComponent(v.path)}&id=`;
+ return `<h3>Versions de ${esc(v.name)}</h3>`+(v.versions.length?`<ul class="fm-vers">${v.versions.map(x=>`<li><strong>${date(x.ts)}</strong><span>${sizes(x.size)}${x.by?' · remplacée par '+esc(x.by):''}</span><div class="fm-acts"><a class="fm-link" href="${esc(base+encodeURIComponent(x.id))}">Télécharger</a>${write?button('fm-version-restore','Remettre en place',null,'small',`data-id="${esc(x.id)}"`)+button('fm-version-delete','Retirer',null,'small',`data-id="${esc(x.id)}"`):''}</div></li>`).join('')}</ul>`:'<p class="fm-hint">Aucune version gardée. Une version apparaît quand ce fichier est remplacé depuis Nacre.</p>')+
+  `<p class="capacity-note">Les ${v.keep} dernières versions sont gardées, sur le même volume : ce n’est pas une sauvegarde. Un fichier modifié par le réseau n’en laisse pas.</p><div class="fm-acts">${button('fm-versions-close','Revenir à l’aperçu',null,'small')}</div>`;
+}
+async function fmVersions(){
+ const chosen=fmSelected();if(chosen.length!==1||chosen[0].directory||chosen[0].link)return;
+ const space=area,path=fmJoin(chosen[0].name),name=chosen[0].name;
+ const data=await api('files/versions?area='+encodeURIComponent(space)+'&path='+encodeURIComponent(path));
+ if(area!==space||page!=='files'||fmSelected()[0]?.name!==name)return;
+ fmVers={area:space,path,name,keep:Number(data?.keep)||10,versions:(Array.isArray(data?.versions)?data.versions:[]).filter(x=>x&&typeof x.id==='string'&&Number.isFinite(x.ts))};
+ const side=$('#fm-side');if(side)side.innerHTML=fmSide();
 }
 async function fmMove(names,target){
  if(!names?.length||target===currentPath||!fmWritable())return;
@@ -332,6 +355,13 @@ document.addEventListener('click',async e=>{
    if(action==='fm-clear'){fmSel.clear();return fmRedraw();}
    if(action==='fm-send')return $('#fm-upload')?.click();
    if(action==='fm-share'){const chosen=fmSelected();if(chosen.length!==1||chosen[0].link||typeof linkAsk!=='function'||!linkAllowed())return;return linkAsk(fmJoin(chosen[0].name),chosen[0]);}
+   if(action==='fm-versions')return await fmVersions();
+   if(action==='fm-versions-close'){fmVers=null;const side=$('#fm-side');if(side){side.innerHTML=fmSide();fmLoadText();}return;}
+   if(action==='fm-version-restore'||action==='fm-version-delete'){
+    const v=fmVers,x=v?.versions.find(y=>y.id===el.dataset.id);if(!x||!fmWritable())return;
+    if(action==='fm-version-restore')return confirmAction('Remettre cette version en place ?',`« ${v.name} » reprend son contenu du ${date(x.ts)}. Son contenu actuel devient à son tour une version : ce retour se défait.`,'Remettre en place',async()=>{await api('files/version-restore',{area:v.area,path:v.path,id:x.id});fmVers=null;return {message:'Version remise en place.'};});
+    return confirmAction('Retirer cette version ?',`La version du ${date(x.ts)} de « ${v.name} » est supprimée définitivement. Le fichier lui-même n’est pas touché.`,'Retirer',async()=>{await api('files/version-delete',{area:v.area,path:v.path,id:x.id,confirm:true});fmVers=null;return {message:'Version retirée.'};});
+   }
    if(action==='fm-trash')return fmAskTrash();
    if(action==='fm-move')return fmAskMove();
    if(action==='fm-find')return await fmFind(el.dataset.scope==='here'?'here':'all');

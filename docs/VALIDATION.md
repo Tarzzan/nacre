@@ -1,5 +1,9 @@
 # Validation
 
+## Versions d’un fichier — 0.8.0-alpha.59
+
+397 tests Python et 156 JavaScript. Cinq essais Python sur le vrai serveur : rien n’est remplacé sans demande explicite ; deux remplacements gardent deux versions, relues à l’identique ; un lecteur consulte sans remettre en place ; une remise en place se défait ; aucun fichier interne ni temporaire visible, dossier des versions privé ; onzième version qui chasse la plus ancienne (essayé à trois), retrait après confirmation, identifiants étrangers refusés, version d’un fichier non servie sous le nom d’un autre ; versions qui suivent un renommage de fichier, de dossier et un déplacement ; fermées hors de l’espace, et à l’administrateur pour un espace personnel, sans nom au journal ; versions de l’espace commun hors du dossier partagé ; dossier ou lien jamais remplacé ; ancien contenu laissé sous un nom visible si la version ne peut pas être rangée ; dépôt refusé qui n’empoisonne pas la connexion. Un essai JavaScript : remplacement demandé seulement pour un fichier, panneau des versions, remise en place et retrait confirmés, lecteur sans bouton d’écriture. Sur le banc local, dans le navigateur : remplacement confirmé, version listée, remise en place, contenu d’origine relu. Non prouvé : une coupure de courant au milieu d’un remplacement ; de très gros fichiers.
+
 ## Icônes d’installation servies après une mise à jour — 0.8.0-alpha.58
 
 392 tests Python et 155 JavaScript. Un essai Python de garde : chaque fichier que la console sert, chaque fichier présent dans son dossier statique et chaque module Python doit être de ceux qu’un paquet de mise à jour embarque ; un fichier image ajouté pour l’essayer le fait échouer. L’essai des fichiers servis lit désormais le manifeste et les quatre icônes par HTTP, sans session, et contrôle leur format et leur taille. Défaut trouvé sur l’installation de développement en alpha.57 : page à jour, mais manifeste et icônes introuvables.
