@@ -1,4 +1,4 @@
-"""Recherche de fichiers par nom ou par critères : portée, droits, liens jamais suivis et bornes, sur un espace temporaire et un serveur HTTP local."""
+"""Recherche de fichiers par nom ou par critères, et poids des dossiers : portée, droits, liens jamais suivis et bornes, sur un espace temporaire et un serveur HTTP local."""
 import json
 import unittest
 from unittest.mock import patch
@@ -157,6 +157,70 @@ class FileSearchTests(unittest.TestCase):
         # Ni nom ni critère, un seul caractère avec un critère, un classement inconnu : refusés.
         for text, query in (('', {}), (' ', {}), ('', {'sort': ''}), ('e', {'sort': 'size'}), ('', {'sort': 'name'}), ('été', {'sort': 'Size'}), ('', {'sort': 'size', 'path': 'Photos'})):
             self.assertEqual(self.find(text, **query)[0], 400, (text, query))
+
+    def weigh(self, token=None, **scope):
+        status, _, data = self.call('GET', '/api/files/usage?' + '&'.join(f'{key}={quote(value)}' for key, value in scope.items()), token=token)
+        return status, json.loads(data)
+
+    def test_usage_weighs_every_folder_with_all_it_holds_and_says_what_it_could_not_finish(self):
+        import file_search
+        self.tree()
+        for name, size in (('Photos/a.bin', 1000), ('Photos/Été 2026/b.bin', 2000), ('Photos/Été 2026/.cache.bin', 300), ('Factures/c.bin', 500), ('gros.bin', 4000),
+                           ('.cache/d.bin', 70), ('.masqué.bin', 30)):
+            (self.files / name).write_bytes(b'x' * size)
+        (self.files / '.nacre-trash').mkdir(exist_ok=True); (self.files / '.nacre-trash/jeté.bin').write_bytes(b'x' * 600)
+        (self.outside / 'énorme.bin').write_bytes(b'x' * 50000)
+        status, value = self.weigh(area='fichiers')
+        self.assertEqual(status, 200, value)
+        rows = {i['name']: (i['directory'], i['size'], i['count'], i['state']) for i in value['items']}
+        # Un dossier pèse tout ce qu'il contient, fichiers cachés compris ; un fichier pèse sa taille ; un lien n'est jamais suivi.
+        self.assertEqual(rows['Photos'], (True, 1000 + 2000 + 300 + 5 + 5, 6, 'whole'))
+        self.assertEqual(rows['Factures'], (True, 500 + 3 + 7, 3, 'whole'))
+        self.assertEqual((rows['gros.bin'], rows['été.md']), ((False, 4000, 0, 'whole'), (False, 6, 0, 'whole')))
+        link = next(i for i in value['items'] if i['name'] == 'lien été')
+        self.assertEqual((link['link'], link['directory'], link['count']), (True, False, 0)); self.assertLess(link['size'], 200)
+        # Du plus lourd au plus léger ; cachés et corbeille comptés ensemble, jamais nommés.
+        self.assertEqual([i['name'] for i in value['items']][:3], ['gros.bin', 'Photos', 'Factures'])
+        self.assertNotIn('cach', json.dumps(value)); self.assertNotIn('masqu', json.dumps(value)); self.assertNotIn('trash', json.dumps(value)); self.assertNotIn('jet', json.dumps(value))
+        self.assertEqual(value['hidden'], {'size': 7 + 70 + 30 + 600, 'count': 6, 'state': 'whole'})
+        self.assertEqual(value['total']['size'], sum(i['size'] for i in value['items']) + value['hidden']['size'])
+        self.assertEqual((value['total']['state'], value['partial'], value['others'], value['limit'], value['area'], value['path']), ('whole', None, {'count': 0, 'size': 0}, 200, 'fichiers', ''))
+        self.assertEqual(value['total']['count'], len(value['items']) + sum(i['count'] for i in value['items']) + value['hidden']['count'])
+        # Depuis un sous-dossier ; l'espace par défaut est Fichiers.
+        status, value = self.weigh(area='fichiers', path='Photos')
+        self.assertEqual([(i['name'], i['size'], i['count']) for i in value['items']], [('Été 2026', 2305, 3), ('a.bin', 1000, 0), ('ete-notes.txt', 5, 0)])
+        self.assertEqual((value['hidden'], value['total']), ({'size': 0, 'count': 0, 'state': 'whole'}, {'size': 3310, 'count': 6, 'state': 'whole'}))
+        self.assertEqual(self.weigh()[1]['total']['size'], self.weigh(area='fichiers')[1]['total']['size'])
+        # Droits et chemins : ceux du gestionnaire de fichiers.
+        self.assertEqual(self.weigh(area='restaurations')[0], 200)
+        token, _ = self.reader()
+        self.assertEqual((self.weigh(token=token, area='restaurations')[0], self.weigh(token=token, area='native_volume')[0], self.weigh(token=token, area='fichiers')[0]), (403, 403, 200))
+        for query, expected in (({'area': 'fichiers', 'path': '../hors-espace'}, 403), ({'area': 'fichiers', 'path': 'lien été'}, 404), ({'area': 'fichiers', 'path': 'absent'}, 404),
+                                ({'area': 'fichiers', 'path': '.nacre-trash'}, 403), ({'area': 'ailleurs'}, 400)):
+            self.assertEqual(self.weigh(**query)[0], expected, query)
+        self.assertEqual(self.call('GET', '/api/files/usage?area=fichiers', token='inconnu')[0], 401)
+        # Borne atteinte : le dossier en cours est un minimum, les suivants ne sont pas pesés, et le total le dit.
+        with patch.object(file_search, 'VISITED', 8):
+            status, value = self.weigh(area='fichiers')
+            states = {i['name']: i['state'] for i in value['items'] if i['directory']}
+            self.assertEqual((status, value['partial'], states, value['total']['state'], value['hidden']['state']), (200, 'count', {'Factures': 'partial', 'Photos': 'waiting'}, 'partial', 'partial'))
+            self.assertEqual([i['name'] for i in value['items']][-1], 'Photos')
+        with patch.object(file_search, 'SECONDS', -1):
+            for index in range(300):
+                (self.files / 'Factures' / f'piece-{index:03}.txt').write_text('x')
+            status, value = self.weigh(area='fichiers')
+            self.assertEqual((status, value['partial'], value['total']['state']), (200, 'time', 'partial'))
+        # Au-delà de la limite, le reste est compté d'un bloc ; deux parcours à la fois au plus.
+        with patch.object(file_search, 'RESULTS', 2):
+            status, value = self.weigh(area='fichiers', path='Factures')
+            self.assertEqual(([i['name'] for i in value['items']], value['others']), (['c.bin', 'facture ÉTÉ.pdf'], {'count': 300, 'size': 300}))
+            self.assertEqual((value['total'], value['hidden']['size']), ({'size': 810, 'count': 303, 'state': 'whole'}, 7))
+        self.assertTrue(file_search._slots.acquire(blocking=False)); self.assertTrue(file_search._slots.acquire(blocking=False))
+        try:
+            self.assertEqual(self.weigh(area='fichiers')[0], 429)
+        finally:
+            file_search._slots.release(); file_search._slots.release()
+        self.assertEqual(self.weigh(area='fichiers')[0], 200)
 
     def test_search_stops_at_its_bounds_and_says_so(self):
         import file_search

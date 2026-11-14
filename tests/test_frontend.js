@@ -1587,8 +1587,8 @@ const fmHits=[{area:'fichiers',path:'',name:'été.md',directory:false,link:fals
  {area:'video',path:'extraits',name:'été.mp4',directory:false,link:false,size:9,modified:1794182600},{area:'fichiers',path:'Docs & co',name:'notes.txt',directory:false,link:false,size:10,modified:1794182600},
  {area:'restaurations',path:'',name:'été.md'},null,{area:'fichiers',path:3,name:'x'},{area:'fichiers',path:'',name:''}];
 function findFixture(role='admin'){
- const state={urls:[],answer:{items:fmHits,partial:null,visited:42,skipped:[],limit:200},hold:null};
- const f=fmFixture(async url=>{state.urls.push(url);if(url.startsWith('/api/files/search')){if(state.hold)await state.hold;return state.status?response(state.status,{error:'Deux recherches sont déjà en cours.'}):response(200,state.answer);}return response(200,url.startsWith('/api/areas')?fmAreas:{items:fmSample});},role);
+ const state={urls:[],answer:{items:fmHits,partial:null,visited:42,skipped:[],limit:200},hold:null,usage:null};
+ const f=fmFixture(async url=>{state.urls.push(url);if(url.startsWith('/api/files/search')){if(state.hold)await state.hold;return state.status?response(state.status,{error:'Deux recherches sont déjà en cours.'}):response(200,state.answer);}if(url.startsWith('/api/files/usage')){if(state.hold)await state.hold;return state.status?response(state.status,{error:'Deux recherches sont déjà en cours.'}):response(200,state.usage);}return response(200,url.startsWith('/api/areas')?fmAreas:{items:fmSample});},role);
  f.state=state;f.list=()=>String(f.elements.get('#fm-list').innerHTML);f.side=()=>String(f.elements.get('#fm-side').innerHTML);
  f.type=text=>f.listeners.get('input').at(-1)({target:{id:'fm-filter',value:text}});
  f.at=(selector,dataset)=>f.listeners.get('click').at(-1)({target:{closest:s=>s===selector?{dataset}:null}});
@@ -1731,6 +1731,56 @@ test('a search by criteria alone needs no name: it ranks the biggest or the late
  const once=f.searches().length;await f.run('renderFiles()');f.mount();await f.settle();assert.equal(f.searches().length,once);
  f.run('fmQueue(" bilan ",true);');assert.deepEqual([f.run('fmPending'),f.run('fmPendingBig')],['bilan',false]);
 });
+test('folder weights rank what the open folder holds, drill down into a folder, and say what could not be weighed',async()=>{
+ const f=findFixture();await f.run('renderFiles()');f.mount();
+ const usages=()=>f.state.urls.filter(url=>url.startsWith('/api/files/usage'));
+ const sample={area:'fichiers',path:'',items:[{name:'Docs & co',directory:true,link:false,size:3221225472,modified:1794182400,count:1204,state:'whole'},{name:'film <b>.mp4',directory:false,link:false,size:1073741824,modified:1794182500,count:0,state:'whole'},
+  {name:'petit.txt',directory:false,link:false,size:5,modified:1794182500,count:0,state:'whole'},{name:'vide.txt',directory:false,link:false,size:0,modified:1,count:0,state:'whole'},{name:'a/b',directory:true,size:9},null,{name:''}],
+  total:{size:4831838208,count:1300,state:'whole'},hidden:{size:536870912,count:40,state:'whole'},others:{count:0,size:0},partial:null,visited:1300,limit:200};
+ f.state.usage=sample;
+ // Depuis le panneau d'un dossier sélectionné : on s'y rend, puis il est pesé.
+ f.run('fmSel=new Set(["Docs & co"]);fmRedraw();');assert.match(f.side(),/data-action="fm-weigh" data-name="Docs &amp; co"><span>Peser ce dossier/);
+ f.run('fmSel=new Set(["photo \\"été\\".jpg"]);fmRedraw();');assert.doesNotMatch(f.side(),/fm-weigh/);
+ await f.at('[data-action]',{action:'fm-weigh',name:'Docs & co'});f.mount();await f.settle();
+ assert.equal(usages().at(-1),'/api/files/usage?area=fichiers&path=Docs%20%26%20co');assert.equal(f.run('currentPath'),'Docs & co');
+ // Titre, lignes du plus lourd au plus léger, part de chacun ; cachés et corbeille comptés à part ; lignes mal formées écartées.
+ assert.match(f.list(),/<strong>« Docs &amp; co » pèse 4,5 Gio<\/strong> pour 1.300 éléments/);assert.match(f.list(),/data-action="fm-weigh-up" ><span>Peser le dossier parent/);
+ assert.match(f.list(),/<th>Nom<\/th><th>Contenu<\/th><th>Poids<\/th><th>Part<\/th>/);assert.equal(f.list().match(/class="fm-hit /g).length,4);
+ assert.match(f.list(),/Docs &amp; co<\/td><td>1.204 éléments<\/td><td>3 Gio<\/td><td>67 %<\/td>/);assert.match(f.list(),/film &lt;b&gt;\.mp4<\/td><td>—<\/td><td>1 Gio<\/td><td>22 %<\/td>/);
+ assert.match(f.list(),/petit\.txt<\/td><td>—<\/td><td>5 o<\/td><td>&lt; 1 %<\/td>|petit\.txt<\/td><td>—<\/td><td>5 o<\/td><td>< 1 %<\/td>/);assert.match(f.list(),/vide\.txt<\/td><td>—<\/td><td>0 o<\/td><td>0 %<\/td>/);
+ assert.match(f.list(),/<tr class="fm-rest"><td>Éléments cachés et corbeille<\/td><td>40 éléments<\/td><td>512 Mio<\/td><td>11 %<\/td><\/tr>/);assert.doesNotMatch(f.list(),/Autres éléments|fm-note|fm-refine|fm-find-wide|style=|a\/b/);
+ // Une ligne sélectionnée : un dossier se pèse ou s'ouvre, un fichier se montre dans son dossier ; un double-clic sur un dossier le pèse.
+ await f.at('.fm-hit',{hit:'0'});assert.match(f.side(),/class="primary small" data-action="fm-weigh" data-name="Docs &amp; co"><span>Peser ce dossier/);assert.match(f.side(),/data-action="fm-reveal" data-inside="1"><span>Ouvrir ce dossier/);assert.doesNotMatch(f.side(),/Afficher dans son dossier/);
+ await f.at('.fm-hit',{hit:'1'});assert.match(f.side(),/Afficher dans son dossier/);assert.doesNotMatch(f.side(),/fm-weigh/);
+ f.listeners.get('dblclick').at(-1)({target:{closest:s=>s==='.fm-hit'?{dataset:{hit:'0'}}:null}});await f.settle();f.mount();await f.settle();
+ assert.equal(usages().at(-1),'/api/files/usage?area=fichiers&path=Docs%20%26%20co%2FDocs%20%26%20co');
+ await f.at('[data-action]',{action:'fm-weigh-up'});f.mount();await f.settle();assert.equal(usages().at(-1),'/api/files/usage?area=fichiers&path=Docs%20%26%20co');
+ await f.at('[data-action]',{action:'fm-weigh-up'});f.mount();await f.settle();assert.equal(usages().at(-1),'/api/files/usage?area=fichiers&path=');
+ assert.match(f.list(),/« Fichiers &lt;b&gt;partagés&lt;\/b&gt; » pèse/);assert.doesNotMatch(f.list(),/fm-weigh-up/);
+ // Borne atteinte : minimums, dossiers non pesés, reste compté d'un bloc, et une note qui l'explique.
+ f.state.usage={...sample,items:[{name:'A',directory:true,link:false,size:2048,modified:1,count:3,state:'partial'},{name:'B',directory:true,link:false,size:0,modified:1,count:0,state:'waiting'},{name:'C',directory:true,link:false,size:10,modified:1,count:1,state:'étrange'}],
+  total:{size:4096,count:9,state:'partial'},hidden:{size:1024,count:2,state:'partial'},others:{count:310,size:1014},partial:'time',visited:200000};
+ await f.at('[data-action]',{action:'fm-weigh'});
+ assert.match(f.list(),/pèse au moins 4 Kio<\/strong> pour 9 éléments/);assert.match(f.list(),/class="fm-note">Pesée arrêtée après 200.000 éléments parcourus : un poids précédé de « au moins » est un minimum/);
+ assert.match(f.list(),/A<\/td><td>3 éléments<\/td><td>au moins 2 Kio<\/td><td>50 %<\/td>/);assert.match(f.list(),/B<\/td><td>—<\/td><td>non pesé<\/td><td>—<\/td>/);assert.match(f.list(),/C<\/td><td>1 élément<\/td><td>au moins 10 o<\/td>/);
+ assert.match(f.list(),/<td>Autres éléments, plus légers<\/td><td>310 éléments<\/td><td>1.014 o<\/td><td>25 %<\/td>/);assert.match(f.list(),/Éléments cachés et corbeille<\/td><td>2 éléments<\/td><td>au moins 1 Kio<\/td>/);
+ f.state.usage={...sample,items:[],total:{size:7,count:1,state:'partial'},hidden:{size:0,count:0,state:'whole'},partial:null};await f.at('[data-action]',{action:'fm-weigh'});
+ assert.match(f.list(),/n’a pas pu être lu en entier/);assert.match(f.list(),/Ce dossier est vide\./);
+ // Pendant le calcul ; un refus ramène au dossier et s'annonce ; fermer, Échap et le champ quittent la pesée.
+ let release;f.state.hold=new Promise(resolve=>{release=resolve;});f.state.usage=sample;const slow=f.run('fmUsage()');
+ assert.match(f.list(),/Pesée de « Fichiers &lt;b&gt;partagés&lt;\/b&gt; »…/);assert.match(f.list(),/Calcul en cours…/);release();await slow;f.state.hold=null;assert.match(f.list(),/fm-usage/);
+ f.state.status=429;await assert.rejects(f.run('fmUsage()'));assert.equal(f.run('fmFound'),null);f.state.status=0;
+ await f.run('fmUsage()');await f.at('[data-action]',{action:'fm-find-close'});assert.equal(f.run('fmFound'),null);
+ await f.run('fmUsage()');f.key('Escape');assert.equal(f.run('fmFound'),null);await f.run('fmUsage()');f.type('do');assert.equal(f.run('fmFound'),null);
+ // La pesée n'est pas une recherche : ni filtre ni extension ne partent d'elle.
+ await f.run('fmUsage()');const idle=f.state.urls.length;await f.listeners.get('change').at(-2)({target:{dataset:{refine:'kind'},value:'image',id:'fm-ref-kind'}});await f.at('[data-action]',{action:'fm-find-wide'});await f.at('[data-action]',{action:'fm-refine-clear'});assert.equal(f.state.urls.length,idle);
+ // Depuis la recherche par critères, un bouton mène au poids des dossiers ; depuis la recherche globale, il s'ouvre avec Fichiers.
+ await f.at('[data-action]',{action:'fm-criteria'});assert.match(f.list(),/data-action="fm-weigh" title="Ce que pèse chaque dossier[^"]*"><span>Poids des dossiers/);
+ f.type('été');await f.at('[data-action]',{action:'fm-find',scope:'all'});assert.doesNotMatch(f.list(),/fm-weigh/);
+ const before=usages().length;f.run('deskApply({weigh:true});');await f.run('renderFiles()');f.mount();await f.settle();assert.equal(usages().length,before+1);assert.match(f.list(),/fm-usage/);
+ await f.run('renderFiles()');f.mount();await f.settle();assert.equal(usages().length,before+1);
+ f.run('fmQueue("",true,true);');assert.deepEqual([f.run('fmPendingBig'),f.run('fmPendingWeigh')],[true,false]);f.run('fmQueue("x",true,true);');assert.deepEqual([f.run('fmPending'),f.run('fmPendingBig'),f.run('fmPendingWeigh')],['x',false,false]);
+});
 test('global search offers to look a name up in the files from two characters, and hands it to the Files application',async()=>{
  const f=paletteFixture();f.key('k',{ctrlKey:true});await new Promise(resolve=>setImmediate(resolve));
  // Sans le gestionnaire de fichiers chargé, rien n'est proposé.
@@ -1739,7 +1789,7 @@ test('global search offers to look a name up in the files from two characters, a
  f.type('f');assert.doesNotMatch(f.labels().join('|'),/Chercher/);
  f.type('  facture <b>2026</b> ');assert.deepEqual(f.labels(),['Chercher « facture <b>2026</b> » dans les fichiers']);
  assert.match(f.elements.get('#palette-results').innerHTML,/Chercher « facture &lt;b&gt;2026&lt;\/b&gt; » dans les fichiers<small>Fichiers · par nom, dans tout le NAS<\/small>/);
- f.type('place');assert.deepEqual(f.labels(),['Les plus gros fichiers','Chercher « place » dans les fichiers']);
+ f.type('place');assert.deepEqual(f.labels(),['Les plus gros fichiers','Poids des dossiers','Chercher « place » dans les fichiers']);
  // Elle vient après les résultats habituels et ne lance rien tant qu'elle n'est pas choisie.
  f.type('sauv');assert.deepEqual([f.labels()[0],f.labels().at(-1)],['Sauvegardes','Chercher « sauv » dans les fichiers']);assert.deepEqual(f.context.asked,[]);
  await f.run('runPalette(paletteFound.at(-1))');assert.deepEqual([f.context.asked,f.run('page'),f.elements.get('#palette').hidden],[['sauv'],'files',true]);
@@ -1750,6 +1800,9 @@ test('global search offers to look a name up in the files from two characters, a
  await f.run('runPalette({big:true})');assert.deepEqual(JSON.parse(JSON.stringify(opened.at(-1))),['files',{big:true}]);
  f.elements.delete('#dk-wins');f.context.asked=[];f.context.fmQueue=(...args)=>f.context.asked.push(args);
  await f.run('runPalette({big:true})');assert.deepEqual([JSON.parse(JSON.stringify(f.context.asked)),f.run('page')],[[['',true]],'files']);
+ // « Poids des dossiers » : même chemin, vers la pesée du dossier ouvert.
+ f.context.asked=[];await f.run('runPalette({weigh:true})');assert.deepEqual(JSON.parse(JSON.stringify(f.context.asked)),[['',false,true]]);
+ f.elements.set('#dk-wins',{});await f.run('runPalette({weigh:true})');assert.deepEqual(JSON.parse(JSON.stringify(opened.at(-1))),['files',{weigh:true}]);
 });
 
 // Bureau personnalisable : widgets et fond par compte, fenêtres mémorisées par navigateur.

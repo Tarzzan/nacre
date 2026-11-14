@@ -236,9 +236,37 @@ Les trois listes resserrent ensuite le résultat, par exemple « Vidéos » et �
 **Étendre à tout le NAS** relance la même recherche, critères et ordre gardés, dans tous les espaces du compte ; le bouton existe aussi pour une recherche par nom. Dans la recherche globale (Ctrl+K), **Les plus gros fichiers** ouvre directement ce classement pour tout le NAS ; « place », « taille » ou « espace » le trouvent.
 
 - **Un classement lit tout, puis garde les 200 premiers.** Quand il y a plus de correspondances, leur nombre est indiqué. Les bornes de parcours restent celles de la recherche par nom : au-delà de quatre secondes ou de 200 000 éléments, le classement ne porte que sur ce qui a été vu, et c’est dit.
-- **La taille est celle de chaque fichier**, pas celle d’un dossier avec son contenu : la recherche ne dit pas « quel dossier pèse le plus ». Avec le type « Dossiers », l’ordre par taille n’est pas proposé.
+- **La taille est celle de chaque fichier**, pas celle d’un dossier avec son contenu : pour savoir quel dossier pèse le plus, voir [Peser les dossiers](#peser-les-dossiers). Avec le type « Dossiers », l’ordre par taille n’est pas proposé.
 - **Sans nom, chaque élément est examiné** : sur un très grand volume, la recherche est plus lente qu’avec un nom. La lancer depuis un dossier la raccourcit.
 - **Restaurations et snapshots** ne sont classés que depuis leur espace, comme pour la recherche par nom.
+
+#### Peser les dossiers
+
+Depuis la version 0.8.0-alpha.38, Fichiers répond aussi à « quel dossier pèse le plus ? ». La pesée porte sur le dossier ouvert : chaque élément y est donné avec **tout ce qu’il contient**, du plus lourd au plus léger.
+
+![Poids des dossiers sur le banc de démonstration](images/folder-weights.jpg)
+
+Trois entrées :
+
+- **Peser ce dossier**, dans le panneau de droite d’un dossier sélectionné : on s’y rend et il est pesé ;
+- **Poids des dossiers**, dans le titre d’une recherche par critères : le dossier ouvert est pesé ;
+- **Poids des dossiers**, dans la recherche globale (Ctrl+K), que « place », « taille » ou « peser » trouvent.
+
+| Colonne | Ce qu’elle dit |
+| --- | --- |
+| **Contenu** | Pour un dossier, le nombre de fichiers et de dossiers qu’il contient, à toutes les profondeurs. |
+| **Poids** | La taille du fichier, ou la somme des tailles de tout ce que contient le dossier. |
+| **Part** | Ce que l’élément représente dans le poids du dossier ouvert. |
+
+Un double-clic sur un dossier le pèse à son tour, et **Peser le dossier parent** remonte d’un niveau : on descend ainsi vers ce qui occupe la place. Une ligne sélectionnée garde l’aperçu, le téléchargement et **Ouvrir ce dossier**. **Fermer**, Échap, le champ de recherche ou un clic dans l’arborescence ramènent au dossier.
+
+- **Cachés et corbeille comptés, jamais nommés.** Les fichiers cachés pèsent dans le dossier qui les contient. Ceux du dossier ouvert, corbeille de l’espace comprise, sont réunis sur la ligne « Éléments cachés et corbeille » : le total est celui qui occupe réellement le disque.
+- **Mêmes bornes que la recherche** : quatre secondes, 200 000 éléments, deux parcours à la fois pour tout le NAS. Un poids précédé de « au moins » est un minimum ; un dossier « non pesé » n’a pas été commencé. Peser un sous-dossier permet d’aller plus loin.
+- **Rien n’est gardé** : chaque pesée relit le disque. Un grand dossier demande donc le même temps à chaque fois, et réveille des disques en veille.
+- **Taille des fichiers, pas place sur le disque** : c’est la taille qu’affiche le gestionnaire. La compression d’un volume, les snapshots et les copies partagées entre fichiers ne sont pas pris en compte ; l’occupation réelle d’un volume se lit dans Stockage.
+- **Liens symboliques jamais suivis** : un lien pèse quelques octets, pas ce qu’il désigne.
+- **200 lignes au plus** : au-delà, les éléments les plus légers sont réunis sur une ligne « Autres éléments ».
+- **Un espace à la fois** : la pesée ne compare pas les espaces entre eux.
 
 Ce qu’il faut savoir :
 
@@ -249,7 +277,7 @@ Ce qu’il faut savoir :
 - **Liens symboliques jamais suivis, fichiers cachés ignorés** : un lien peut être nommé parmi les résultats, ce qu’il désigne n’est pas parcouru.
 - **Un espace indisponible** n’empêche pas la recherche ; il est signalé au-dessus des résultats.
 
-Limites de cette étape : pas de recherche dans le contenu, pas de taille cumulée par dossier, pas de dates ni de tailles libres, pas de copie, pas de liens de partage, pas d’envoi de dossiers entiers par glisser-déposer, pas d’avance rapide dans l’aperçu vidéo. L’arborescence montre les dossiers déjà ouverts, pas tout le disque d’avance.
+Limites de cette étape : pas de recherche dans le contenu, pas de dates ni de tailles libres, pas de poids gardé d’une pesée à l’autre, pas de copie, pas de liens de partage, pas d’envoi de dossiers entiers par glisser-déposer, pas d’avance rapide dans l’aperçu vidéo. L’arborescence montre les dossiers déjà ouverts, pas tout le disque d’avance.
 
 ## Revenir à l’affichage classique
 
@@ -271,6 +299,8 @@ Recherche globale (alpha.28), quatre essais JavaScript : index limité aux pages
 Événements par période et tranche horaire (alpha.35), un essai JavaScript : aucune période envoyée par défaut, formulaire prérempli par la réponse, total additionné sur les caméras lues ; période à l’envers, tranche incomplète ou identique refusées sans requête ; période et tranche envoyées à chaque caméra et reprises dans le résumé ; refus du serveur expliqué une fois sans accuser les caméras ; retour aux sept derniers jours. Sur le banc à deux caméras simulées : 50 événements par défaut, 7 entre 22:00 et 06:00, refus d’une tranche à moitié remplie et d’une date trop ancienne.
 
 Surveillance (alpha.29), cinq essais JavaScript : mur en images fixes sans aucun direct, noms échappés, page classique conservée ; caméra agrandie seule à recevoir le direct, caméras inconnues et réponses tardives sans effet ; événements fusionnés du plus récent au plus ancien, caméra en échec nommée, filtres sans nouvelle requête, ouverture de la relecture au bon événement ; une ligne de frise par caméra et lecture à l’heure cliquée ; réglages sans boutons pour la lecture seule. Sur le banc à deux caméras simulées : mur, agrandissement avec direct et pilotage, 48 événements synthétiques filtrés, ouverture d’un événement dans la relecture avec lecture de l’extrait, clic sur la ligne de l’autre caméra, onglet Réglages.
+
+Poids des dossiers (alpha.38). Un essai Python sur espace temporaire : dossier pesé avec tout son contenu, fichiers cachés compris ; lien jamais suivi ; classement du plus lourd au plus léger ; cachés et corbeille comptés ensemble et jamais nommés ; total cohérent ; pesée d’un sous-dossier ; droits et chemins du gestionnaire de fichiers ; borne atteinte, avec dossier en cours donné comme minimum et dossiers suivants non pesés ; reste compté d’un bloc au-delà de la limite ; troisième parcours refusé. Un essai JavaScript : entrée depuis le panneau d’un dossier, titre et lignes, parts, lignes mal formées écartées, double-clic qui descend, retour au parent, minimums et dossiers non pesés, calcul en cours, refus annoncé, sorties par Fermer, Échap et le champ, entrée depuis la recherche par critères et depuis la recherche globale. Sur le banc, avec le vrai serveur : Fichiers partagés pèse 353,6 Kio pour 11 éléments, dont 353,4 Kio dans un dossier de 3 éléments ; descente dans ce dossier, retour au parent, ouverture par « poids » dans Ctrl+K.
 
 Recherche par critères, sans nom (alpha.37). Un essai Python sur espace temporaire : plus gros fichiers d’abord tous espaces confondus, sans dossier, lien, fichier caché ni restauration ; un critère seul suffit ; dossiers classés par date ; plus récents d’abord ; portée et droits de la recherche par nom ; classement d’une recherche par nom ; au-delà de la limite, seuls les meilleurs sont gardés et le total est donné ; borne de parcours signalée ; sept demandes sans nom ni critère ou mal formées refusées. Un essai JavaScript : bouton de la barre d’outils, champ vidé, liste Ordre sans « pertinence », dossiers sans ordre par taille, retrait des filtres qui garde l’ordre, extension à tout le NAS, messages de classement partiel, ordre ajouté à une recherche par nom, ouverture depuis la recherche globale. Sur le banc, avec le vrai serveur : 8 fichiers classés par taille dans Fichiers partagés, 11 éléments par date, 3 dossiers, 2 images, puis les mêmes dans tout le NAS ; « place » dans Ctrl+K ouvre le classement.
 

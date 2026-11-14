@@ -1,5 +1,9 @@
 # Validation
 
+## Poids des dossiers — 0.8.0-alpha.38
+
+323 tests Python et 130 JavaScript. Détail dans le [guide du Bureau](DESKTOP.md#validation).
+
 ## Recherche de fichiers par critères, sans nom — 0.8.0-alpha.37
 
 322 tests Python et 129 JavaScript. Détail dans le [guide du Bureau](DESKTOP.md#validation).
