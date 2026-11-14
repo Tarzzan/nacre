@@ -157,6 +157,8 @@ class ControlPanelTests(unittest.TestCase):
         self.assertEqual(code,200);self.assertIn('pubView',raw if isinstance(raw,str) else raw.decode())
         code,raw=self.request('GET','/qr.js')
         self.assertEqual(code,200);self.assertIn('qrMatrix',raw if isinstance(raw,str) else raw.decode())
+        code,raw=self.request('GET','/network.js')
+        self.assertEqual(code,200);self.assertIn('renderNetwork',raw if isinstance(raw,str) else raw.decode())
         code,raw=self.request('GET','/kept.js')
         self.assertEqual(code,200);self.assertIn('keptStorageCard',raw if isinstance(raw,str) else raw.decode())
         code,raw=self.request('GET','/files.js')

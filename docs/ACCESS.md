@@ -5,7 +5,7 @@ Deuxième brique de l’espace collaboratif : se connecter en sécurité ailleur
 | Temps | Contenu | État |
 | --- | --- | --- |
 | Double authentification | Un code du téléphone en plus du mot de passe | Depuis 0.8.0-alpha.55 |
-| Accès par le réseau | Écoute en HTTPS, noms d’hôte reconnus | À venir |
+| Accès par le réseau | Écoute en HTTPS, noms d’hôte reconnus | Depuis 0.8.0-alpha.56 |
 | Téléphone | Interface adaptée, installation sur l’écran d’accueil | À venir |
 
 ## Double authentification
@@ -43,3 +43,50 @@ L’identifiant et le mot de passe d’abord ; le champ du code n’apparaît qu
 - **Pas d’obligation par rôle** : un administrateur ne peut pas encore l’imposer aux autres.
 - **Pas de clé matérielle** (FIDO2, WebAuthn).
 - **Le code QR est dessiné par la console**, sans service extérieur ; il a été comparé module à module à une bibliothèque de référence sur 96 cas.
+
+## Accès par le réseau
+
+La console n’écoute d’abord que la machine elle-même. Depuis **0.8.0-alpha.56**, un administrateur peut l’ouvrir au réseau, en HTTPS. **Rien ne s’ouvre tout seul** : c’est un geste explicite, confirmé, et qui se referme d’un clic.
+
+### Ouvrir
+
+1. **Réglages → Accès réseau**.
+2. Déclarer les **noms ou adresses** sous lesquels on tapera l’adresse du NAS : `nas.local`, `192.168.1.20`… Les adresses de la machine sont proposées.
+3. Choisir le **port** (8443 par défaut) et qui doit avoir la double authentification par le réseau : les administrateurs, ou tout le monde.
+4. **Ouvrir l’accès réseau**, puis confirmer. Les adresses à utiliser s’affichent, avec l’empreinte du certificat.
+
+![Accès réseau ouvert](images/network-access.jpg)
+
+*Banc local.*
+
+### Ce qui protège
+
+- **HTTPS seulement** sur ce port, TLS 1.2 au minimum. Le port ne répond pas en clair.
+- **Noms déclarés seulement** : une requête adressée à un autre nom est refusée, ce qui ferme la porte aux attaques par redirection de nom.
+- **Un administrateur ne se connecte par le réseau qu’avec la double authentification.** Sans elle, il est refusé une fois son mot de passe reconnu, et le refus est au journal. Il l’active depuis la machine elle-même.
+- **Le lien de connexion locale ne fonctionne pas par le réseau.**
+- **Tentatives limitées** à huit par minute et par adresse.
+- **Sessions marquées « Secure »** : le navigateur ne les renvoie qu’en HTTPS.
+- **Connexions au journal** avec l’adresse d’origine.
+- **Un client lent ne bloque personne** : la négociation TLS se fait dans le fil de chaque connexion, sous un délai.
+
+### Le certificat
+
+- **Autosigné par défaut**, produit par OpenSSL pour les noms déclarés, valable 825 jours. Le navigateur affiche un avertissement à la première visite : comparer l’empreinte qu’il montre à celle de la page.
+- **Il suit les noms** : changer les noms le refait.
+- **Fournir un certificat** : coller le certificat et sa clé au format PEM. Ils sont vérifiés ensemble avant de remplacer quoi que ce soit, et un certificat fourni n’est jamais remplacé d’office.
+- La clé reste dans le dossier privé de la console.
+
+### Derrière un relais
+
+Un relais HTTPS (Nginx Proxy Manager, Caddy…) peut se placer devant : il se connecte au port de Nacre en HTTPS, et le nom public doit figurer dans les noms déclarés. Le nom est accepté avec ou sans le port.
+
+### Limites
+
+- **IPv4, toutes les interfaces** : pas de choix de l’interface, pas d’IPv6.
+- **Pas de certificat public automatique** (Let’s Encrypt).
+- **Le pare-feu de la machine n’est pas réglé par Nacre** : si le port est fermé, l’ouvrir est un geste d’administrateur du système.
+- **Exposer ce port à Internet** se décide sur la box ou le pare-feu, pas ici. Nacre est en version alpha : préférer un réseau privé ou un VPN.
+- **« Pour tout le monde »** : un membre doit alors activer sa double authentification depuis la machine avant sa première connexion par le réseau.
+- **Changer un réglage relance l’écoute** : les connexions en cours par le réseau sont coupées un instant.
+

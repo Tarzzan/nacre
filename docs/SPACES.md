@@ -67,7 +67,7 @@ Le destinataire ouvre une page sobre, sans compte : il télécharge le fichier, 
 - **Il s’éteint** à son échéance, à sa révocation, si sa cible est renommée ou supprimée, et dès que son auteur perd l’accès à l’espace ou que son compte est désactivé. Dans tous ces cas la réponse est la même : « ce lien n’existe pas ou n’est plus valable ».
 - **Mot de passe** : huit caractères au moins, conservé sous forme d’empreinte ; les essais sont limités à huit par minute.
 - **Suivi** : l’onglet Liens compte les téléchargements, et chacun est inscrit au journal. Un administrateur voit tous les liens, sans les noms de fichiers d’un espace personnel qui n’est pas le sien, et peut les révoquer.
-- **Un lien ne fonctionne que là où la console est joignable.** Tant que la console n’écoute que la machine elle-même, il ne sort pas de la machine.
+- **Un lien ne fonctionne que là où la console est joignable.** Tant que la console n’écoute que la machine elle-même, il ne sort pas de la machine ; l’[accès par le réseau](ACCESS.md#accès-par-le-réseau) l’ouvre aux autres appareils.
 
 ## Sauvegarder les espaces
 

@@ -578,8 +578,27 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass  # Aucun chemin, ticket ni identifiant dans les journaux HTTP.
 
+    def setup(self):
+        # Sur le réseau, la poignée de main TLS se fait ici, dans le fil de la connexion, sous un délai : un client lent ne bloque personne.
+        if getattr(self.server, 'network', False):
+            self.request.do_handshake()
+            self.request.settimeout(120)
+        super().setup()
+
+    def networked(self):
+        return getattr(self.server, 'network', False)
+
     def allowed_host(self):
+        if self.networked():
+            import network
+            return self.headers.get('Host') in network.allowed_hosts(self.server)
         return self.headers.get('Host') in (f'127.0.0.1:{self.server.server_port}', f'localhost:{self.server.server_port}')
+
+    def origins(self):
+        if self.networked():
+            import network
+            return network.origins(self.server)
+        return (f'http://127.0.0.1:{self.server.server_port}', f'http://localhost:{self.server.server_port}')
 
     def reply(self, status, data, content='application/json', extra=None):
         if isinstance(data, (dict, list)):
@@ -630,7 +649,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def authorize_write(self, session, require_admin=True):
         origin = self.headers.get('Origin')
-        if origin and origin not in (f'http://127.0.0.1:{self.server.server_port}', f'http://localhost:{self.server.server_port}'):
+        if origin and origin not in self.origins():
             raise Problem('Origine non autorisée.', 403)
         if self.headers.get('Sec-Fetch-Site') == 'cross-site' or not hmac.compare_digest(self.headers.get('X-CSRF-Token', ''), session['csrf']):
             raise Problem('Jeton de protection invalide.', 403)
@@ -651,6 +670,8 @@ class Handler(BaseHTTPRequestHandler):
             url = urlsplit(self.path)
             query = {k: v[0] for k, v in parse_qs(url.query).items()}
             if not post and url.path == '/connexion-locale':
+                # Le lien de connexion locale ne vaut que sur la machine elle-même.
+                if self.networked():raise Problem('Ressource inconnue.', 404)
                 token = query.get('ticket', '')
                 with database() as db:
                     row = db.execute('DELETE FROM tickets WHERE token=? AND expires>? RETURNING token', (digest(token), time.time())).fetchone()
@@ -658,7 +679,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise Problem('Ce lien de connexion a expiré ou a déjà été utilisé.', 401)
                 session_token, _ = make_session('admin')
                 return self.reply(303, b'', extra={'Location': '/', 'Set-Cookie': f'nas_session={session_token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800'})
-            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/timezone.js', '/desktop.js', '/desk-prefs.js', '/bell.js', '/palette.js', '/updates.js', '/components.js', '/playback.js', '/detection.js', '/surveillance.js', '/kept.js', '/people.js', '/links.js', '/public.js', '/qr.js', '/files.js', '/search.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
+            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/timezone.js', '/desktop.js', '/desk-prefs.js', '/bell.js', '/palette.js', '/updates.js', '/components.js', '/playback.js', '/detection.js', '/surveillance.js', '/kept.js', '/people.js', '/links.js', '/public.js', '/qr.js', '/network.js', '/files.js', '/search.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
                 path = STATIC / ('index.html' if url.path == '/' else url.path[1:])
                 return self.reply(200, path.read_bytes(), mimetypes.guess_type(path)[0] or 'text/plain')
             if not post and url.path.startswith('/p/'):
@@ -669,10 +690,10 @@ class Handler(BaseHTTPRequestHandler):
                 return public(sys.modules[__name__], self, url.path, query, post)
             if post and url.path == '/api/login':
                 origin = self.headers.get('Origin')
-                if origin and origin not in (f'http://127.0.0.1:{self.server.server_port}', f'http://localhost:{self.server.server_port}'):
+                if origin and origin not in self.origins():
                     raise Problem('Origine non autorisée.', 403)
                 body = self.body()
-                if not self.server.login_limit():
+                if not self.server.login_limit(self.client_address[0]):
                     raise Problem('Trop de tentatives. Attendre une minute.', 429)
                 username, password = body.get('username', ''), body.get('password', '')
                 with database() as db:
@@ -681,6 +702,12 @@ class Handler(BaseHTTPRequestHandler):
                 hashed = password_hash(password, salt)
                 if not user or not user['active'] or not hmac.compare_digest(hashed, user['hash']):
                     raise Problem('Identifiant ou mot de passe refusé.', 401)
+                import network
+                with database() as db:
+                    refusal = network.login_refusal(sys.modules[__name__], db, self, username, user['role'])
+                if refusal:
+                    audit(username, 'Connexion par le réseau refusée', 'double authentification absente')
+                    raise Problem(refusal, 403)
                 # Double authentification : le code n'est demandé qu'une fois le mot de passe reconnu.
                 import totp
                 with database() as db:
@@ -694,8 +721,8 @@ class Handler(BaseHTTPRequestHandler):
                             db.commit()
                             return self.reply(401, {'error': 'Code de double authentification refusé.', 'totp': True})
                 token, csrf = make_session(username)
-                audit(username, 'Connexion')
-                return self.reply(200, {'csrf': csrf, 'name': username, 'role': user['role']}, extra={'Set-Cookie': f'nas_session={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800'})
+                audit(username, 'Connexion', 'par le réseau, depuis ' + self.client_address[0] if self.networked() else '')
+                return self.reply(200, {'csrf': csrf, 'name': username, 'role': user['role']}, extra={'Set-Cookie': f'nas_session={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800' + ('; Secure' if self.networked() else '')})
             if not post and url.path == '/api/update-health':
                 from updates import probe
                 return self.reply(200,probe(sys.modules[__name__],self))
@@ -758,6 +785,10 @@ class Handler(BaseHTTPRequestHandler):
                     from onboarding import read as setup_read
                     return self.reply(200, {'services_available': False, 'host': setup_read(sys.modules[__name__])['name'], 'time': time.time(), 'services': [], 'camera': {}, 'events': []})
                 return self.reply(200, overview())
+            if url.path == '/api/network':
+                if session['role'] != 'admin':raise Problem('Accès réservé aux administrateurs.',403)
+                import network
+                return self.reply(200, network.status(sys.modules[__name__], session))
             if url.path == '/api/links':
                 if session['role'] == 'viewer':raise Problem('Les liens de partage demandent un compte qui écrit.',403)
                 from links import listing as shared_links
@@ -963,6 +994,9 @@ class Handler(BaseHTTPRequestHandler):
                         'common':spaces.save_common,'person':spaces.save_person,'adopt':spaces.adopt,'totp-reset':__import__('totp').reset}.get(route[len('/api/spaces/'):])
                 if not action:raise Problem('Ressource inconnue.',404)
                 return action(sys.modules[__name__],body,user)
+            if route in ('/api/network/configure','/api/network/certificate'):
+                import network
+                return (network.configure if route.endswith('/configure') else network.certificate)(sys.modules[__name__],body,session)
             if route in ('/api/links/create','/api/links/revoke'):
                 import links
                 return (links.create if route.endswith('/create') else links.revoke)(sys.modules[__name__],body,session)
@@ -1387,7 +1421,7 @@ class Server(ThreadingHTTPServer):
             os.close(self.installation_fd)
             self.installation_fd = None
 
-    def login_limit(self):
+    def login_limit(self, address=None):
         with self.limit_lock:
             now = time.time()
             self.attempts = [x for x in self.attempts if x > now - 60]
@@ -1429,6 +1463,8 @@ if __name__ == '__main__':
         start_alerts(sys.modules[__name__])
         from notifications import start as start_notifications
         start_notifications(sys.modules[__name__])
+        import network
+        network.start(sys.modules[__name__])
         port=int(os.environ.get('NAS_PORT','8766'))
         print(f'Console NAS sur http://127.0.0.1:{port}', flush=True)
         if probation_server:probation_thread.join()

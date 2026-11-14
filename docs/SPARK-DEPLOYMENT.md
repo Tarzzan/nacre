@@ -1,6 +1,13 @@
 # Déploiements de la console sur Spark
 
-## 14 novembre 2026 — alpha.54, espaces dans les sauvegardes
+## 14 novembre 2026 — alpha.55, double authentification
+
+L’installation alpha.54 a reçu le paquet `nacre-0.8.0-alpha.55.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.55), par le même [parcours de mise à jour](BROWSER-UPDATES.md) : neuf modules figés identiques, répétition isolée alpha.54 → alpha.55 réussie, fichier importé identique à celui de la release, installation confirmée depuis la fenêtre Réglages et suivie jusqu’à **Mise à jour réussie**.
+
+Validation enregistrée à 17 h 07 min 10 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Constaté en lecture seule : la double authentification est proposée et **inactive** sur le seul compte ; le générateur de code QR est servi. **Elle n’a pas été activée ici** : seul le propriétaire du compte peut la lier à son téléphone. L’activation, la connexion avec code et les codes de secours sont prouvés sur le banc et par les essais.
+
 
 L’installation alpha.53 a reçu le paquet `nacre-0.8.0-alpha.54.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.54), par le même [parcours de mise à jour](BROWSER-UPDATES.md) : neuf modules figés identiques, répétition isolée alpha.53 → alpha.54 réussie, fichier importé identique à celui de la release, installation confirmée depuis la fenêtre Réglages et suivie jusqu’à **Mise à jour réussie**.
 
