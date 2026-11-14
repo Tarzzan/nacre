@@ -57,6 +57,11 @@ def collect(app):
             'Consultez les tâches de sauvegarde et leur destination. Un prochain succès du même plan ou dépôt clôturera cet incident.',
             'snapshots' if row['kind']=='snapshot' else 'backups', 'critical', row['id']))
     try:
+        from native_schedule import conditions
+        scopes['storage'].extend(condition(*values) for values in conditions(app))
+    except Exception:
+        pass
+    try:
         disk = shutil.disk_usage(app.ROOT)
         ratio = disk.used / disk.total
         if ratio >= .9:
