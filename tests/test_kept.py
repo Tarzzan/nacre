@@ -24,13 +24,15 @@ class Frigate:
     def __init__(self):
         self.exports, self.files, self.posts, self.gets = [], [], [], []
         self.answer = None
+        self.stale = [{'id': 'entry_stale', 'camera': 'entry', 'name': 'réponse périmée', 'date': 1700000000, 'in_progress': False, 'video_path': '/media/frigate/exports/entry_stale.mp4'}]
         self.disk = {'total': 1000000.0, 'used': 400000.0, 'free': 600000.0, 'mount_type': 'ext4'}
         self.usage = {'entry': {'usage': 48000.0, 'bandwidth': 1000.0}}
 
     def video_get(self, path, **kwargs):
         self.gets.append(path)
         if path.startswith('/api/exports'):
-            return Reply(json.dumps(self.exports).encode())
+            # Comme le vrai : sans contournement, la liste d'avant le dernier changement peut être resservie.
+            return Reply(json.dumps(self.exports if kwargs.get('headers', {}).get('X-Cache-Bypass') == '1' else self.stale).encode())
         if path == '/exports/':
             return Reply(json.dumps(self.files).encode())
         if path == '/api/recordings/storage':

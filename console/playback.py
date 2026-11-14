@@ -47,8 +47,9 @@ def number(value):
     return type(value) in (int, float) and math.isfinite(value)
 
 
-def fetch(app, path):
-    with app.video_get(path, timeout=30) as response:
+def fetch(app, path, fresh=False):
+    # Frigate garde ses réponses cinq secondes : une lecture qui suit un changement demande à contourner ce cache.
+    with app.video_get(path, timeout=30, **({'headers': {'X-Cache-Bypass': '1'}} if fresh else {})) as response:
         raw = response.read(MAX_BYTES + 1)
     if len(raw) > MAX_BYTES:
         raise app.Problem('Inventaire vidéo trop volumineux pour cette journée.', 502)

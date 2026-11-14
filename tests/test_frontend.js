@@ -2236,6 +2236,8 @@ test('kept passages list what is kept, play a copy and remove it only after conf
  assert.deepEqual(f.calls.at(-1),['/api/camera/unkeep',{camera:'entry',id:'entry_b',confirm:true}]);assert.equal(result.message,'Passage retiré.');
  // Liste vide, réponse illisible, autre caméra.
  listed={...keptSample,items:[],size:0};timers=0;await f.run('keptLoad()');assert.match(list.innerHTML,/Aucun passage conservé\. Lisez un extrait/);assert.equal(timers,0);
+ // Après une demande de conservation, la liste est relue même si la copie n’y figure pas encore.
+ f.run('keptAwait=1');await f.run('keptLoad()');assert.equal(timers,1);assert.equal(f.run('keptAwait'),0);await f.run('keptLoad()');assert.equal(timers,1);
  listed={camera:'entry',items:'x'};await f.run('keptLoad()');assert.match(list.innerHTML,/class="notice neutral">Réponse illisible/);
  f.run('selectedCamera="garage"');assert.match(f.run('keptCard()'),/Recherche des passages conservés/);assert.equal(f.run('keptData'),null);
 });
@@ -2263,7 +2265,7 @@ test('the extract being played is kept after a window naming exactly what will b
  assert.equal(f.calls.length,0);
  const result=await f.run('modalSubmit(new Map([["name","Portail"]]))');
  assert.deepEqual(f.calls,[['/api/camera/keep',{camera:'entry',start:dayStart+3700.4,end:dayStart+3760,name:'Portail'}]]);
- assert.equal(result.message,'Extrait conservé. La copie se termine en arrière-plan.');
+ assert.equal(result.message,'Extrait conservé. La copie se termine en arrière-plan.');assert.equal(f.run('keptAwait'),2);
  // Un refus du serveur reste dans la fenêtre : la relecture n’est pas déplacée.
  refuse='Cet extrait est déjà conservé.';await assert.rejects(f.run('modalSubmit(new Map())'),/déjà conservé/);
  assert.deepEqual(f.calls.at(-1)[1].name,'');
