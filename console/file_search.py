@@ -10,6 +10,10 @@ minimale. Ils s'appliquent après le nom : seuls les éléments dont le nom corr
 Sans nom, la recherche se fait par critères seuls et répond à « qu'est-ce qui prend de la place ? ». Elle est alors
 classée : les plus gros fichiers d'abord, ou les modifications les plus récentes. Un classement lit tout ce qu'il peut
 dans ses bornes de parcours et ne garde que les meilleurs résultats ; la mémoire reste bornée.
+
+Le poids d'un dossier (`usage`) complète ce classement : pour chaque élément du dossier ouvert, la taille cumulée de
+tout ce qu'il contient. Mêmes bornes, mêmes deux parcours à la fois ; un dossier que les bornes n'ont pas laissé finir
+est donné comme un minimum, et ceux qui n'ont pas été commencés sont signalés.
 """
 import heapq
 import os
@@ -176,3 +180,107 @@ def search(app, query, session):
     # « matched » compte les correspondances rencontrées : au-delà de « limit », un classement n'en montre que les meilleures.
     return {'query': text, 'items': items, 'partial': partial, 'visited': state['visited'], 'matched': state['matched'], 'skipped': skipped, 'limit': RESULTS,
             'sort': sort, 'filters': {'kind': kind, 'days': days, 'min_size': size}}
+
+
+def _weigh(fd, depth, state):
+    """Ajoute à « state » la taille et le nombre de tout ce que contient un dossier ouvert, noms cachés compris."""
+    folders = []
+    with os.scandir(fd) as entries:
+        for entry in entries:
+            state['visited'] += 1
+            if state['visited'] > VISITED:
+                raise _Stop('count')
+            if state['visited'] % 256 == 0 and time.monotonic() > state['deadline']:
+                raise _Stop('time')
+            try:
+                # Un lien n'est jamais suivi : il compte pour lui-même, pas pour ce qu'il désigne.
+                if entry.is_dir(follow_symlinks=False):
+                    folders.append(entry.name)
+                else:
+                    state['size'] += entry.stat(follow_symlinks=False).st_size
+            except OSError:
+                continue
+            state['count'] += 1
+    if depth >= DEPTH:
+        state['whole'] = state['whole'] and not folders
+        return
+    for name in folders:
+        try:
+            child = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+        except OSError:
+            state['whole'] = False
+            continue
+        try:
+            _weigh(child, depth + 1, state)
+        finally:
+            os.close(child)
+
+
+def usage(app, query, session):
+    """Poids de chaque élément d'un dossier : sa taille pour un fichier, celle de tout son contenu pour un dossier."""
+    area, path = query.get('area', 'fichiers'), query.get('path', '')
+    if not isinstance(area, str) or ((area == 'restaurations' or area.startswith('native_')) and session['role'] != 'admin'):
+        raise app.Problem('Accès réservé aux administrateurs.', 403)
+    if not _slots.acquire(blocking=False):
+        raise app.Problem('Deux recherches sont déjà en cours. Réessayer dans un instant.', 429)
+    state = {'visited': 0, 'deadline': time.monotonic() + SECONDS}
+    items, waiting, partial = [], [], None
+    hidden = {'size': 0, 'count': 0, 'state': 'whole'}
+    try:
+        with app.folder(area, path) as fd:
+            depth = len(app.parts(path)) + 1
+            try:
+                with os.scandir(fd) as entries:
+                    for entry in entries:
+                        state['visited'] += 1
+                        if state['visited'] > VISITED:
+                            raise _Stop('count')
+                        try:
+                            link = entry.is_symlink()
+                            directory = not link and entry.is_dir(follow_symlinks=False)
+                            info = entry.stat(follow_symlinks=False)
+                        except OSError:
+                            continue
+                        item = {'name': entry.name, 'directory': directory, 'link': link, 'size': 0 if directory else info.st_size, 'modified': info.st_mtime,
+                                'count': 0, 'state': 'waiting' if directory else 'whole'}
+                        if entry.name.startswith('.'):
+                            # Cachés et corbeille : jamais nommés, mais ils occupent de la place et sont comptés ensemble.
+                            hidden['count'] += 1
+                            hidden['size'] += item['size']
+                            item['hidden'] = True
+                        else:
+                            items.append(item)
+                        if directory:
+                            waiting.append(item)
+                # Les dossiers visibles d'abord, dans l'ordre des noms ; cachés et corbeille en dernier.
+                waiting.sort(key=lambda item: (item.get('hidden', False), item['name'].casefold()))
+                for item in waiting:
+                    state.update(size=0, count=0, whole=True)
+                    item['state'] = 'partial'
+                    try:
+                        child = os.open(item['name'], os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+                    except OSError:
+                        continue
+                    try:
+                        _weigh(child, depth, state)
+                        item['state'] = 'whole' if state['whole'] else 'partial'
+                    finally:
+                        os.close(child)
+                        item['size'], item['count'] = state['size'], state['count']
+            except _Stop as stop:
+                partial = str(stop)
+    finally:
+        _slots.release()
+    for item in waiting:
+        if item.get('hidden'):
+            hidden['size'] += item['size']
+            hidden['count'] += item['count']
+            if item['state'] != 'whole':
+                hidden['state'] = 'partial'
+    total = {'size': hidden['size'] + sum(item['size'] for item in items), 'count': hidden['count'] + len(items) + sum(item['count'] for item in items),
+             'state': 'whole' if hidden['state'] == 'whole' and all(item['state'] == 'whole' for item in items) else 'partial'}
+    # Pesés d'abord, du plus lourd au plus léger ; ce qui n'a pas pu être commencé vient ensuite.
+    items.sort(key=lambda item: (item['state'] == 'waiting', -item['size'], item['name'].casefold()))
+    rest = items[RESULTS:]
+    return {'area': area, 'path': path, 'items': items[:RESULTS], 'total': total, 'hidden': hidden,
+            'others': {'count': len(rest), 'size': sum(item['size'] for item in rest)}, 'partial': partial, 'visited': state['visited'], 'limit': RESULTS}

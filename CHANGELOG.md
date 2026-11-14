@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.38 — Poids des dossiers
+
+**Fichiers** dit maintenant « quel dossier pèse le plus ? ». La pesée du dossier ouvert donne, pour chaque élément, **la taille de tout ce qu’il contient**, du plus lourd au plus léger, avec le nombre d’éléments et la part du total. On y arrive par **Peser ce dossier** dans le panneau d’un dossier sélectionné, par **Poids des dossiers** depuis la recherche par critères, ou par la recherche globale (Ctrl+K). Un double-clic sur un dossier le pèse à son tour ; **Peser le dossier parent** remonte. Les fichiers cachés et la corbeille sont comptés sur une ligne à part, sans être nommés. La pesée a les bornes de la recherche (quatre secondes, 200 000 éléments) : un dossier qu’elle n’a pas fini est donné comme un minimum, un dossier pas commencé est dit « non pesé ». Aucun changement de schéma ni de module figé. 323 tests Python et 130 JavaScript. [Guide et limites](docs/DESKTOP.md#peser-les-dossiers).
+
 ## 0.8.0-alpha.37 — Recherche de fichiers par critères, sans nom
 
 **Fichiers** répond à « qu’est-ce qui prend de la place ? ». Le bouton **Par critères** de la barre d’outils lance une recherche sans nom dans le dossier ouvert et ses sous-dossiers : les **plus gros fichiers d’abord**, que les listes Type, Modifié et Taille resserrent ensuite (« les vidéos de plus de 1 Gio », « les documents modifiés depuis 7 jours »). Une quatrième liste, **Ordre**, classe aussi par modification la plus récente, et sert de la même façon à une recherche par nom. **Étendre à tout le NAS** relance la même recherche partout, et la recherche globale (Ctrl+K) propose **Les plus gros fichiers** pour tout le NAS. Un classement lit tout ce que les bornes de parcours permettent et n’affiche que les 200 premiers, en donnant le nombre de correspondances rencontrées. Aucun changement de schéma ni de module figé. 322 tests Python et 129 JavaScript. [Guide et limites](docs/DESKTOP.md#chercher-sans-nom-par-critères).

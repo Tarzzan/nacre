@@ -69,7 +69,7 @@ function deskApply(intent){
  if(intent.camera&&typeof survOpenCamera==='function'){selectedCamera=String(intent.camera);survFocus=true;deskViews.cam='wall';}
  if(intent.area){area=String(intent.area);currentPath='';}
  if(intent.find&&typeof fmQueue==='function')fmQueue(intent.find);
- else if(intent.big&&typeof fmQueue==='function')fmQueue('',true);
+ else if((intent.big||intent.weigh)&&typeof fmQueue==='function')fmQueue('',!!intent.big,!!intent.weigh);
 }
 function deskTabs(win){
  const app=DESK_APPS.find(a=>a.id===win.app),pages=deskPages(app),views=app.views&&pages.length===1?app.views:null;

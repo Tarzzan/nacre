@@ -6,7 +6,7 @@ const FM_KINDS=[[/\.(jpe?g|png|gif|webp)$/i,'img','Image'],[/\.(mp4|webm)$/i,'vi
 const FM_MARK={dir:'D',lnk:'↗',img:'IMG',vid:'VID',pdf:'PDF',txt:'TXT',zip:'ZIP',file:'·'};
 let fmItems=[],fmSel=new Set(),fmLast='',fmView='list',fmPreview=true,fmFilter='',fmSort=['name',1],fmRequest=0,fmDrag=null,fmBusy=false;
 // Recherche par nom : null hors recherche ; sinon la demande, sa portée et ses résultats (items null tant qu’elle court).
-let fmFound=null,fmHit=-1,fmFindRequest=0,fmPending='',fmPendingBig=false;
+let fmFound=null,fmHit=-1,fmFindRequest=0,fmPending='',fmPendingBig=false,fmPendingWeigh=false;
 // Sous-dossiers déjà vus, par « espace|chemin » : l’arborescence se construit en naviguant.
 const fmDirs=new Map();
 
@@ -64,11 +64,25 @@ function fmOrders(filters,bare){return FM_REFINE[3][2].filter(([value])=>!(bare&
 function fmRefineRow(filters,busy,bare){
  return `<div class="fm-find fm-refine" role="group" aria-label="Affiner les résultats">${FM_REFINE.map(([key,label,choices])=>`<label for="fm-ref-${key}">${label}</label><select id="fm-ref-${key}" data-refine="${key}"${busy?' disabled':''}>${(key==='sort'?fmOrders(filters,bare):choices).map(([value,text])=>`<option value="${value}"${(filters?.[key]||'')===value?' selected':''}>${text}</option>`).join('')}</select>`).join('')}<span class="fm-grow"></span>${fmRefined(filters)&&!busy?button('fm-refine-clear','Retirer les filtres',null,'small'):''}</div>`;
 }
+// Poids des dossiers : chaque élément du dossier ouvert avec tout ce qu’il contient, du plus lourd au plus léger.
+function fmUsageList(){
+ const {where,items,partial,visited,total,hidden,others}=fmFound;
+ const name=where.path?where.path.split('/').pop():fmAreaName(where.area),least=state=>state==='whole'?'':'au moins ',many=n=>`${n.toLocaleString('fr-FR')} élément${n>1?'s':''}`;
+ const head=text=>`<div class="fm-find"><span>${text}</span><span class="fm-grow"></span>${where.path&&items?button('fm-weigh-up','Peser le dossier parent',null,'small'):''}${button('fm-find-close','Fermer',null,'small')}</div>`;
+ if(!items)return head(`Pesée de « ${esc(name)} »…`)+'<p class="fm-hint">Calcul en cours…</p>';
+ const note=partial?`Pesée arrêtée après ${visited.toLocaleString('fr-FR')} éléments parcourus : un poids précédé de « au moins » est un minimum, et un dossier « non pesé » n’a pas été commencé. Pesez un sous-dossier pour aller plus loin.`:total.state!=='whole'?'Un dossier au moins n’a pas pu être lu en entier : son poids est un minimum.':'';
+ const title=head(`<strong>« ${esc(name)} » pèse ${least(total.state)}${sizes(total.size)}</strong> pour ${many(total.count)}`)+(note?`<p class="fm-note">${esc(note)}</p>`:'');
+ if(!items.length&&!hidden.count)return title+empty('Ce dossier est vide.','folder');
+ const share=size=>!total.size?'—':size*100<total.size?(size?'&lt; 1 %':'0 %'):Math.round(size*100/total.size)+' %';
+ const rest=(label,group,state)=>group.count?`<tr class="fm-rest"><td>${label}</td><td>${many(group.count)}</td><td>${least(state)}${sizes(group.size)}</td><td>${share(group.size)}</td></tr>`:'';
+ return title+`<table class="fm-table fm-hits fm-usage"><thead><tr><th>Nom</th><th>Contenu</th><th>Poids</th><th>Part</th></tr></thead><tbody>${items.map((item,index)=>`<tr class="fm-hit ${index===fmHit?'sel':''}" data-hit="${index}"><td>${fmIcon(item)}${esc(item.name)}</td><td>${item.directory&&item.state!=='waiting'?many(item.count):'—'}</td><td>${item.state==='waiting'?'non pesé':least(item.state)+sizes(item.size)}</td><td>${item.state==='waiting'?'—':share(item.size)}</td></tr>`).join('')}${rest('Autres éléments, plus légers',others,'whole')}${rest('Éléments cachés et corbeille',hidden,hidden.state)}</tbody></table>`;
+}
 function fmFoundList(){
+ if(fmFound.usage)return fmUsageList();
  const {query,where,items,partial,visited,skipped,limit,filters,matched}=fmFound;
  const bare=!query,order=filters.sort==='recent'?'plus récents':'plus gros';
  const place=where?(where.path?`dans « ${where.path.split('/').pop()} » et ses sous-dossiers`:`dans ${fmAreaName(where.area)}`):'dans tout le NAS';
- const head=text=>`<div class="fm-find"><span>${text}</span><span class="fm-grow"></span>${where&&items?button('fm-find-wide','Étendre à tout le NAS',null,'small'):''}${button('fm-find-close','Fermer la recherche',null,'small')}</div>`;
+ const head=text=>`<div class="fm-find"><span>${text}</span><span class="fm-grow"></span>${bare&&items?button('fm-weigh','Poids des dossiers',null,'small','title="Ce que pèse chaque dossier du dossier ouvert, avec tout son contenu"'):''}${where&&items?button('fm-find-wide','Étendre à tout le NAS',null,'small'):''}${button('fm-find-close','Fermer la recherche',null,'small')}</div>`;
  if(!items)return head(bare?`Recherche des ${order} ${esc(place)}…`:`Recherche de « ${esc(query)} » ${esc(place)}…`)+fmRefineRow(filters,true,bare)+'<p class="fm-hint">Recherche en cours…</p>';
  const notes=[];
  if(partial==='results')notes.push(`Seuls les ${limit} premiers résultats sont affichés : précisez le nom, ou affinez par type, date ou taille.`);
@@ -101,12 +115,13 @@ function fmSide(){
  if(fmFound){
   const hit=fmFound.items?.[fmHit];
   if(!hit)return `<div class="fm-hint">${fmFound.items?.length?'Sélectionnez un résultat pour le voir ici.':''}</div>`;
-  return fmCard(hit,hit.path,hit.area,{where:fmAreaName(hit.area)+(hit.path?' › '+hit.path.split('/').join(' › '):''),before:(hit.directory&&!hit.link?button('fm-reveal','Ouvrir ce dossier',null,'primary small','data-inside="1"'):'')+button('fm-reveal','Afficher dans son dossier',null,hit.directory&&!hit.link?'small':'primary small')});
+  const folder=hit.directory&&!hit.link,weigh=fmFound.usage&&folder?button('fm-weigh','Peser ce dossier',null,'primary small',`data-name="${esc(hit.name)}"`):'';
+  return fmCard(hit,hit.path,hit.area,{where:fmAreaName(hit.area)+(hit.path?' › '+hit.path.split('/').join(' › '):''),before:weigh+(folder?button('fm-reveal','Ouvrir ce dossier',null,weigh?'small':'primary small','data-inside="1"'):'')+(weigh?'':button('fm-reveal','Afficher dans son dossier',null,folder?'small':'primary small'))});
  }
  const chosen=fmSelected();
  if(chosen.length!==1)return `<div class="fm-hint">${chosen.length?`${chosen.length} éléments sélectionnés.`:'Sélectionnez un élément pour le voir ici.'}</div>`;
  const item=chosen[0],write=fmWritable();
- return fmCard(item,currentPath,area,{before:item.directory&&!item.link?button('fm-open','Ouvrir',null,'primary small',`data-name="${esc(item.name)}"`):'',after:write?button('rename','Renommer',null,'small',`data-path="${esc(fmJoin(item.name))}" data-name="${esc(item.name)}"`)+button('fm-trash','Corbeille',null,'small'):''});
+ return fmCard(item,currentPath,area,{before:item.directory&&!item.link?button('fm-open','Ouvrir',null,'primary small',`data-name="${esc(item.name)}"`)+button('fm-weigh','Peser ce dossier',null,'small',`data-name="${esc(item.name)}"`):'',after:write?button('rename','Renommer',null,'small',`data-path="${esc(fmJoin(item.name))}" data-name="${esc(item.name)}"`)+button('fm-trash','Corbeille',null,'small'):''});
 }
 // Aperçu d’un texte : les premiers kilo-octets, lus comme du texte et jamais interprétés.
 async function fmLoadText(){
@@ -127,7 +142,7 @@ function fmRedraw(tools=false){
 async function renderFileManager(){
  const generation=sessionGeneration,request=++fmRequest,current=()=>generation===sessionGeneration&&page==='files'&&request===fmRequest;
  // Une recherche demandée depuis la recherche globale : le nom arrive dans le champ, puis elle part sur tout le NAS.
- const asked=fmPending,big=fmPendingBig;fmPending='';fmPendingBig=false;if(asked||big){fmFilter=asked;fmFound=null;}
+ const asked=fmPending,big=fmPendingBig,weigh=fmPendingWeigh;fmPending='';fmPendingBig=fmPendingWeigh=false;if(asked||big||weigh){fmFilter=asked;fmFound=null;}
  const areas=await api('areas');if(!current())return;
  fileAreas=areas;
  if(!fileAreas.some(a=>a.id===area)){area='fichiers';currentPath='';toast('Le volume est indisponible. Retour aux fichiers partagés.',true);}
@@ -144,14 +159,14 @@ async function renderFileManager(){
  fmSel=new Set([...fmSel].filter(name=>fmItems.some(i=>i.name===name)));
  $('#content').innerHTML=`<div class="fm ${fmPreview?'':'fm-nopreview'}" id="fm"><nav class="fm-tree" id="fm-tree" aria-label="Espaces et dossiers">${fmTree()}</nav><div class="fm-main"><div class="fm-tools" id="fm-tools">${fmTools()}</div><div class="fm-list" id="fm-list">${fmList()}</div></div><aside class="fm-side" id="fm-side" aria-label="Aperçu">${fmSide()}</aside><input type="file" id="fm-upload" multiple hidden><div class="fm-drop" id="fm-drop" hidden></div></div>`;
  fmLoadText();
- if(asked||big)(asked?fmFind('all'):fmCriteria('all')).catch(error=>{if(error.name!=='AbortError')toast(error.message,true);});
+ if(asked||big||weigh)(asked?fmFind('all'):big?fmCriteria('all'):fmUsage()).catch(error=>{if(error.name!=='AbortError')toast(error.message,true);});
 }
-// Recherche à lancer à la prochaine ouverture de Fichiers : un nom, ou « big » pour les plus gros fichiers du NAS.
-function fmQueue(text,big=false){fmPending=String(text||'').trim().slice(0,80);fmPendingBig=!!big&&!fmPending;}
+// À lancer à la prochaine ouverture de Fichiers : la recherche d’un nom, « big » pour les plus gros fichiers du NAS, ou « weigh » pour le poids des dossiers.
+function fmQueue(text,big=false,weigh=false){fmPending=String(text||'').trim().slice(0,80);fmPendingBig=!!big&&!fmPending;fmPendingWeigh=!!weigh&&!fmPending&&!fmPendingBig;}
 // Recherche par nom, lancée à la demande : dans le dossier ouvert et ses sous-dossiers (« here ») ou dans tous les espaces.
 // Avec « refine », la même recherche est relancée avec d’autres filtres : nom et portée ne changent pas.
 function fmFind(scope,refine=null){
- if(refine)return fmFound?.items?fmSearch(fmFound.query,fmFound.where,refine,fmFound):undefined;
+ if(refine)return fmFound?.items&&!fmFound.usage?fmSearch(fmFound.query,fmFound.where,refine,fmFound):undefined;
  if(!fmFindable())return toast('Saisissez au moins deux caractères du nom recherché.',true);
  return fmSearch(fmFilter.trim(),scope==='here'?{area,path:currentPath}:null,{},null);
 }
@@ -161,7 +176,7 @@ function fmCriteria(scope){
  return fmSearch('',scope==='all'?null:{area,path:currentPath},{sort:'size'},null);
 }
 // La même recherche, étendue du dossier ou de l’espace à tout le NAS.
-function fmWiden(){return fmFound?.items&&fmFound.where?fmSearch(fmFound.query,null,fmFound.filters,fmFound):undefined;}
+function fmWiden(){return fmFound?.items&&fmFound.where&&!fmFound.usage?fmSearch(fmFound.query,null,fmFound.filters,fmFound):undefined;}
 async function fmSearch(text,where,chosen,before){
  // Seuls les filtres réellement choisis sont gardés. Sans nom, la recherche est toujours classée.
  const filters=Object.fromEntries(FM_REFINE.map(([key])=>[key,String(chosen?.[key]||'')]).filter(([,value])=>value));
@@ -178,6 +193,28 @@ async function fmSearch(text,where,chosen,before){
  // Ne sont gardés que les résultats bien formés, dans un espace que ce compte voit.
  const items=(Array.isArray(data?.items)?data.items:[]).filter(i=>i&&typeof i.name==='string'&&i.name&&typeof i.path==='string'&&fileAreas.some(a=>a.id===i.area));
  fmFound={query:text,where,filters,items,partial:typeof data?.partial==='string'?data.partial:'',visited:Number(data?.visited)||0,matched:Math.max(Number(data?.matched)||0,items.length),skipped:(Array.isArray(data?.skipped)?data.skipped:[]).filter(x=>typeof x==='string'),limit:Number(data?.limit)||items.length};
+ fmRedraw();
+}
+// Poids des dossiers d’un dossier de l’espace ouvert : on s’y rend, puis il est pesé. La pesée porte toujours sur le dossier ouvert.
+function fmWeigh(path){
+ path=String(path||'');
+ if(path===currentPath&&$('#fm'))return fmUsage();
+ fmFindRequest++;fmFound=null;fmHit=-1;currentPath=path;fmSel.clear();fmLast='';fmFilter='';fmPendingWeigh=true;
+ return renderFileManager();
+}
+async function fmUsage(){
+ fmFilter='';const box=$('#fm-filter');if(box)box.value='';
+ const where={area,path:currentPath},generation=sessionGeneration,request=++fmFindRequest;
+ const current=()=>generation===sessionGeneration&&request===fmFindRequest&&page==='files'&&!!fmFound;
+ fmSel.clear();fmHit=-1;fmFound={usage:true,query:'',where,filters:{},items:null};fmRedraw();
+ let data;
+ try{data=await api(`files/usage?area=${encodeURIComponent(where.area)}&path=${encodeURIComponent(where.path)}`);}
+ catch(error){if(current()){fmFound=null;fmRedraw();}throw error;}
+ if(!current())return;
+ const amount=value=>Math.max(0,Number(value)||0),group=value=>({size:amount(value?.size),count:amount(value?.count),state:value?.state==='whole'?'whole':'partial'});
+ // Ne sont gardées que les lignes bien formées ; un état inconnu est lu comme un minimum.
+ const items=(Array.isArray(data?.items)?data.items:[]).filter(i=>i&&typeof i.name==='string'&&i.name&&!i.name.includes('/')).map(i=>({area:where.area,path:where.path,name:i.name,directory:!!i.directory,link:!!i.link,size:amount(i.size),modified:amount(i.modified),count:amount(i.count),state:i.state==='whole'||i.state==='waiting'?i.state:'partial'}));
+ fmFound={usage:true,query:'',where,filters:{},items,partial:typeof data?.partial==='string'?data.partial:'',visited:amount(data?.visited),total:group(data?.total),hidden:group(data?.hidden),others:group(data?.others)};
  fmRedraw();
 }
 function fmFindClose(){fmFindRequest++;fmFound=null;fmHit=-1;fmRedraw();}
@@ -249,6 +286,8 @@ document.addEventListener('click',async e=>{
    if(action==='fm-refine-clear')return await fmFind('',{sort:fmFound?.filters?.sort});
    if(action==='fm-criteria')return await fmCriteria('here');
    if(action==='fm-find-wide')return await fmWiden();
+   if(action==='fm-weigh')return await fmWeigh(el.dataset.name?fmJoin(el.dataset.name):currentPath);
+   if(action==='fm-weigh-up')return await fmWeigh(currentPath.split('/').slice(0,-1).join('/'));
    if(action==='fm-reveal')return await fmReveal(fmFound?.items?.[fmHit],el.dataset.inside==='1');
    return;
   }
@@ -264,7 +303,7 @@ document.addEventListener('click',async e=>{
 });
 document.addEventListener('dblclick',e=>{
  const hit=e.target.closest?.('.fm-hit');
- if(hit&&page==='files'&&fmFound?.items){const found=fmFound.items[Number(hit.dataset.hit)];Promise.resolve(fmReveal(found,!!found?.directory&&!found.link)).catch(error=>{if(error.name!=='AbortError')toast(error.message,true);});return;}
+ if(hit&&page==='files'&&fmFound?.items){const found=fmFound.items[Number(hit.dataset.hit)],folder=!!found?.directory&&!found.link;Promise.resolve(fmFound.usage&&folder?fmWeigh(fmJoin(found.name)):fmReveal(found,folder)).catch(error=>{if(error.name!=='AbortError')toast(error.message,true);});return;}
  const row=e.target.closest?.('.fm-row');if(!row||page!=='files'||e.target.closest?.('input,a,button'))return;
  const item=fmItems.find(i=>i.name===row.dataset.name);
  if(item?.directory&&!item.link)fmGo(area,fmJoin(item.name)).catch(error=>{if(error.name!=='AbortError')toast(error.message,true);});
@@ -273,7 +312,7 @@ document.addEventListener('dblclick',e=>{
 document.addEventListener('input',e=>{if(e.target?.id==='fm-filter'&&page==='files'){fmFilter=e.target.value;fmSel.clear();if(fmFound){fmFindRequest++;fmFound=null;fmHit=-1;}fmRedraw();}});
 // Un filtre choisi relance la même recherche ; le choix doit être l’un de ceux proposés.
 document.addEventListener('change',e=>{
- const key=e.target?.dataset?.refine;if(!key||page!=='files'||!fmFound?.items)return;
+ const key=e.target?.dataset?.refine;if(!key||page!=='files'||!fmFound?.items||fmFound.usage)return;
  const value=String(e.target.value||''),id=e.target.id;
  if(!(key==='sort'?fmOrders(fmFound.filters,!fmFound.query):FM_REFINE.find(r=>r[0]===key)?.[2])?.some(choice=>choice[0]===value))return;
  return fmFind('',{...fmFound.filters,[key]:value}).then(()=>$('#'+id)?.focus?.()).catch(error=>{if(error.name!=='AbortError')toast(error.message,true);});
