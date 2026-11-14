@@ -9,6 +9,7 @@
 | `console/protection.py` | Dépôts restic, plans et orchestration | SQLite, clés privées et dépôts |
 | `console/smb_storage.py` | Configuration SMB, montages contrôlés et surveillance | `state/samba/`, configuration privée |
 | `console/native_storage.py` | Daemon root à méthodes fermées | Politique root et catalogue système |
+| `console/native_service.py` | Point d’entrée du daemon : le moteur ci-dessus, étendu de la suppression explicite de points | Accord `deletion` de la politique root |
 | `console/provisioning.py` | Création de FS et miroir sur disques autorisés | Catalogue natif |
 | `compose.yaml`, `samba/`, `frigate/` | Frigate et Samba conteneurisés | Bind mounts et volumes Docker |
 | `lab.py` | Initialisation et commandes locales | Configuration d’installation |

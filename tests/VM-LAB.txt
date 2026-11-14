@@ -237,3 +237,25 @@ classique et LVM thin par le socket du vrai service, plafond, occurrence
 manquée, désactivation. Il vérifie ensuite sur le stockage que seuls les points
 annoncés existent et qu'ils sont en lecture seule. Résultat dans
 /home/ubuntu/native-schedule-results.json. Arrêter la VM avec poweroff.
+
+
+SUPPRESSION DES POINTS NATIFS
+Repartir d'overlays neufs sur la VM 0.3 arrêtée (système et images A/B/C),
+comme pour la programmation : le banc attend un seul point par volume.
+Copier les sources mises à jour dans /home/ubuntu/nas-autonome.
+
+Dans la VM uniquement :
+sudo env NACRE_VM_LAB=1 python3 /home/ubuntu/nas-autonome/tests/integration_native_delete_vm.py
+
+Ce banc ne formate rien. Il réinstalle le service natif depuis les sources,
+crée cinq points par volume par le socket du vrai service sous le compte
+ubuntu, puis en supprime : refus sans accord dans la politique, suppression
+nominale, plans refusés, clone et retenue ZFS, coupure avant et après la
+commande (moteur lancé à part, service arrêté), identité modifiée, point LVM
+lu par une restauration puis monté. Il écrit 64 Mio sur le volume LVM
+classique et inscrit, dans la politique de l'invité seulement, l'accord de
+suppression et un dossier de restauration. Il finit par toute la chaîne depuis
+la console, sous le compte ubuntu. Il vérifie sur le stockage que seuls les
+points annoncés ont disparu. Résultat dans
+/home/ubuntu/native-delete-results.json. Arrêter la VM avec poweroff. Le banc
+ne se rejoue pas sur la même VM : repartir d'overlays neufs.

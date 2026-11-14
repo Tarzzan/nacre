@@ -968,7 +968,15 @@ class Handler(BaseHTTPRequestHandler):
             elif route == '/api/storage/native-retention-preview':
                 from native_retention import simulate
                 return simulate(sys.modules[__name__], body, user)
+            elif route == '/api/storage/native-prune-prepare':
+                from native_retention import prune_prepare
+                return prune_prepare(sys.modules[__name__], body, user)
+            elif route == '/api/storage/native-prune':
+                from native_retention import prune_commit
+                return prune_commit(sys.modules[__name__], body, user)
             elif route == '/api/storage/native-prepare':
+                if isinstance(body, dict) and body.get('action') == 'delete':
+                    raise Problem('La suppression de points passe par la simulation de conservation.')
                 return native_storage('prepare', user, body)
             elif route == '/api/storage/native-commit':
                 result = native_storage('commit', user, body)

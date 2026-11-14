@@ -207,7 +207,7 @@ test('native point retention shows one rule per volume and simulates it without 
  assert.deepEqual(posts().at(-1),['/api/storage/native-retention-preview',{volume:'documents',keep_last:3,manual:true,calendar:{daily:2,weekly:0,monthly:1,timezone:'America/Cayenne'}}]);assert.equal(error.textContent,'');
  assert.match(result.innerHTML,/SIMULATION · Photos &lt;i&gt;/);assert.match(result.innerHTML,/<strong>1<\/strong><span>Gardés par la règle<\/span>.*<strong>1<\/strong><span>Protégés hors règle<\/span>.*<strong>1<\/strong><span>Sortiraient<\/span>/);
  assert.match(result.innerHTML,/<h3>Points qui sortiraient<\/h3>.*<code>bbbbbbbb<\/code><\/td><td>Manuelle<\/td><\/tr>/);assert.match(result.innerHTML,/<code>aaaaaaaa<\/code><\/td><td>Programmée<\/td><td>Derniers points · Jour · 2026-11-10<\/td>/);
- assert.match(result.innerHTML,/État &lt;à vérifier&gt;\./);assert.match(result.innerHTML,/Rien n’a été supprimé et rien ne le sera/);assert.doesNotMatch(result.innerHTML,/restauration est en cours|style=/);
+ assert.match(result.innerHTML,/État &lt;à vérifier&gt;\./);assert.match(result.innerHTML,/Rien n’est supprimé par la simulation\./);assert.match(result.innerHTML,/La suppression n’est pas accordée sur ce matériel\./);assert.doesNotMatch(result.innerHTML,/data-action="native-prune"/);assert.doesNotMatch(result.innerHTML,/restauration est en cours|style=/);
  preview.busy=true;await submit();assert.match(result.innerHTML,/Une restauration est en cours ou à vérifier sur ce volume : tous ses points sont protégés\./);preview.busy=false;
  // Retoucher la règle retire la simulation ; une saisie non entière ne part pas ; un refus du serveur s'affiche sous le formulaire.
  f.listeners.get('input').at(-1)({target:{id:'native-keep-daily'}});assert.equal(result.innerHTML,'');
@@ -227,6 +227,88 @@ test('native point retention shows one rule per volume and simulates it without 
  // Sans volume inscrit, la carte n'apparaît pas ; un compte en lecture seule ne demande rien.
  state.volumes=[];await f.run('renderNative()');assert.doesNotMatch(content(),/Conservation des points natifs/);assert.equal(f.run('nativeKeepOpen'),'');
  const before=calls.length;f.run('user={name:"lecteur",role:"viewer"};');await f.run('renderNative()');assert.equal(calls.length,before);assert.match(content(),/réservée aux administrateurs/);
+});
+
+test('points leaving a native simulation are deleted through a service plan and a typed phrase',async()=>{
+ const calls=[];let refuse='',outcome=null,busy=false;
+ const state={connected:true,deletion:true,volumes:[{id:'documents',name:'Docs <b>',family:'btrfs',ready:true}],points:[],jobs:[],resources:[],provisioning:{enabled:false,devices:[],deployments:[]},
+  actions:[{id:'x',ts:1794096000,actor:'admin',action:'delete',volume:'documents',object:'nacre_bbbb',status:'done',location:''}]};
+ const keep={connected:true,deletion:true,defaults:{keep_last:7,manual:false,calendar:{daily:0,weekly:0,monthly:0,timezone:'UTC'}},policies:[{volume:'documents',saved:true,keep_last:7,manual:false,calendar:{daily:0,weekly:0,monthly:0,timezone:'UTC'}}]};
+ const points=count=>Array.from({length:count},(_,i)=>({id:String(i).padStart(8,'0')+'f'.repeat(24),created:1794009600+i,manual:i%2===1}));
+ let leaving=points(2);
+ const f=fixture(async(url,options)=>{
+  const body=options?.body?JSON.parse(options.body):null;calls.push([url,body]);
+  if(url.endsWith('/storage/native'))return response(200,state);
+  if(url.endsWith('/storage/profiles'))return response(200,[]);
+  if(url.endsWith('/storage/native-retention')&&!body)return response(200,keep);
+  if(url.endsWith('/storage/native-schedule')&&!body)return response(200,{connected:true,schedules:[],defaults:null,confirmation:'PROGRAMMER '});
+  if(url.endsWith('-preview'))return response(200,{volume:'documents',name:'Docs <b>',rule:{},at:1794182400,deletion:keep.deletion,busy,keep:[],remove:busy?[]:leaving,protected:[]});
+  if(refuse)return response(409,{error:refuse});
+  if(url.endsWith('/native-prune-prepare')){const batch=leaving.slice(0,50);return response(200,{id:'c'.repeat(32),volume:'documents',name:'Docs <b>',confirmation:`SUPPRIMER ${batch.length} POINT${batch.length>1?'S':''} DE documents`,points:batch,remaining:leaving.length-batch.length,notes:['Un point <supprimé> ne peut pas être récupéré.'],effect:'x'});}
+  const done=outcome||{ok:true,deleted:leaving.slice(0,50).map(x=>x.id),uncertain:[],kept:[],reason:''};leaving=leaving.slice(done.deleted.length);
+  return response(200,{volume:'documents',name:'Docs <b>',...done});
+ });
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/native.js'),'utf8'),f.context);
+ f.run('user={name:"admin",role:"admin"};page="native";shell();');await f.run('renderNative()');
+ const content=()=>String(f.elements.get('#content').innerHTML),posts=()=>calls.filter(c=>c[1]);
+ const click=dataset=>f.listeners.get('click').at(-1)({target:{closest:s=>s==='[data-action]'?{dataset}:null}});
+ const rule={volume:'documents',keep_last:3,manual:false,calendar:{daily:0,weekly:0,monthly:0,timezone:'UTC'}};
+ // Le matériel accorde la suppression : la carte l'annonce, et le journal des opérations nomme les suppressions.
+ assert.match(content(),/<h2>Conservation des points natifs<\/h2><span class="muted">La suppression demande toujours une confirmation<\/span>/);assert.match(content(),/Suppression de point · documents/);
+ await click({action:'native-keep-open',volume:'documents'});
+ const form={getAttribute:()=> 'native-keep-form',values:{keep_last:'3',daily:'0',weekly:'0',monthly:'0',timezone:'UTC'}},error={textContent:''},result={innerHTML:''},refusal={textContent:'ancien'},send={disabled:false,className:'primary'};
+ for(const [key,value] of [['#native-keep-form',form],['#native-keep-error',error],['#native-keep-result',result],['#native-prune-error',refusal],['#modal-form button[type=submit]',send]])f.elements.set(key,value);
+ const simulate=()=>f.listeners.get('submit').at(-1)({target:form,preventDefault(){}});
+ const typed=value=>f.listeners.get('input').forEach(listener=>listener({target:{id:'field-prune_confirmation',value}}));
+ const confirm=value=>{f.context.sent=new Map([['prune_confirmation',value]]);return f.run('modalSubmit(sent)');};
+ await simulate();
+ // Sous les points sortants : un bouton discret qui annonce la fenêtre ; rien n'est demandé avant le clic.
+ assert.match(result.innerHTML,/<h3>Points qui sortiraient<\/h3>.*<button type="button" class="danger" data-action="native-prune" ><span>Supprimer ces 2 points…<\/span><\/button><span class="muted">Une fenêtre demandera confirmation\.<\/span>/);
+ assert.doesNotMatch(result.innerHTML,/pas accordée|style=/);assert.ok(!posts().some(c=>c[0].includes('prune')));
+ // Le clic demande un plan pour la liste exacte affichée, puis montre les points un par un et la phrase à recopier.
+ const modal=f.elements.get('#modal');let shown=0;modal.showModal=()=>shown++;modal.innerHTML='';
+ await click({action:'native-prune'});
+ assert.deepEqual(posts().at(-1),['/api/storage/native-prune-prepare',{...rule,expected:leaving.map(x=>x.id)}]);assert.equal(shown,1);assert.equal(refusal.textContent,'');
+ assert.match(modal.innerHTML,/<h2>Supprimer 2 points de « Docs &lt;b&gt; »<\/h2>/);assert.match(modal.innerHTML,/Ces points, et eux seuls, seront supprimés du stockage/);
+ assert.match(modal.innerHTML,/<code>00000000<\/code><\/td><td>Programmée<\/td><\/tr><tr><td>[^<]*<\/td><td><code>00000001<\/code><\/td><td>Manuelle<\/td>/);
+ assert.match(modal.innerHTML,/Un point &lt;supprimé&gt; ne peut pas être récupéré\./);assert.match(modal.innerHTML,/Recopiez « SUPPRIMER 2 POINTS DE documents »<\/label><input id="field-prune_confirmation" name="prune_confirmation"/);
+ assert.match(modal.innerHTML,/<button class="primary" type="submit">Supprimer définitivement<\/button>/);assert.doesNotMatch(modal.innerHTML,/style=/);
+ // Le bouton rouge reste inactif tant que la phrase n'est pas recopiée à l'identique.
+ assert.deepEqual([send.disabled,send.className],[true,'primary danger']);
+ typed('SUPPRIMER 2 POINTS DE document');assert.equal(send.disabled,true);typed(' SUPPRIMER 2 POINTS DE documents ');assert.equal(send.disabled,false);
+ // Validation : la phrase part telle quelle, la simulation est recalculée, le bilan s'affiche et la règle saisie reste dans le formulaire.
+ let answer=await confirm(' SUPPRIMER 2 POINTS DE documents ');
+ assert.deepEqual(posts().slice(-2),[['/api/storage/native-prune',{volume:'documents',plan:'c'.repeat(32),confirmation:'SUPPRIMER 2 POINTS DE documents'}],['/api/storage/native-retention-preview',rule]]);
+ assert.equal(answer.message,'2 points supprimés de « Docs <b> ».');await f.run('renderNative()');
+ assert.match(content(),/<div class="native-prune-note " role="status"><strong>2 points supprimés de « Docs &lt;b&gt; »\.<\/strong> Le volume, ses fichiers et les autres points n’ont pas été modifiés\.<\/div>/);
+ assert.match(content(),/<h3>Aucun point ne sortirait<\/h3><details>/);assert.match(content(),/id="native-keep-keep_last" name="keep_last" type="number" min="1" max="1000" step="1" value="3"/);
+ typed('SUPPRIMER 2 POINTS DE documents');assert.equal(send.disabled,false);
+ // Arrêt en cours de liste : le bilan dit ce qui est fait, pourquoi, et que rien n'est retenté ; le reste peut être repris.
+ leaving=points(3);await simulate();assert.doesNotMatch(result.innerHTML,/native-prune-note/);await click({action:'native-prune'});
+ outcome={ok:false,deleted:[leaving[0].id],uncertain:[],kept:[leaving[2].id],reason:'Le système a refusé la suppression d’un point, qui reste intact.'};
+ answer=await confirm('SUPPRIMER 3 POINTS DE documents');outcome=null;assert.equal(answer.message,'1 point supprimé sur 3. L’opération s’est arrêtée.');await f.run('renderNative()');
+ assert.match(content(),/<div class="native-prune-note warn" role="status"><strong>1 point supprimé sur 3\. L’opération s’est arrêtée\.<\/strong> Le système a refusé la suppression d’un point, qui reste intact\. Rien n’est retenté automatiquement\.<\/div>/);
+ assert.match(content(),/<span>Supprimer ces 2 points…<\/span>/);
+ // Refus à la préparation : affiché sous le bouton, aucune fenêtre ; refus à la validation : il remonte à la fenêtre.
+ refuse='Une restauration est en cours ou à vérifier sur ce volume : aucun point ne peut être supprimé.';await simulate();await click({action:'native-prune'});
+ assert.equal(refusal.textContent,refuse+' Rien n’a été supprimé.');assert.equal(shown,2);
+ refuse='';await click({action:'native-prune'});assert.equal(shown,3);refuse='Plan expiré, déjà exécuté ou appartenant à un autre compte.';
+ await assert.rejects(confirm('SUPPRIMER 2 POINTS DE documents'),/Plan expiré/);refuse='';
+ // Plus de cinquante points : les cinquante plus anciens, et ce qui reste est annoncé ; un seul point : libellés au singulier.
+ leaving=points(120);await simulate();
+ assert.match(result.innerHTML,/<span>Supprimer les 50 plus anciens…<\/span><\/button><span class="muted">120 points sortiraient ; une opération en supprime 50 au plus\.<\/span>/);
+ await click({action:'native-prune'});assert.match(modal.innerHTML,/<h2>Supprimer 50 points de/);assert.equal(posts().at(-1)[1].expected.length,120);
+ answer=await confirm('SUPPRIMER 50 POINTS DE documents');await f.run('renderNative()');
+ assert.match(content(),/50 points supprimés de « Docs &lt;b&gt; »\.<\/strong> Le volume, ses fichiers et les autres points n’ont pas été modifiés\. 70 points sortiraient encore : relancer l’opération pour continuer\./);
+ leaving=points(1);await simulate();assert.match(result.innerHTML,/<span>Supprimer ce point…<\/span>/);await click({action:'native-prune'});
+ assert.match(modal.innerHTML,/<h2>Supprimer un point de « Docs &lt;b&gt; »<\/h2>/);assert.match(modal.innerHTML,/Ce point, et lui seul, sera supprimé du stockage\./);assert.match(modal.innerHTML,/SUPPRIMER 1 POINT DE documents/);
+ // Restauration en cours : aucun point sortant, donc aucun bouton. Suppression non accordée : la raison à la place du bouton.
+ busy=true;await simulate();assert.match(result.innerHTML,/tous ses points sont protégés/);assert.match(result.innerHTML,/<h3>Aucun point ne sortirait<\/h3>/);assert.doesNotMatch(result.innerHTML,/native-prune/);busy=false;
+ keep.deletion=false;leaving=points(2);await f.run('renderNative()');assert.match(content(),/Simulation seulement · aucun point n’est supprimé/);
+ f.elements.set('#native-keep-form',form);await simulate();
+ assert.match(result.innerHTML,/<div class="native-prune-note info"><strong>La suppression n’est pas accordée sur ce matériel\.<\/strong>/);assert.doesNotMatch(result.innerHTML,/data-action="native-prune"/);
+ // Fermer le panneau oublie le bilan et la règle en cours.
+ await click({action:'native-keep-close'});assert.equal(f.run('JSON.stringify([nativeKeepDraft,nativePruneNote,nativeKeepResult])'),'[null,null,null]');
 });
 
 test('native capture schedules show per volume and are set in a dialog that asks for a typed confirmation',async()=>{
