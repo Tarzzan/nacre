@@ -2392,3 +2392,73 @@ test('people page refuses a non administrator and an unreadable answer, and anyo
  assert.deepEqual(h.calls.filter(c=>c[0].endsWith('/password')).at(-1),['/api/account/password',{current:'ancien',password:'nouveau-mot-de-passe'}]);assert.match(h.elements.get('#toast').textContent,/Mot de passe modifié/);
 });
 
+// Liens de partage : création depuis Fichiers, liste et révocation, page publique sans compte.
+const linksSample={days:[1,7,30,90],password_min:8,links:[
+ {id:'a'.repeat(16),name:'Devis <b>.pdf',path:'Offres/Devis <b>.pdf',directory:false,space:'Chantier <i>',by:'camille',created:1794182400,expires:1794787200,expired:false,protected:true,uses:3,last:1794268800},
+ {id:'b'.repeat(16),name:'Plans',path:'Plans',directory:true,space:'Chantier <i>',by:'bruno',created:1794182400,expires:1794182500,expired:true,protected:false,uses:0,last:null}]};
+function linksFixture(role='member',reply){
+ const calls=[],areas=[{id:'espace_c0c0c0c0c0c0',name:'Chantier',writable:true,kind:'team'},{id:'fichiers',name:'Fichiers partagés',writable:false,kind:'local'},{id:'video',name:'Vidéos',writable:true,kind:'local'}];
+ const f=fmFixture(async(url,options)=>{const body=options?.body?JSON.parse(options.body):null;calls.push([url,body]);if(reply){const made=reply(url,body);if(made)return made;}
+  return response(200,url.startsWith('/api/areas')?areas:url.startsWith('/api/files')?{items:fmSample.filter(i=>i&&i.name)}:url==='/api/links'?linksSample:url.endsWith('/create')?{ok:true,url:'/p/'+'t'.repeat(43),expires:1794787200,name:'notes.txt'}:{ok:true});},role);
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/links.js'),'utf8'),f.context);
+ const modal=f.elements.get('#modal');modal.showModal=()=>{modal.open=true;};modal.close=()=>{modal.open=false;};
+ f.context.location.origin='http://nas.test';f.context.went=[];f.run('go=async target=>{went.push(target);page=target;};area="espace_c0c0c0c0c0c0";');
+ f.calls=calls;f.content=()=>String(f.elements.get('#content').innerHTML);
+ f.hit=dataset=>f.listeners.get('click').find(fn=>fn.toString().includes('fm-share'))({target:{closest:selector=>selector==='[data-action]'?{dataset}:null}});
+ f.links=(action,data={})=>f.listeners.get('click').find(fn=>fn.toString().includes('links-revoke'))({target:{closest:()=>({dataset:{action,...data}})}});return f;
+}
+test('one selected element is shared by link only where the person writes, and the new link is shown once',async()=>{
+ const f=linksFixture();await f.run('renderFiles()');
+ f.run('fmSel=new Set(["notes.txt"])');assert.match(f.run('fmBar()'),/data-action="fm-share"[^>]*>.*Partager par lien/);
+ // Espace en lecture, espace vidéo, plusieurs éléments, compte en lecture seule : pas de partage.
+ f.run('area="fichiers"');assert.doesNotMatch(f.run('fmBar()'),/fm-share/);f.run('area="video"');assert.doesNotMatch(f.run('fmBar()'),/fm-share/);
+ f.run('area="espace_c0c0c0c0c0c0";fmSel=new Set(["notes.txt","Docs & co"])');assert.doesNotMatch(f.run('fmBar()'),/fm-share/);
+ f.run('fmSel=new Set(["notes.txt"])');
+ let timers=[];f.context.setTimeout=fn=>{timers.push(fn);return 1;};
+ f.mount();await f.hit({action:'fm-share'});
+ const html=f.elements.get('#modal').innerHTML;
+ assert.match(html,/<h2>Partager par lien<\/h2>/);assert.match(html,/<strong>notes\.txt<\/strong> · fichier/);assert.match(html,/<option value="7" selected>7 jours<\/option>/);assert.match(html,/minlength="8"/);assert.match(html,/n’est affiché qu’une fois/);
+ const before=f.calls.length,result=await f.run('modalSubmit(new Map([["days","30"],["password","un-mot-de-passe"]]))');
+ assert.deepEqual(f.calls.at(-1),['/api/links/create',{area:'espace_c0c0c0c0c0c0',path:'notes.txt',days:30,password:'un-mot-de-passe'}]);assert.equal(f.calls.length,before+1);
+ assert.match(result.message,/Copiez-le maintenant/);assert.equal(f.run('linkFresh.url'),'http://nas.test/p/'+'t'.repeat(43));
+ // La fenêtre passe à l’onglet Liens, où le lien reste affiché jusqu’à ce qu’on le referme.
+ timers.forEach(fn=>fn());assert.deepEqual(JSON.parse(JSON.stringify(f.context.went)),['links']);
+ await f.run('renderLinks()');assert.match(f.content(),/id="link-fresh"[^]*Lien créé pour « notes\.txt »[^]*value="http:\/\/nas\.test\/p\/t{43}"/);
+ await f.links('links-seen');assert.doesNotMatch(f.content(),/link-fresh/);assert.equal(f.run('linkFresh'),null);
+ const g=linksFixture('viewer');await g.run('renderFiles()');g.run('fmSel=new Set(["notes.txt"])');assert.doesNotMatch(g.run('fmBar()'),/fm-share/);
+ g.run('page="links"');await g.run('renderLinks()');assert.match(g.content(),/demandent un compte qui écrit/);assert.ok(!g.calls.some(c=>c[0]==='/api/links'));
+});
+test('links page lists what is shared, shows who created it to an administrator only, and revokes after confirmation',async()=>{
+ const f=linksFixture('admin');f.run('page="links"');await f.run('renderLinks()');
+ let html=f.content();
+ assert.match(html,/1 actif\(s\)/);assert.match(html,/<strong>Devis &lt;b&gt;\.pdf<\/strong><br><small class="muted">Chantier &lt;i&gt; · Offres\/Devis &lt;b&gt;\.pdf<\/small><\/td><td>camille<\/td>/);assert.doesNotMatch(html,/<b>|<i>/);
+ assert.match(html,/<td>Mot de passe<\/td><td>3<br><small class="muted">dernier : /);assert.match(html,/<tr class="link-old">[^]*<span class="badge dim">Dossier<\/span>[^]*<span class="badge warn">Échu<\/span>[^]*Lien seul[^]*>.*Retirer/);
+ assert.match(html,/<th>Créé par<\/th>/);
+ await f.links('links-revoke',{id:'z'.repeat(16)});assert.equal(f.elements.get('#modal').open,false);
+ await f.links('links-revoke',{id:'a'.repeat(16)});assert.match(f.elements.get('#modal').innerHTML,/Révoquer ce lien \?[^]*cesse aussitôt de fonctionner/);
+ const result=await f.run('modalSubmit(new Map())');assert.deepEqual(f.calls.at(-1),['/api/links/revoke',{id:'a'.repeat(16)}]);assert.equal(result.message,'Lien révoqué.');
+ await f.links('links-revoke',{id:'b'.repeat(16)});assert.match(f.elements.get('#modal').innerHTML,/déjà échu/);
+ // Copie : presse-papiers s’il existe, sinon le lien est sélectionné.
+ const input={value:'http://nas.test/p/x',selected:0,select(){this.selected++;}};f.elements.set('#link-url',input);
+ f.context.navigator={clipboard:{writeText:async text=>{f.context.copied=text;}}};await f.links('links-copy');assert.equal(f.context.copied,'http://nas.test/p/x');
+ f.context.navigator={};await f.links('links-copy');assert.equal(input.selected,1);assert.match(f.elements.get('#toast').textContent,/copiez-le au clavier/);
+ // Un membre ne voit pas la colonne de l’auteur ; une réponse illisible est dite.
+ const g=linksFixture('member');g.run('page="links"');await g.run('renderLinks()');assert.doesNotMatch(g.content(),/Créé par/);
+ const h=linksFixture('member',url=>url==='/api/links'?response(200,{links:[{id:7}]}):null);h.run('page="links"');await h.run('renderLinks()');assert.match(h.content(),/Réponse illisible/);
+});
+test('public link page shows a file, a folder, a lock or a refusal, and escapes every name',()=>{
+ const context=vm.createContext({location:{pathname:'/p/'+'t'.repeat(43)},console});
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/public.js'),'utf8'),context);
+ const run=code=>vm.runInContext(code,context);
+ assert.equal(run('pubApi("download","a b/c&d")'),'/api/public/'+'t'.repeat(43)+'/download?path=a%20b%2Fc%26d');
+ let html=run('pubView({name:"Devis <b>.pdf",directory:false,size:2048,expires:1794787200})');
+ assert.match(html,/<h1>Devis &lt;b&gt;\.pdf<\/h1><p>2 Kio<\/p>/);assert.match(html,/href="\/api\/public\/t{43}\/download" download>Télécharger/);assert.match(html,/Disponible jusqu’au/);assert.doesNotMatch(html,/<b>/);
+ html=run('pubView({name:"Plans",directory:true,expires:1794787200,items:[{name:"Étage <i>",directory:true},{name:"façade.png",directory:false,size:10},null,{name:7}]},"Sous dossier")');
+ assert.match(html,/data-pub-path="">Plans<\/button><span aria-hidden="true">›<\/span><button type="button" data-pub-path="Sous dossier">/);
+ assert.match(html,/class="pub-dir" data-pub-path="Sous dossier\/Étage &lt;i&gt;">Étage &lt;i&gt;/);assert.match(html,/download\?path=Sous%20dossier%2Ffa%C3%A7ade\.png" download>Télécharger/);
+ assert.match(html,/\/archive" download>Tout télécharger en archive/);assert.equal((html.match(/<tr>/g)||[]).length,3);assert.doesNotMatch(html,/<i>/);
+ assert.match(run('pubView({name:"Vide",directory:true,expires:1,items:[]})'),/Ce dossier est vide/);
+ html=run('pubLocked({name:"Secret <b>"},"Mot de passe refusé.")');assert.match(html,/id="pub-unlock"/);assert.match(html,/Secret &lt;b&gt;/);assert.match(html,/role="alert">Mot de passe refusé\./);
+ html=run('pubGone()');assert.match(html,/Lien indisponible/);assert.match(html,/n’existe pas ou n’est plus valable/);assert.match(run('pubGone("<x>")'),/&lt;x&gt;/);
+});
+

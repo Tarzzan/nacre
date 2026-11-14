@@ -1,6 +1,15 @@
 # Déploiements de la console sur Spark
 
-## 14 novembre 2026 — alpha.51, alerte du volume vidéo
+## 14 novembre 2026 — alpha.52, personnes, groupes et espaces
+
+L’installation alpha.51 a reçu le paquet `nacre-0.8.0-alpha.52.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.52), construit depuis le commit [`dc9d843`](https://github.com/Tarzzan/nacre/commit/dc9d843c8063b1ab44cbbd17f30e8a6d26fb58c1) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
+
+Avant l’import : neuf modules figés identiques, aucune tâche active, répétition isolée alpha.51 → alpha.52 réussie. Fichier importé identique à celui de la release, empreinte contrôlée ; session administrateur temporaire refermée ; installation confirmée depuis la fenêtre Réglages du bureau et suivie jusqu’à **Mise à jour réussie**, session conservée.
+
+Validation enregistrée à 15 h 50 min 46 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Constaté en nombres seulement : un seul compte, administrateur, inchangé ; aucun groupe, aucun espace d’équipe ; espace commun en lecture pour d’éventuels membres ; l’administrateur voit ses cinq espaces, dont **son espace personnel, créé par ce contrôle** à la première lecture de la liste (un réglage et un dossier vide, comme à sa première ouverture de Fichiers) ; l’espace commun présente toujours son unique élément ; huit applications dans le dock. **Aucun compte n’a été créé ici** : le parcours d’un membre est prouvé sur le banc et par les essais.
+
 
 L’installation alpha.50 a reçu le paquet `nacre-0.8.0-alpha.51.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.51), construit depuis le commit [`b800419`](https://github.com/Tarzzan/nacre/commit/b8004198895f99727c0f368b6c966f26f5ba912b) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
 
