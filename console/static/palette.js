@@ -1,7 +1,7 @@
 'use strict';
 // Recherche globale du bureau (Ctrl+K) : applications, onglets, réglages nommés comme on les cherche,
 // caméras et espaces de fichiers. Elle ouvre une page et ne modifie rien ; pour un nom de fichier, elle passe la main à Fichiers.
-const PALETTE_MAX=8;
+const PALETTE_MAX=9;
 // [libellé, page, mots associés] : ce que l’on tape rarement comme le titre de la page.
 const PALETTE_TOPICS=[
  ['Fuseau horaire','settings','heure horloge utc date'],['Nom du NAS','settings','renommer identité'],['Sessions de la console','settings','déconnecter connexions appareils'],

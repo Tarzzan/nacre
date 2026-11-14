@@ -1,5 +1,13 @@
 # Déploiements de la console sur Spark
 
+## 14 novembre 2026 — alpha.61, suite bureautique
+
+L’installation alpha.60 a reçu le paquet `nacre-0.8.0-alpha.61.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.61), par le même [parcours de mise à jour](BROWSER-UPDATES.md) : neuf modules figés identiques, répétition isolée alpha.60 → alpha.61 réussie, fichier importé identique à celui de la release, installation confirmée depuis la fenêtre Réglages et suivie jusqu’à **Mise à jour réussie**.
+
+Validation enregistrée à 19 h 59 min 31 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Constaté en lecture seule : **aucune suite n’est raccordée**, aucun format n’est proposé, la politique de sécurité des pages n’autorise l’envoi de formulaire que vers Nacre lui-même ; un jeton inconnu sur la route de la suite répond 401. **Aucun conteneur n’a été installé ici** : raccorder une suite est une décision de son propriétaire. L’ouverture, l’enregistrement, les versions et le conflit sont prouvés sur le banc, avec une vraie suite, et par les essais.
+
 ## 14 novembre 2026 — alpha.60, éditeur de texte et Markdown
 
 L’installation alpha.59 a reçu le paquet `nacre-0.8.0-alpha.60.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.60), par le même [parcours de mise à jour](BROWSER-UPDATES.md) : neuf modules figés identiques, répétition isolée alpha.59 → alpha.60 réussie, fichier importé identique à celui de la release, installation confirmée depuis la fenêtre Réglages et suivie jusqu’à **Mise à jour réussie**.

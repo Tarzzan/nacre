@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.62 — Photos
+
+Cinquième brique de l’espace collaboratif. Une application **Photos** réunit les images de tous les espaces que l’on peut lire et les range par date de prise de vue, **sans rien copier ni déplacer**. Un clic ouvre la photo en grand, avec sa date, son emplacement et l’appareil ; **Voir dans Fichiers** ouvre son dossier. Depuis le téléphone, **Ajouter des photos** dépose la pellicule dans l’espace personnel, rangée par mois, et **renvoyer les mêmes photos ne crée pas de doublon**. Chacun ne voit que ses espaces : l’index est commun, la réponse ne l’est jamais. Aucune bibliothèque d’images : Nacre lit la date et l’orientation au début du fichier et montre la vignette que l’appareil y a glissée. La recherche rapide montre désormais les neuf applications. Guide : [`docs/PHOTOS.md`](docs/PHOTOS.md).
+
 ## 0.8.0-alpha.61 — Suite bureautique
 
 Quatrième brique de l’espace collaboratif, second temps. Nacre se raccorde à une **suite bureautique en conteneur** (Collabora Online, protocole WOPI) : traitement de texte, tableur et présentations s’ouvrent depuis **Fichiers**, dans un nouvel onglet. **Nacre garde les fichiers, les droits et les versions ; la suite les édite.** Chaque enregistrement garde l’ancien contenu comme version, un fichier modifié ailleurs n’est pas écrasé sans qu’on le demande, et **Nouveau document** propose désormais, dans une seule fenêtre, texte, Markdown, texte bureautique et classeur. La suite ne reçoit ni mot de passe ni session : un jeton limité à un fichier, à une personne et à huit heures, les droits étant revérifiés à chaque appel. Un administrateur lance la suite et la déclare dans **Réglages → Suite bureautique** ; Nacre ne l’installe pas. Sans suite raccordée, rien ne change. Guide : [`docs/EDITOR.md`](docs/EDITOR.md).

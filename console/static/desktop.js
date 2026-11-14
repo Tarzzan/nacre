@@ -4,6 +4,7 @@
 // L’affichage classique reste disponible, au choix de chaque navigateur.
 const DESK_APPS=[
  {id:'files',name:'Fichiers',pages:[['files','Parcourir'],['trash','Corbeille'],['links','Liens','write']]},
+ {id:'photos',name:'Photos',pages:[['photos','Photos']]},
  {id:'cam',name:'Surveillance',pages:[['camera','Caméras']],views:[['wall','Mur'],['events','Événements'],['replay','Relecture'],['settings','Réglages']]},
  {id:'storage',name:'Stockage',pages:[['storage','Disques'],['native','Volumes et snapshots']]},
  {id:'protect',name:'Protection',pages:[['backups','Sauvegardes'],['snapshots','Points de restauration'],['retention','Conservation',true]]},
@@ -12,9 +13,9 @@ const DESK_APPS=[
  {id:'activity',name:'Activité',pages:[['alerts','Alertes',true],['events','Journal']]},
  {id:'me',name:'Mon compte',pages:[['account','Mon compte']]}];
 // Un membre n’ouvre que ses fichiers et son compte ; la surveillance s’ajoute si elle lui est ouverte.
-const DESK_MEMBER=['files','me'];
+const DESK_MEMBER=['files','photos','me'];
 const DESK_ICONS={
- files:'<path d="M3 7h6l2 2h10v10H3z"/>',cam:'<path d="M3 8h12v8H3zM15 11l6-3v8l-6-3"/>',
+ files:'<path d="M3 7h6l2 2h10v10H3z"/>',photos:'<path d="M3 5h18v14H3z"/><circle cx="8.5" cy="10" r="1.5"/><path d="M4 17l5-4 4 3 3-2 4 3"/>',cam:'<path d="M3 8h12v8H3zM15 11l6-3v8l-6-3"/>',
  storage:'<path d="M4 5h16v14H4zM4 14h16M8 17h.01"/>',protect:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
  share:'<circle cx="8" cy="8" r="3"/><path d="M2 20c0-3.5 2.5-6 6-6s6 2.500 6 6M16 5a3 3 0 010 6M17 14c3 0 5 2.5 5 6"/>',
  settings:'<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
@@ -75,10 +76,18 @@ function deskApply(intent){
  if(!intent||typeof intent!=='object')return;
  if(intent.view)for(const app of DESK_APPS)if(app.views?.some(v=>v[0]===intent.view)&&(!intent.app||intent.app===app.id))deskViews[app.id]=intent.view;
  if(intent.camera&&typeof survOpenCamera==='function'){selectedCamera=String(intent.camera);survFocus=true;deskViews.cam='wall';}
- if(intent.area){area=String(intent.area);currentPath='';}
+ if(intent.area){area=String(intent.area);currentPath=typeof intent.path==='string'?intent.path:'';
+  if(typeof intent.select==='string'&&typeof fmSel!=='undefined'){fmSel=new Set([intent.select]);fmLast=intent.select;}}
  if(intent.find&&typeof fmQueue==='function')fmQueue(intent.find);
  else if((intent.big||intent.weigh||intent.spaces)&&typeof fmQueue==='function')fmQueue('',!!intent.big,!!intent.weigh,!!intent.spaces);
 }
+// Depuis une autre fenêtre : montrer un fichier dans Fichiers, sélectionné dans son dossier.
+function deskReveal(space,folder,name){
+ if(deskEmbedded())return void deskParent('deskChildReveal',space,folder,name);
+ if($('#dk-wins'))return void deskOpenPage('files',{area:space,path:folder,select:name});
+ deskApply({area:space,path:folder,select:name});return go('files');
+}
+function deskChildReveal(child,space,folder,name){if(deskByChild(child))deskOpenPage('files',{area:String(space),path:String(folder),select:String(name)});}
 function deskTabs(win){
  const app=DESK_APPS.find(a=>a.id===win.app),pages=deskPages(app),views=app.views&&pages.length===1?app.views:null;
  return views?views.map(([v,label])=>`<button type="button" role="tab" data-action="desk-view" data-app="${app.id}" data-view="${v}" aria-selected="${v===(win.view||views[0][0])}">${label}</button>`).join(''):pages.length<2?'':pages.map(([p,label])=>`<button type="button" role="tab" data-action="desk-tab" data-app="${app.id}" data-target="${p}" aria-selected="${p===win.page}">${label}</button>`).join('');
