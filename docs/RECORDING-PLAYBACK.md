@@ -61,6 +61,57 @@ Ce qu’il faut savoir :
 - **Les deux heures ou aucune** : une tranche à moitié remplie, ou dont le début égale la fin, est refusée avant toute recherche.
 - **Période très chargée** : au-delà de dix mille événements, les compteurs portent sur les plus récents ; la suite reste accessible, et une page de suite peut alors n’ajouter aucun événement de la tranche avant la suivante.
 
+## Conserver un extrait
+
+Depuis **0.8.0-alpha.49**, un extrait peut être mis à l’abri de l’effacement automatique.
+
+1. Lire l’extrait dans la relecture, depuis la frise, une heure ou un événement.
+2. Sous le lecteur, **Conserver cet extrait** (administrateurs). La fenêtre rappelle le jour, les heures et la durée de ce qui sera gardé, et propose un **nom facultatif** pour le retrouver.
+3. Sous la recherche, la carte **Passages conservés** liste ceux de la caméra choisie, du plus récent au plus ancien : **Lire**, **Télécharger**, **Retirer**.
+
+![Passages conservés sur le banc de démonstration](images/kept-passages.jpg)
+
+*Banc local : la vidéo est une mire synthétique.*
+
+Ce qu’il faut savoir :
+
+- **C’est une copie à part.** Le service vidéo (Frigate) copie l’extrait dans son dossier d’exports. Ni la durée de conservation ni le nettoyage d’un volume plein n’y touchent. Nacre ne lit ni n’écrit lui-même aucun fichier vidéo.
+- **Elle occupe de la place** sur le volume vidéo tant qu’elle n’est pas retirée. Son poids est affiché, et le total figure dans [Stockage vidéo](#stockage-vidéo-et-autonomie).
+- **Cinq minutes au plus**, comme tout extrait de la relecture. Pour un passage plus long : **Suite**, puis conserver l’extrait suivant.
+- **La copie se termine en arrière-plan.** La ligne porte « Copie en cours » quelques secondes ; la liste se relit d’elle-même quelques fois, puis **Actualiser**.
+- **Retirer supprime la copie définitivement**, après confirmation. Si l’enregistrement d’origine a déjà été effacé, il n’en reste rien.
+- **Un compte en lecture seule** lit et télécharge les passages conservés ; il ne peut ni en conserver ni en retirer.
+- **500 passages au plus par caméra.** Au-delà, il faut en retirer.
+- **Les exports faits ailleurs** (dans l’interface de Frigate) apparaissent aussi, puisqu’ils occupent le même volume ; seule leur date de début est connue.
+- **Pourquoi pas le marquage « à conserver » de Frigate.** Lu dans le code de Frigate 0.18.2 : ce marquage garde la fiche et la vignette d’un événement, mais sa vidéo suit quand même la durée de conservation. Seule une copie met la vidéo à l’abri.
+
+## Stockage vidéo et autonomie
+
+Depuis **0.8.0-alpha.49**, **Surveillance → Réglages** comporte une carte **Stockage vidéo**, commune à toutes les caméras.
+
+| Indication | Signification |
+| --- | --- |
+| **Autonomie** | Temps d’enregistrement que l’espace libre représente au débit actuel, toutes caméras actives confondues. |
+| **Espace libre** | Espace libre et taille du volume qui porte les enregistrements. |
+| **Débit d’enregistrement** | Débit mesuré par Frigate sur les derniers segments de chaque caméra, par jour. |
+| **Enregistrements** | Place prise par les enregistrements de toutes les caméras. |
+| **Passages conservés** | Nombre et poids des copies gardées à part. |
+
+Quatre états :
+
+- **Espace suffisant** : l’espace libre couvre la durée de conservation réglée.
+- **Conservation hors de portée** : la durée réglée demande plus de place que le volume n’en offre. La carte dit jusqu’où les enregistrements remontent réellement au débit actuel.
+- **Volume plein** : il reste moins d’une heure d’enregistrement.
+- **Débit non mesuré** : Frigate n’a pas encore de mesure ; l’autonomie n’est pas estimée.
+
+**Ce qui se passe quand le volume est plein.** L’enregistrement ne s’arrête pas. Lu dans Frigate 0.18.2 : dès qu’il reste moins d’une heure d’enregistrement d’espace libre, il efface les enregistrements les plus anciens, environ une heure à la fois. Les passages conservés ne sont pas concernés.
+
+Limites :
+
+- **C’est une estimation.** Le débit varie avec l’activité, et le calcul porte sur l’enregistrement continu ; les passages que Frigate garde plus longtemps autour des événements ne sont pas prévus.
+- **Volume partagé.** Si le volume reçoit d’autres fichiers, ils réduisent l’autonomie sans que cette carte sache lesquels.
+- **Pas d’alerte dédiée.** L’alerte d’espace existante porte sur le volume de Nacre, à 90 % puis 97 %.
+
 ## Ce que montrent les indications
 
 | Indication | Origine et portée |

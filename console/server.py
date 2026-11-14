@@ -351,6 +351,21 @@ def video_put(path, payload, timeout=10):
         raise Problem('La vidéo est temporairement indisponible.', 503)
 
 
+def video_post(path, payload, timeout=15):
+    """Envoi au service vidéo : (code, réponse), y compris quand il refuse, pour pouvoir expliquer le refus."""
+    request = Request(f'http://{video_ip()}:5000' + path, data=json.dumps(payload).encode(), method='POST', headers={'Content-Type': 'application/json'})
+    try:
+        with urlopen(request, timeout=timeout) as response:
+            return response.status, json.load(response)
+    except HTTPError as error:
+        try:
+            return error.code, json.load(error)
+        except (ValueError, OSError):
+            return error.code, {}
+    except (URLError, TimeoutError, OSError, ValueError):
+        raise Problem('La vidéo est temporairement indisponible.', 503)
+
+
 @contextmanager
 def video_socket(refusal):
     """Canal de commande interne de Frigate, ouvert le temps d’un envoi."""
@@ -624,7 +639,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise Problem('Ce lien de connexion a expiré ou a déjà été utilisé.', 401)
                 session_token, _ = make_session('admin')
                 return self.reply(303, b'', extra={'Location': '/', 'Set-Cookie': f'nas_session={session_token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800'})
-            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/timezone.js', '/desktop.js', '/desk-prefs.js', '/bell.js', '/palette.js', '/updates.js', '/components.js', '/playback.js', '/detection.js', '/surveillance.js', '/files.js', '/search.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
+            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/timezone.js', '/desktop.js', '/desk-prefs.js', '/bell.js', '/palette.js', '/updates.js', '/components.js', '/playback.js', '/detection.js', '/surveillance.js', '/kept.js', '/files.js', '/search.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
                 path = STATIC / ('index.html' if url.path == '/' else url.path[1:])
                 return self.reply(200, path.read_bytes(), mimetypes.guess_type(path)[0] or 'text/plain')
             if post and url.path == '/api/login':
@@ -775,6 +790,9 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == '/api/cameras':
                 from cameras import listing
                 return self.reply(200,listing(sys.modules[__name__]))
+            if url.path == '/api/cameras/storage':
+                from kept import storage
+                return self.reply(200,storage(sys.modules[__name__]))
             if url.path.startswith('/api/camera/'):
                 from cameras import identifier
                 camera_id=identifier(sys.modules[__name__],query.get('camera','tapo'))
@@ -818,6 +836,15 @@ class Handler(BaseHTTPRequestHandler):
                 from playback import thumbnail, THUMBNAIL_MAX
                 with video_get(thumbnail(sys.modules[__name__], camera_id, query.get('id'))) as response:
                     return self.reply(200, response.read(THUMBNAIL_MAX), 'image/jpeg')
+            if url.path == '/api/camera/kept':
+                from kept import listing
+                return self.reply(200, listing(sys.modules[__name__], camera_id))
+            if url.path == '/api/camera/kept-video':
+                from kept import video
+                upstream, filename = video(sys.modules[__name__], camera_id, query)
+                if filename:
+                    audit(session['name'], 'Téléchargement d’un passage conservé', filename)
+                return self.proxy_stream(upstream, 'video/mp4', filename)
             if url.path == '/api/camera/clip':
                 from playback import clip
                 upstream, filename = clip(sys.modules[__name__], camera_id, query)
@@ -869,6 +896,9 @@ class Handler(BaseHTTPRequestHandler):
             if route == '/api/cameras/add':
                 from cameras import submit
                 return submit(sys.modules[__name__],body,user)
+            if route in ('/api/camera/keep','/api/camera/unkeep'):
+                import kept
+                return (kept.keep if route.endswith('/keep') else kept.remove)(sys.modules[__name__],body,user)
             if route == '/api/camera/detection':
                 from detection import apply
                 return apply(sys.modules[__name__],body,user)

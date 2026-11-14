@@ -679,7 +679,7 @@ test('opening view distinguishes unrestricted empty ongoing and repeated local h
 
 function cameraFixture(fetch){
  const f=fixture(fetch);
- for(const name of ['components.js','playback.js','detection.js','search.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static',name),'utf8'),f.context);
+ for(const name of ['components.js','kept.js','playback.js','detection.js','search.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static',name),'utf8'),f.context);
  f.run('user={name:"admin",role:"admin"};shell();page="camera";');return f;
 }
 const cameraSamples=[{id:'entry',name:'Entrée',enabled:true,status:'receiving',online:true,fps:5,observed_at:1700000000,days:3},
@@ -703,7 +703,7 @@ test('only the selected camera opens a live stream and returning removes it imme
  const calls=[],f=cameraFixture(async url=>{calls.push(url);return response(200,url==='/api/cameras'?cameraSamples:url.includes('/info')?{features:['pt']}:url.includes('/settings')?{days:3,enabled:true}:[]);});
  f.run('selectedCamera="entry";cameraDetail=true;');await f.run('renderSurveillance()');
  assert.match(f.elements.get('#content').innerHTML,/src="\/api\/camera\/live\?camera=entry"/);
- assert.equal(calls.filter(u=>u.startsWith('/api/camera/')).length,4);
+ assert.equal(calls.filter(u=>u.startsWith('/api/camera/')).length,5);
  assert.ok(calls.slice(1).every(u=>u.endsWith('?camera=entry')));
  f.run('cameraDetail=false;');const pending=f.run('renderSurveillance()');
  assert.doesNotMatch(f.elements.get('#content').innerHTML,/<img/);await pending;
@@ -1602,7 +1602,7 @@ test('camera detail shows the search card without searching, and keeps results a
 const survCameras=[...cameraSamples.slice(0,3),{id:'yard',name:'Cour <b>nord</b>',enabled:true,status:'receiving',online:true,fps:5,observed_at:1700000000,days:2}];
 function survFixture(fetch,role='admin'){
  const f=deskFixture(fetch,role);
- for(const name of ['components.js','playback.js','detection.js','search.js','palette.js','surveillance.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static',name),'utf8'),f.context);
+ for(const name of ['components.js','kept.js','playback.js','detection.js','search.js','palette.js','surveillance.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static',name),'utf8'),f.context);
  f.run('shell();page="camera";deskSync();played=[];playbackPlay=t=>{played.push(["play",t]);};playbackOpen=async(day,start,end)=>{played.push(["open",day,start,end]);};');
  f.content=()=>String(f.elements.get('#content').innerHTML);f.act=(action,data={},extra={})=>f.listeners.get('click').at(-1)({target:{closest:()=>({dataset:{action,...data},...extra})},clientX:extra.x??0});return f;
 }
@@ -1756,7 +1756,7 @@ test('replay draws one row per camera for the day and a click on a row plays tha
 test('settings gather detection, retention and connection for the chosen camera, without buttons for a reader',async()=>{
  const calls=[],f=survFixture(survReply(calls));f.run('deskSetView("cam","settings");selectedCamera="yard";');await f.run('renderCamera()');
  let html=f.content();
- assert.deepEqual(calls.slice(-2).sort(),['/api/camera/detection?camera=yard','/api/camera/settings?camera=yard']);
+ assert.deepEqual(calls.slice(-3).sort(),['/api/camera/detection?camera=yard','/api/camera/settings?camera=yard','/api/cameras/storage']);
  assert.match(html,/id="camera-select"/);assert.match(html,/<option value="yard" selected>/);assert.match(html,/Conservation continue : <strong>3 jour\(s\)<\/strong>/);
  assert.match(html,/data-action="camera-settings"/);assert.match(html,/data-action="camera-edit"/);assert.doesNotMatch(html,/camera\/live|style=/);assert.equal(f.run('cameraDetail'),true);
  const g=survFixture(survReply([]),'viewer');g.run('deskSetView("cam","settings");');await g.run('renderCamera()');
@@ -2197,4 +2197,104 @@ test('open windows, their place and size come back after a reload, without touch
  // Un compte en lecture seule ne retrouve pas une fenêtre qu'il ne peut plus ouvrir, et chaque compte a sa mémoire.
  const g=prefFixture(undefined,'viewer');g.run('user.name="reader";');g.store['nacre-windows:reader']=JSON.stringify({wins:[{app:'settings',page:'settings'},{app:'activity',page:'events'}]});g.store['nacre-windows:admin']=JSON.stringify({wins:[{app:'files',page:'files'}]});
  g.run('shell();');g.arm();assert.equal(g.run('deskRestore()'),1);assert.deepEqual(g.wins().map(w=>w[0]),['activity']);
+});
+
+// Passages conservés : copie à part d’un extrait, et autonomie du volume vidéo.
+const keptSample={camera:'entry',timezone:'UTC',size:7500000,more:false,keep_max:300,name_max:60,items:[
+ {id:'entry_b',start:dayStart+7200,end:dayStart+7320,name:'Livraison <b>colis</b>',pending:false,size:7500000,day:'2026-11-08'},
+ {id:'entry_a',start:dayStart+3600,end:null,name:'',pending:true,size:null,day:'2026-11-08'}]};
+function keptFixture(reply,role='admin'){
+ const calls=[],f=cameraFixture(async(url,options)=>{const body=options?.body?JSON.parse(options.body):null;calls.push([url,body]);return reply(url,body);});
+ const modal=f.elements.get('#modal');modal.showModal=()=>{modal.open=true;};modal.close=()=>{modal.open=false;};
+ f.run(`user={name:"x",role:"${role}"};selectedCamera="entry";cameraDetail=true;playbackData=${JSON.stringify(playbackSample)};`);
+ f.calls=calls;f.click=dataset=>f.listeners.get('click').find(fn=>fn.toString().includes('kept-keep'))({target:{closest:()=>({dataset})}});
+ return f;
+}
+test('kept passages list what is kept, play a copy and remove it only after confirmation',async()=>{
+ let listed=keptSample;const f=keptFixture(url=>url.startsWith('/api/camera/kept?')?response(200,listed):response(200,{ok:true}));
+ const list={innerHTML:''},player={innerHTML:'',scrollIntoView(){}};f.elements.set('#kept-list',list);f.elements.set('#kept-player',player);
+ let html=f.run('keptCard()');
+ assert.match(html,/<h2>Passages conservés<\/h2>/);assert.match(html,/Recherche des passages conservés/);assert.match(html,/ni la durée de conservation ni un volume plein/);
+ let timers=0;f.context.setTimeout=()=>{timers++;return 1;};
+ await f.run('keptLoad()');html=list.innerHTML;
+ assert.deepEqual(f.calls,[['/api/camera/kept?camera=entry',null]]);
+ assert.match(html,/2 passages conservés · 7,2 Mio/);assert.match(html,/Livraison &lt;b&gt;colis&lt;\/b&gt;/);assert.doesNotMatch(html,/<b>colis/);
+ assert.match(html,/dimanche 8 novembre, 02:00:00 → 02:02:00/);assert.match(html,/<td>2 min<\/td><td>7,2 Mio<\/td>/);
+ assert.match(html,/href="\/api\/camera\/kept-video\?camera=entry&id=entry_b&download=1" download/);
+ // Une copie en cours n’offre aucune action, et la liste est relue un peu plus tard.
+ assert.match(html,/<strong>Extrait<\/strong>[^]*<td>—<\/td><td>—<\/td><td><span class="badge dim" role="status">Copie en cours<\/span><\/td>/);
+ assert.equal((html.match(/data-action="kept-play"/g)||[]).length,1);assert.equal(timers,1);
+ await f.click({action:'kept-play',id:'entry_a'});assert.equal(player.innerHTML,'');
+ await f.click({action:'kept-play',id:'entry_b'});
+ assert.match(player.innerHTML,/<video class="recordvideo" id="kept-video" controls autoplay playsinline src="\/api\/camera\/kept-video\?camera=entry&id=entry_b">/);
+ // Retirer : fenêtre de confirmation, puis une seule demande.
+ await f.click({action:'kept-remove',id:'entry_a'});assert.equal(f.elements.get('#modal').open,false);
+ await f.click({action:'kept-remove',id:'entry_b'});
+ assert.match(f.elements.get('#modal').innerHTML,/Retirer ce passage conservé \?/);assert.match(f.elements.get('#modal').innerHTML,/supprimée définitivement/);
+ assert.equal(f.calls.length,1);
+ const result=await f.run('modalSubmit(new Map())');
+ assert.deepEqual(f.calls.at(-1),['/api/camera/unkeep',{camera:'entry',id:'entry_b',confirm:true}]);assert.equal(result.message,'Passage retiré.');
+ // Liste vide, réponse illisible, autre caméra.
+ listed={...keptSample,items:[],size:0};timers=0;await f.run('keptLoad()');assert.match(list.innerHTML,/Aucun passage conservé\. Lisez un extrait/);assert.equal(timers,0);
+ listed={camera:'entry',items:'x'};await f.run('keptLoad()');assert.match(list.innerHTML,/class="notice neutral">Réponse illisible/);
+ f.run('selectedCamera="garage"');assert.match(f.run('keptCard()'),/Recherche des passages conservés/);assert.equal(f.run('keptData'),null);
+});
+test('a reader plays and downloads kept passages without keep or remove buttons',async()=>{
+ const f=keptFixture(()=>response(200,keptSample),'viewer');
+ const list={innerHTML:''};f.elements.set('#kept-list',list);
+ await f.run('keptLoad()');
+ assert.match(list.innerHTML,/data-action="kept-play"/);assert.doesNotMatch(list.innerHTML,/kept-remove/);
+ assert.equal(f.run('keptAction()'),'');
+ const player={innerHTML:''};f.elements.set('#playback-player',player);f.run(`playbackShow({start:${dayStart+3700},end:${dayStart+3760}})`);
+ assert.match(player.innerHTML,/Télécharger cet extrait/);assert.doesNotMatch(player.innerHTML,/kept-keep/);
+ f.run('keptData={camera:"entry",items:[],size:0}');assert.match(f.run('keptList(keptData)'),/Aucun passage conservé pour cette caméra\./);
+});
+test('the extract being played is kept after a window naming exactly what will be copied',async()=>{
+ let refuse='';const f=keptFixture(url=>refuse&&url.endsWith('/keep')?response(409,{error:refuse}):response(200,{ok:true,id:'entry_c'}));
+ const player={innerHTML:''};f.elements.set('#playback-player',player);
+ // Sans extrait en lecture, rien n’est proposé à conserver.
+ f.run('playbackClip=null');await f.click({action:'kept-keep'});assert.equal(f.elements.get('#modal').open,false);assert.match(f.elements.get('#toast').textContent,/Lisez d’abord un extrait/);
+ f.run(`playbackShow({start:${dayStart+3700.4},end:${dayStart+3760}})`);
+ assert.match(player.innerHTML,/data-action="kept-keep"[^>]*>.*Conserver cet extrait/);
+ await f.click({action:'kept-keep'});
+ const html=f.elements.get('#modal').innerHTML;
+ assert.match(html,/<h2>Conserver cet extrait<\/h2>/);assert.match(html,/dimanche 8 novembre, 01:01:40 → 01:02:40<\/strong> · 1 min/);
+ assert.match(html,/name="name" type="text" maxlength="60"/);assert.doesNotMatch(html,/name="name"[^>]*required/);assert.match(html,/occupe de la place tant que vous ne la retirez pas/);
+ assert.equal(f.calls.length,0);
+ const result=await f.run('modalSubmit(new Map([["name","Portail"]]))');
+ assert.deepEqual(f.calls,[['/api/camera/keep',{camera:'entry',start:dayStart+3700.4,end:dayStart+3760,name:'Portail'}]]);
+ assert.equal(result.message,'Extrait conservé. La copie se termine en arrière-plan.');
+ // Un refus du serveur reste dans la fenêtre : la relecture n’est pas déplacée.
+ refuse='Cet extrait est déjà conservé.';await assert.rejects(f.run('modalSubmit(new Map())'),/déjà conservé/);
+ assert.deepEqual(f.calls.at(-1)[1].name,'');
+});
+test('keeping from the desktop resumes the same extract once the page is redrawn',async()=>{
+ const calls=[],f=survFixture(async(url,options)=>{calls.push(url);return url.endsWith('/keep')?response(200,{ok:true}):survReply([])(url);});
+ const modal=f.elements.get('#modal');modal.showModal=()=>{};modal.close=()=>{};
+ f.run(`selectedCamera="entry";cameraDetail=true;playbackData=${JSON.stringify(playbackSample)};playbackClip={start:${dayStart+3700},end:${dayStart+3760}};keptAsk();`);
+ await f.run('modalSubmit(new Map())');
+ assert.deepEqual(JSON.parse(f.run('JSON.stringify(survPending)')),{day:'2026-11-08',start:dayStart+3700});
+ // La vue Relecture du bureau présente la carte et relit la liste.
+ calls.length=0;f.run('deskSetView("cam","replay");');await f.run('renderCamera()');
+ assert.match(f.content(),/id="kept"/);assert.ok(f.content().indexOf('id="search"')<f.content().indexOf('id="kept"'));
+ assert.ok(calls.includes('/api/camera/kept?camera=entry'));
+});
+test('video storage states its autonomy, and says so when it cannot be measured',()=>{
+ const f=keptFixture(()=>response(200,{}));
+ const gib=1024**3,base={available:true,total:3755*gib,free:2791*gib,recorded:41*gib,rate:1.7*gib,hours:1638.1,needed:41*gib,reach_days:null,kept:{count:2,size:15*1024**2},state:'ample',cameras:[]};
+ let html=f.run(`keptStorageCard(${JSON.stringify(base)})`);
+ assert.match(html,/id="video-storage"><h2>Stockage vidéo<\/h2>/);assert.match(html,/<span class="badge ">Espace suffisant<\/span>/);
+ assert.match(html,/<dt>Autonomie<\/dt><dd>environ 68 jours<\/dd>/);assert.match(html,/<dt>Espace libre<\/dt><dd>2,7 Tio sur 3,7 Tio<\/dd>/);
+ assert.match(html,/<dt>Débit d’enregistrement<\/dt><dd>40,8 Gio par jour<\/dd>/);assert.match(html,/<dt>Passages conservés<\/dt><dd>2 · 15 Mio<\/dd>/);
+ assert.match(html,/<progress class="vs-bar" max="100" value="26" aria-label="Volume vidéo occupé à 26 %">/);assert.match(html,/l’enregistrement continue en effaçant les plus anciens/);
+ html=f.run(`keptStorageCard(${JSON.stringify({...base,state:'short',hours:30.2,reach_days:10.5})})`);
+ assert.match(html,/<span class="badge warn">Conservation hors de portée<\/span>/);assert.match(html,/remontent à environ 10,5 jours/);assert.match(html,/<dd>environ 30 heures<\/dd>/);
+ html=f.run(`keptStorageCard(${JSON.stringify({...base,state:'full',hours:0.4})})`);
+ assert.match(html,/<span class="badge alert">Volume plein<\/span>/);assert.match(html,/les passages conservés ne sont pas touchés/);assert.match(html,/<dd>environ 1 heure<\/dd>/);
+ html=f.run(`keptStorageCard(${JSON.stringify({...base,state:'unknown',rate:null,hours:null,needed:null})})`);
+ html=f.run(`keptStorageCard(${JSON.stringify({...base,state:'unknown',rate:null,hours:null,needed:null,kept:{count:0,size:0}})})`);
+ assert.match(html,/Débit non mesuré/);assert.match(html,/<dt>Passages conservés<\/dt><dd>aucun<\/dd>/);assert.match(html,/<dt>Autonomie<\/dt><dd>—<\/dd>/);assert.match(html,/<dt>Débit d’enregistrement<\/dt><dd>—<\/dd>/);
+ for(const bad of ['null','{"available":false}',JSON.stringify({...base,state:'x'}),JSON.stringify({...base,free:'<b>'}),JSON.stringify({...base,kept:null})]){
+  html=f.run(`keptStorageCard(${bad})`);assert.match(html,/Mesures indisponibles/);assert.doesNotMatch(html,/<b>|vs-bar/);
+ }
 });

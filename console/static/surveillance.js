@@ -162,20 +162,22 @@ async function survReplay(cameras,current){
  if(!current()||selectedCamera!==id)return;
  playbackData=data&&Array.isArray(data.intervals)?data:null;if(playbackData)playbackDay=playbackData.day;
  $('#content').innerHTML=heading('Revoir un moment.','Choisissez une caméra et un jour, puis cliquez sur la frise.')+survSelect(cameras)+
-  `<div class="camera-grid">${playbackCard(playbackData)}${cameras.length>1?'<section class="card wide cardpad" id="surv-rows"><p role="status">Chargement des autres caméras…</p></section>':''}${searchCard()}</div>`;
+  `<div class="camera-grid">${playbackCard(playbackData)}${cameras.length>1?'<section class="card wide cardpad" id="surv-rows"><p role="status">Chargement des autres caméras…</p></section>':''}${searchCard()}${keptCard()}</div>`;
+ keptLoad().catch(()=>{});
  if(pending&&playbackData?.day===pending.day){if(pending.end===undefined)playbackPlay(pending.start);else await playbackOpen(pending.day,pending.start,pending.end);}
  if(cameras.length>1&&playbackData)survRows(cameras,playbackData.day,current).catch(error=>{if(error.name!=='AbortError')toast(error.message,true);});
 }
 async function survSettings(cameras,add,current){
  const id=selectedCamera,camera=cameras.find(c=>c.id===id),suffix=cameraQuery();
  cameraDetail=true;
- const results=await Promise.allSettled([api('camera/settings'+suffix),api('camera/detection'+suffix)]);
+ const results=await Promise.allSettled([api('camera/settings'+suffix),api('camera/detection'+suffix),api('cameras/storage')]);
  if(!current()||selectedCamera!==id)return;
  cameraSettings=results[0].status==='fulfilled'?results[0].value:camera;
  detectionData=detectionValid(results[1].status==='fulfilled'?results[1].value:null);
+ const storage=results[2].status==='fulfilled'?results[2].value:null;
  const admin=user.role==='admin';
  $('#content').innerHTML=heading('Régler chaque caméra.','Détection, conservation et connexion de la caméra choisie.',add)+survSelect(cameras)+
-  `<div class="camera-grid">${detectionCard(detectionData)}<section class="card wide cardpad"><h2>Enregistrement et connexion</h2><p>${cameraBadge(camera)} Conservation continue : <strong>${esc(cameraSettings.days)} jour(s)</strong>.</p>${admin?`<div class="quickactions">${button('camera-settings','Modifier la conservation',null,'small')}${button('camera-edit','Modifier la connexion',null,'small')}</div><p class="capacity-note">Modifier la connexion redémarre le service vidéo et interrompt brièvement toutes les caméras. Le compte de la caméra n’est jamais affiché.</p>`:'<p class="capacity-note">Les réglages sont réservés aux administrateurs.</p>'}</section></div>`;
+  `<div class="camera-grid">${detectionCard(detectionData)}<section class="card wide cardpad"><h2>Enregistrement et connexion</h2><p>${cameraBadge(camera)} Conservation continue : <strong>${esc(cameraSettings.days)} jour(s)</strong>.</p>${admin?`<div class="quickactions">${button('camera-settings','Modifier la conservation',null,'small')}${button('camera-edit','Modifier la connexion',null,'small')}</div><p class="capacity-note">Modifier la connexion redémarre le service vidéo et interrompt brièvement toutes les caméras. Le compte de la caméra n’est jamais affiché.</p>`:'<p class="capacity-note">Les réglages sont réservés aux administrateurs.</p>'}</section>${keptStorageCard(storage)}</div>`;
 }
 async function renderSurveillanceApp(){
  clearInterval(cameraHealthTimer);cameraHealthTimer=null;clearInterval(survTimer);survTimer=null;
