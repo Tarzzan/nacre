@@ -1,5 +1,15 @@
 # Déploiements de la console sur Spark
 
+## 13 novembre 2026 — alpha.39, conservation des points natifs
+
+L’installation alpha.38 a reçu le paquet `nacre-0.8.0-alpha.39.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.39), construit depuis le commit [`d58349a`](https://github.com/Tarzzan/nacre/commit/d58349a1a973d1745dd13726ea202669d9fd6947) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
+
+Avant l’import : neuf modules figés identiques, aucune tâche active, répétition isolée alpha.38 → alpha.39 réussie. Fichier importé téléchargé depuis la release, empreinte contrôlée ; session administrateur temporaire refermée ; installation confirmée depuis la fenêtre Réglages du bureau et suivie jusqu’à **Mise à jour réussie**, session conservée.
+
+Validation enregistrée à 21 h 49 min 04 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Cette installation n’a pas de service natif : la [conservation des points natifs](NATIVE-SNAPSHOT-POLICY.md) n’y a donc rien à montrer, et rien n’y est prouvé sur un vrai volume. Constaté dans le navigateur : la page Volumes et snapshots s’affiche comme avant, sans la carte de conservation ; la liste des règles répond « service non connecté, aucune règle » ; une simulation est refusée faute de service natif ; aucune règle n’a été enregistrée.
+
 ## 13 novembre 2026 — alpha.38, poids des dossiers
 
 L’installation alpha.37 a reçu le paquet `nacre-0.8.0-alpha.38.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.38), construit depuis le commit [`2d1e600`](https://github.com/Tarzzan/nacre/commit/2d1e6007e0a139b9d581470ef4d3dfb218acd992) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
