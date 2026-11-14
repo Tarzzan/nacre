@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.49 — Passages conservés et autonomie vidéo
+
+Dans **Surveillance → Relecture**, **Conserver cet extrait** garde à part l’extrait en cours de lecture, avec un nom facultatif. Une carte **Passages conservés** les liste par caméra : lire, télécharger, retirer. Un passage conservé est une copie faite par le service vidéo : ni la durée de conservation ni un volume plein ne l’effacent, et il occupe de la place tant qu’on ne le retire pas. Dans **Réglages**, une carte **Stockage vidéo** donne l’autonomie : le temps d’enregistrement que l’espace libre représente au débit mesuré, et dit quand la durée de conservation réglée ne tient pas sur le volume. Quand le volume est plein, l’enregistrement continue en effaçant les plus anciens ; c’est le comportement du service vidéo, désormais écrit dans la console. Nacre ne lit ni n’écrit lui-même aucun fichier vidéo. Aucun changement de schéma ni de module figé. 365 tests Python, 141 JavaScript. [Guide](docs/RECORDING-PLAYBACK.md#conserver-un-extrait).
+
 ## 0.8.0-alpha.48 — Poids des espaces
 
 Dans **Fichiers**, une vue met côte à côte le poids de chaque espace : contenu, poids, part parmi les espaces pesés, et date de la pesée. La dernière pesée d’un espace entier est désormais **gardée** : on la retrouve sans relire le disque, et **Peser**, **Repeser** ou **Peser tous les espaces** la met à jour à la demande. On y arrive par **Comparer les espaces**, dans le titre d’une pesée, ou par **Poids des espaces** dans la recherche globale. Un poids gardé est une photographie datée, il ne suit pas ce qui change ensuite, et seule la pesée d’un espace entier est gardée. Au passage, une pesée arrêtée avant la fin annonce toujours son total comme un minimum. Les pesées gardées vivent dans la table de réglages existante : aucun changement de schéma ni de module figé. 357 tests Python, 136 JavaScript. [Guide](docs/DESKTOP.md#comparer-les-espaces).

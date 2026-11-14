@@ -145,8 +145,8 @@ Depuis la version 0.8.0-alpha.29, l’application Surveillance du bureau a quatr
 | --- | --- |
 | **Mur** | Voir toutes les caméras d’un coup, avec leur état. Un clic agrandit une caméra : direct et pilotage pour elle seule. « Revenir au mur » la referme. |
 | **Événements** | Parcourir ce que toutes les caméras ont détecté sur sept jours ou sur une période choisie, ne garder qu’une tranche horaire, filtrer par caméra ou par type, ouvrir un événement dans la relecture. |
-| **Relecture** | Choisir une caméra et un jour, lire depuis la frise. La frise commune, en dessous, montre le même jour pour chaque caméra. |
-| **Réglages** | Régler la détection et les types suivis, la durée de conservation et la connexion de la caméra choisie. |
+| **Relecture** | Choisir une caméra et un jour, lire depuis la frise. La frise commune, en dessous, montre le même jour pour chaque caméra. [Conserver un extrait](RECORDING-PLAYBACK.md#conserver-un-extrait) et retrouver les passages conservés (depuis la version 0.8.0-alpha.49). |
+| **Réglages** | Régler la détection et les types suivis, la durée de conservation et la connexion de la caméra choisie. Lire l’[autonomie du volume vidéo](RECORDING-PLAYBACK.md#stockage-vidéo-et-autonomie) (depuis la version 0.8.0-alpha.49). |
 
 ![Événements de toutes les caméras](images/surveillance-events.jpg)
 

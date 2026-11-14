@@ -65,7 +65,8 @@ async function renderSurveillance(){
  $('#content').innerHTML=heading('Vos caméras, à portée de vue.','Direct local, pilotage manuel et relecture des enregistrements par jour.',button('camera-overview','Toutes les caméras','camera')+add)+
  `<section class="card camera-choice"><label for="camera-select">Caméra</label><select id="camera-select">${cameras.map(c=>`<option value="${esc(c.id)}" ${c.id===id?'selected':''}>${esc(c.name)} · ${cameraState(c)}</option>`).join('')}</select>${user.role==='admin'?button('camera-edit','Connexion',null,'small')+button('camera-settings','Réglages',null,'small'):''}${button('refresh-recordings','Actualiser','activity','small')}</section>`+
  (!camera.online?`<div class="notice neutral">${camera.status==='disabled'?'Cette caméra est en pause. Ses enregistrements restent consultables.':camera.status==='stale'?'Mesures vidéo périmées : le direct n’est plus confirmé. Vérifiez le service vidéo.':camera.status==='unknown'?'État inconnu : aucune mesure exploitable reçue de Frigate. Actualisez ou vérifiez le service vidéo.':'Frigate annonce un débit nul. Vérifiez la connexion de la caméra et son compte local.'}</div>`:'')+
- `<div class="camera-grid">${cameraLiveCards(camera,info,suffix,enabled)}${detectionCard(detectionData)}${playbackCard(playbackData)}${searchCard()}</div>`;
+ `<div class="camera-grid">${cameraLiveCards(camera,info,suffix,enabled)}${detectionCard(detectionData)}${playbackCard(playbackData)}${searchCard()}${keptCard()}</div>`;
+ keptLoad().catch(()=>{});
  if(camera.online)watchCamera(id,current);
 
 }

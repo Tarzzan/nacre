@@ -149,6 +149,8 @@ class ControlPanelTests(unittest.TestCase):
         self.assertEqual(code,200);self.assertIn('paletteSearch',raw if isinstance(raw,str) else raw.decode())
         code,raw=self.request('GET','/surveillance.js')
         self.assertEqual(code,200);self.assertIn('renderSurveillanceApp',raw if isinstance(raw,str) else raw.decode())
+        code,raw=self.request('GET','/kept.js')
+        self.assertEqual(code,200);self.assertIn('keptStorageCard',raw if isinstance(raw,str) else raw.decode())
         code,raw=self.request('GET','/files.js')
         self.assertEqual(code,200);self.assertIn('renderFileManager',raw if isinstance(raw,str) else raw.decode())
         code,raw=self.request('GET','/desk-prefs.js')

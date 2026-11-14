@@ -140,3 +140,4 @@ button.danger{border-color:#a3352a;color:#a3352a;font-weight:600}button.primary.
 .native-prune-list{max-height:220px;overflow:auto;border:1px solid var(--line);border-radius:10px;margin:12px 0}
 .sv-more{justify-content:center;margin:18px 0 6px}
 .fm-table.fm-spaces td:nth-child(1){width:26%}.fm-table.fm-spaces td:nth-child(2){width:16%}.fm-table.fm-spaces td:last-child{white-space:nowrap;text-align:right}.fm-table.fm-spaces button+button{margin-left:6px}
+.vs-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px 24px;margin:16px 0 6px;font-size:13px}.vs-facts dt{color:var(--muted);font-size:11px}.vs-facts dd{margin:3px 0 0;font-weight:600;color:var(--ink)}.vs-bar{display:block;width:100%;height:8px;margin:12px 0 4px;accent-color:var(--green)}.badge.alert{background:#fbe6e2;color:#9d3a2b}#kept-player:not(:empty){margin:6px 0 14px}#kept .cardhead button{margin-left:auto}

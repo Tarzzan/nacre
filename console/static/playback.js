@@ -113,7 +113,7 @@ function playbackShow(clip,note=''){
  const data=playbackData,panel=$('#playback-player');if(!data||!panel)return;
  playbackClip=clip;
  const src=`/api/camera/clip?camera=${encodeURIComponent(data.camera)}&start=${clip.start}&end=${clip.end}`;
- panel.innerHTML=`<p class="pb-status" role="status">${esc(note)}Lecture du ${esc(pbDay(data.day))}, ${pbClock(clip.start)} → ${pbClock(clip.end)}.</p><video class="recordvideo" id="playback-video" controls autoplay playsinline src="${src}"></video><div class="row pb-actions">${button('playback-step','5 min avant','left','small','data-direction="back"')}${button('playback-step','Suite','right','small','data-direction="next"')}<a class="pb-download" href="${src}&download=1" download>${icon('download')}<span>Télécharger cet extrait</span></a></div>`;
+ panel.innerHTML=`<p class="pb-status" role="status">${esc(note)}Lecture du ${esc(pbDay(data.day))}, ${pbClock(clip.start)} → ${pbClock(clip.end)}.</p><video class="recordvideo" id="playback-video" controls autoplay playsinline src="${src}"></video><div class="row pb-actions">${button('playback-step','5 min avant','left','small','data-direction="back"')}${button('playback-step','Suite','right','small','data-direction="next"')}<a class="pb-download" href="${src}&download=1" download>${icon('download')}<span>Télécharger cet extrait</span></a>${typeof keptAction==='function'?keptAction():''}</div>`;
  pbCursor(clip.start);
  const input=$('#playback-time');if(input)input.value=pbClock(clip.start);
 }
