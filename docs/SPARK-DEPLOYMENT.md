@@ -1,5 +1,15 @@
 # Déploiements de la console sur Spark
 
+## 13 novembre 2026 — alpha.37, recherche de fichiers par critères
+
+L’installation alpha.36 a reçu le paquet `nacre-0.8.0-alpha.37.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.37), construit depuis le commit [`d652273`](https://github.com/Tarzzan/nacre/commit/d652273c5a789600e5d8da814b5fcd04e464be5f) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
+
+Avant l’import : neuf modules figés identiques, aucune tâche active, répétition isolée alpha.36 → alpha.37 réussie. Fichier importé téléchargé depuis la release, empreinte contrôlée ; session administrateur temporaire refermée ; installation confirmée depuis la fenêtre Réglages du bureau et suivie jusqu’à **Mise à jour réussie**, session conservée.
+
+Validation enregistrée à 21 h 01 min 58 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Constaté dans le navigateur, sur les fichiers réels et en lecture seule, pour la [recherche par critères](DESKTOP.md#chercher-sans-nom-par-critères) dans tout le NAS : les plus gros fichiers d’abord, 200 affichés sur 11 289 correspondances, tailles décroissantes, aucun dossier ni lien, après un parcours entier de 11 468 éléments ; les plus récents d’abord, 200 sur 11 468, dates décroissantes, dossiers compris ; type Images, 200 sur 1 260 ; type Dossiers, 179 classés par date ; vidéos de plus de 1 Gio, aucune ; une demande sans nom ni critère et un classement inconnu sont refusés. Chaque réponse en 0,1 seconde environ. Le bouton **Par critères** puis **Étendre à tout le NAS** donnent les mêmes nombres dans la fenêtre Fichiers. Seuls des nombres ont été relevés : aucun nom de fichier, aucun fichier ouvert.
+
 ## 13 novembre 2026 — alpha.36, filtres de la recherche de fichiers
 
 L’installation alpha.35 a reçu le paquet `nacre-0.8.0-alpha.36.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.36), construit depuis le commit [`afab96e`](https://github.com/Tarzzan/nacre/commit/afab96e0b21c838858206af4b76d43eaf85c3b62) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
