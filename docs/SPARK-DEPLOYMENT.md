@@ -1,5 +1,15 @@
 # Déploiements de la console sur Spark
 
+## 13 novembre 2026 — alpha.38, poids des dossiers
+
+L’installation alpha.37 a reçu le paquet `nacre-0.8.0-alpha.38.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.38), construit depuis le commit [`2d1e600`](https://github.com/Tarzzan/nacre/commit/2d1e6007e0a139b9d581470ef4d3dfb218acd992) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
+
+Avant l’import : neuf modules figés identiques, aucune tâche active, répétition isolée alpha.37 → alpha.38 réussie. Fichier importé téléchargé depuis la release, empreinte contrôlée ; session administrateur temporaire refermée ; installation confirmée depuis la fenêtre Réglages du bureau et suivie jusqu’à **Mise à jour réussie**, session conservée.
+
+Validation enregistrée à 21 h 25 min 09 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Constaté dans le navigateur, sur les fichiers réels et en lecture seule, pour le [poids des dossiers](DESKTOP.md#peser-les-dossiers) : l’espace Vidéos est pesé en entier, 3 dossiers pour 11 609 éléments et 41 Gio, en moins de 0,1 seconde, le plus lourd représentant 99 % du total ; lignes du plus lourd au plus léger, total égal à la somme des lignes ; les espaces vides répondent zéro ; un espace inconnu et un chemin hors espace sont refusés. Depuis la recherche globale, **Poids des dossiers** ouvre la pesée du dossier ouvert, et un double-clic pèse le sous-dossier. Seuls des nombres ont été relevés : aucun nom de fichier, aucun fichier ouvert.
+
 ## 13 novembre 2026 — alpha.37, recherche de fichiers par critères
 
 L’installation alpha.36 a reçu le paquet `nacre-0.8.0-alpha.37.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.37), construit depuis le commit [`d652273`](https://github.com/Tarzzan/nacre/commit/d652273c5a789600e5d8da814b5fcd04e464be5f) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
