@@ -21,10 +21,11 @@ LEVELS = ('read', 'write')
 COMMON = 'space:fichiers'
 # Ce qu'un membre peut lire et écrire dans la console ; tout le reste lui est refusé par défaut.
 MEMBER_READS = ('/api/me', '/api/desk', '/api/areas', '/api/files', '/api/files/search', '/api/files/usage', '/api/files/usage-spaces',
-                '/api/files/versions', '/api/files/version',
+                '/api/files/versions', '/api/files/version', '/api/files/text',
                 '/api/download', '/api/archive', '/api/trash', '/api/overview', '/api/account', '/api/links')
 MEMBER_WRITES = ('/api/logout', '/api/desk', '/api/upload', '/api/folder', '/api/rename', '/api/move', '/api/trash', '/api/restore',
                  '/api/account/password', '/api/links/create', '/api/links/revoke', '/api/files/version-restore', '/api/files/version-delete',
+                 '/api/files/text-save', '/api/files/text-new', '/api/files/text-presence',
                  '/api/account/totp/start', '/api/account/totp/confirm', '/api/account/totp/disable')
 CAMERA_READS = ('/api/cameras', '/api/camera/')
 

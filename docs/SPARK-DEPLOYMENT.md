@@ -1,6 +1,13 @@
 # Déploiements de la console sur Spark
 
-## 14 novembre 2026 — alpha.58, icônes d’installation servies
+## 14 novembre 2026 — alpha.59, versions d’un fichier
+
+L’installation alpha.58 a reçu le paquet `nacre-0.8.0-alpha.59.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.59), par le même [parcours de mise à jour](BROWSER-UPDATES.md) : neuf modules figés identiques, répétition isolée alpha.58 → alpha.59 réussie, fichier importé identique à celui de la release, installation confirmée depuis la fenêtre Réglages et suivie jusqu’à **Mise à jour réussie**.
+
+Validation enregistrée à 18 h 48 min 16 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Constaté en lecture seule : la liste des versions répond, vide, pour un fichier qui n’en a pas ; le script de Fichiers servi porte le bouton Versions. **Aucun fichier n’a été déposé ni remplacé ici** : le remplacement et le retour à une version sont prouvés sur le banc et par les essais.
+
 
 L’installation alpha.57 a reçu le paquet `nacre-0.8.0-alpha.58.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.58), par le même [parcours de mise à jour](BROWSER-UPDATES.md) : neuf modules figés identiques, répétition isolée alpha.57 → alpha.58 réussie, fichier importé identique à celui de la release, installation confirmée depuis la fenêtre Réglages et suivie jusqu’à **Mise à jour réussie**.
 

@@ -48,7 +48,7 @@ function fmTools(){
  const crumbs=[`<button type="button" data-action="fm-go" data-area="${esc(area)}" data-path="">${esc(name)}</button>`,...chain.map((part,i)=>`<button type="button" data-action="fm-go" data-area="${esc(area)}" data-path="${esc(chain.slice(0,i+1).join('/'))}">${esc(part)}</button>`)].join('<span aria-hidden="true">›</span>');
  // Sur un écran étroit, l’arbre est replié : ce sélecteur le remplace pour changer d’espace.
  const spaces=fileAreas.length>1?`<select id="fm-area" class="fm-areasel" aria-label="Espace">${fileAreas.map(a=>`<option value="${esc(a.id)}" ${a.id===area?'selected':''}>${esc(a.name)}${a.writable?'':' · lecture seule'}</option>`).join('')}</select>`:'';
- return `${spaces}<div class="fm-crumbs" aria-label="Emplacement">${crumbs}</div><span class="fm-grow"></span><input id="fm-filter" type="search" placeholder="Filtrer ou rechercher" value="${esc(fmFilter)}" aria-label="Filtrer ce dossier ou rechercher un nom" title="Filtre ce dossier pendant la saisie ; Entrée cherche dans tout le NAS">${button('fm-criteria','Par critères',null,'small','title="Chercher sans nom, ici et dans les sous-dossiers : les plus gros fichiers, les plus récents, par type"')}${button('fm-view',fmView==='list'?'Grille':'Liste',null,'small')}${button('fm-preview','Aperçu',null,'small',`aria-pressed="${fmPreview}"`)}${write?button('mkdir','Nouveau dossier','plus','small')+button('fm-send','Déposer des fichiers','upload','primary small'):''}`;
+ return `${spaces}<div class="fm-crumbs" aria-label="Emplacement">${crumbs}</div><span class="fm-grow"></span><input id="fm-filter" type="search" placeholder="Filtrer ou rechercher" value="${esc(fmFilter)}" aria-label="Filtrer ce dossier ou rechercher un nom" title="Filtre ce dossier pendant la saisie ; Entrée cherche dans tout le NAS">${button('fm-criteria','Par critères',null,'small','title="Chercher sans nom, ici et dans les sous-dossiers : les plus gros fichiers, les plus récents, par type"')}${button('fm-view',fmView==='list'?'Grille':'Liste',null,'small')}${button('fm-preview','Aperçu',null,'small',`aria-pressed="${fmPreview}"`)}${write?button('mkdir','Nouveau dossier','plus','small')+(typeof editorNew==='function'?button('ed-new','Nouveau document','plus','small'):'')+button('fm-send','Déposer des fichiers','upload','primary small'):''}`;
 }
 function fmBar(){
  const chosen=fmSelected(),write=fmWritable();if(!chosen.length)return '';
@@ -131,7 +131,7 @@ function fmList(){
 // Carte d’aperçu d’un élément, dans le dossier ouvert ou parmi des résultats : seul l’emplacement change.
 function fmCard(item,base,space,acts){
  const [kind,label]=fmKind(item),src=esc(fmUrl(item.name,true,base,space));
- const body=kind==='img'?`<img class="fm-shot" src="${src}" alt="Aperçu de ${esc(item.name)}">`:kind==='vid'?`<video class="fm-shot" controls preload="metadata" src="${src}"></video>`:kind==='txt'?`<pre class="fm-text" id="fm-text" data-name="${esc(item.name)}" data-src="${src}">Chargement de l’aperçu…</pre>`:kind==='pdf'?'<p class="fm-hint">Un PDF se télécharge pour être ouvert.</p>':kind==='lnk'?'<p class="fm-hint">Lien symbolique : Nacre ne le suit pas.</p>':'';
+ const body=kind==='img'?`<img class="fm-shot" src="${src}" alt="Aperçu de ${esc(item.name)}">`:kind==='vid'?`<video class="fm-shot" controls preload="metadata" src="${src}"></video>`:kind==='txt'?`<pre class="fm-text" id="fm-text" data-name="${esc(item.name)}" data-src="${src}">Chargement de l’aperçu…</pre>`:kind==='pdf'?`<p class="fm-hint"><a class="fm-link" href="${src}" target="_blank" rel="noopener">Ouvrir le PDF dans un nouvel onglet</a></p>`:kind==='lnk'?'<p class="fm-hint">Lien symbolique : Nacre ne le suit pas.</p>':'';
  const link=item.link?'':`<a class="fm-link" href="${esc(item.directory?fmArchive([item.name],base,space):fmUrl(item.name,false,base,space))}">${item.directory?'Télécharger en archive':'Télécharger'}</a>`;
  return body+`<h3>${esc(item.name)}</h3><dl><dt>Type</dt><dd>${label}</dd>${item.directory?'':`<dt>Taille</dt><dd>${sizes(item.size)}</dd>`}<dt>Modifié</dt><dd>${date(item.modified)}</dd>${acts.where?`<dt>Emplacement</dt><dd>${esc(acts.where)}</dd>`:''}</dl><div class="fm-acts">${acts.before||''}${link}${acts.after||''}</div>`;
 }
@@ -147,7 +147,7 @@ function fmSide(){
  const item=chosen[0],write=fmWritable();
  if(fmVers&&(fmVers.area!==area||fmVers.path!==fmJoin(item.name)))fmVers=null;
  if(fmVers)return fmVersionsHtml();
- return fmCard(item,currentPath,area,{before:item.directory&&!item.link?button('fm-open','Ouvrir',null,'primary small',`data-name="${esc(item.name)}"`)+button('fm-weigh','Peser ce dossier',null,'small',`data-name="${esc(item.name)}"`):'',after:(write?button('rename','Renommer',null,'small',`data-path="${esc(fmJoin(item.name))}" data-name="${esc(item.name)}"`)+button('fm-trash','Corbeille',null,'small'):'')+(item.directory||item.link?'':button('fm-versions','Versions',null,'small'))});
+ return fmCard(item,currentPath,area,{before:item.directory&&!item.link?button('fm-open','Ouvrir',null,'primary small',`data-name="${esc(item.name)}"`)+button('fm-weigh','Peser ce dossier',null,'small',`data-name="${esc(item.name)}"`):typeof editorCan==='function'&&editorCan(item)?button('ed-open',write?'Modifier':'Lire dans l’éditeur',null,'primary small'):'',after:(write?button('rename','Renommer',null,'small',`data-path="${esc(fmJoin(item.name))}" data-name="${esc(item.name)}"`)+button('fm-trash','Corbeille',null,'small'):'')+(item.directory||item.link?'':button('fm-versions','Versions',null,'small'))});
 }
 // Aperçu d’un texte : les premiers kilo-octets, lus comme du texte et jamais interprétés.
 async function fmLoadText(){
@@ -166,6 +166,8 @@ function fmRedraw(tools=false){
  list.innerHTML=fmList();side.innerHTML=fmSide();fmLoadText();
 }
 async function renderFileManager(){
+ // Un document ouvert dans l’éditeur occupe la fenêtre jusqu’à sa fermeture.
+ if(typeof editorDoc!=='undefined'&&editorDoc)return renderEditor();
  const generation=sessionGeneration,request=++fmRequest,current=()=>generation===sessionGeneration&&page==='files'&&request===fmRequest;
  // Une recherche demandée depuis la recherche globale : le nom arrive dans le champ, puis elle part sur tout le NAS.
  const asked=fmPending,big=fmPendingBig,weigh=fmPendingWeigh,spaces=fmPendingSpaces;fmPending='';fmPendingBig=fmPendingWeigh=fmPendingSpaces=false;if(asked||big||weigh||spaces){fmFilter=asked;fmFound=null;}

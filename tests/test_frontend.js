@@ -1834,7 +1834,7 @@ test('preview shows images and videos through the safe inline route and text as 
  const side=name=>{f.context.pick=name;return f.run('fmSel=new Set([pick]);fmSide()');};
  assert.match(side('photo "été".jpg'),/<img class="fm-shot" src="\/api\/download\?area=fichiers&amp;path=Docs%20%26%20co%2Fphoto%20%22%C3%A9t%C3%A9%22\.jpg&amp;inline=1" alt="Aperçu de photo &quot;été&quot;\.jpg">/);
  assert.match(side('clip.mp4'),/<video class="fm-shot" controls preload="metadata" src="[^"]*clip\.mp4&amp;inline=1">/);
- const pdf=side('<img src=x>.pdf');assert.doesNotMatch(pdf,/<img src=x>|fm-shot/);assert.match(pdf,/se télécharge/);assert.match(pdf,/<dt>Type<\/dt><dd>PDF<\/dd>/);
+ const pdf=side('<img src=x>.pdf');assert.doesNotMatch(pdf,/<img src=x>|fm-shot/);assert.match(pdf,/target="_blank" rel="noopener">Ouvrir le PDF dans un nouvel onglet/);assert.match(pdf,/<dt>Type<\/dt><dd>PDF<\/dd>/);
  assert.match(side('Docs & co'),/data-action="fm-open" data-name="Docs &amp; co"/);assert.match(side('Docs & co'),/href="\/api\/archive\?[^"]*name=Docs%20%26%20co">Télécharger en archive/);
  assert.match(side('raccourci'),/Nacre ne le suit pas/);assert.doesNotMatch(side('raccourci'),/fm-link|fm-open/);
  f.run('fmSel=new Set();');assert.match(f.run('fmSide()'),/Sélectionnez un élément/);f.run('fmSel=new Set(["notes.txt","clip.mp4"]);');assert.match(f.run('fmSide()'),/2 éléments sélectionnés/);
@@ -2639,5 +2639,74 @@ test('a taken name is replaced only after asking, and the versions panel restore
  const g=fmFixture(async url=>response(200,url.startsWith('/api/areas')?fmAreas.map(a=>({...a,writable:false})):url.startsWith('/api/files/versions')?{keep:10,versions:[{id:'v1',ts:1794182400,size:10,by:'x'}]}:{items:fmSample.filter(i=>i&&i.name)}),'viewer');
  await g.run('renderFiles()');g.mount();g.run('fmSel=new Set(["notes.txt"])');await g.hit({action:'fm-versions'});
  side=g.run('fmSide()');assert.match(side,/Télécharger/);assert.doesNotMatch(side,/fm-version-restore|fm-version-delete/);
+});
+
+// Éditeur intégré : Markdown rendu sans jamais interpréter le texte comme du HTML, enregistrement et garde-fous.
+function editorFixture(reply,role='admin'){
+ const calls=[],f=fmFixture(async(url,options)=>{const body=options?.body?JSON.parse(options.body):null;calls.push([url,body]);const made=reply?.(url,body);
+  return made||response(200,url.startsWith('/api/areas')?fmAreas:url.startsWith('/api/files/text?')?{area:'fichiers',path:'notes.md',name:'notes.md',text:'# Titre',etag:'1-7',writable:true,markdown:true,others:['bruno <b>'],max:2097152}:url.startsWith('/api/files/text-')?{ok:true,etag:'2-9',path:'Sans titre.md',others:[]}:url.startsWith('/api/files')?{items:fmSample.filter(i=>i&&i.name)}:{ok:true});},role);
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/editor.js'),'utf8'),f.context);
+ const modal=f.elements.get('#modal');modal.showModal=()=>{modal.open=true;};modal.close=()=>{modal.open=false;};
+ f.calls=calls;f.content=()=>String(f.elements.get('#content').innerHTML);
+ f.ed=(action)=>f.listeners.get('click').find(fn=>fn.toString().includes('ed-preview'))({target:{closest:()=>({dataset:{action}})}});
+ f.type=value=>f.listeners.get('input').filter(fn=>fn.toString().includes('ed-text')).forEach(fn=>fn({target:{id:'ed-text',value}}));return f;
+}
+test('markdown preview formats the usual constructs and never lets the text become markup',()=>{
+ const f=editorFixture();const md=text=>f.context.mdRender(text);
+ assert.equal(md('# Titre **fort**'),'<h1>Titre <strong>fort</strong></h1>');
+ assert.equal(md('Ligne *une* et _deux_\nsuite'),'<p>Ligne <em>une</em> et <em>deux</em><br>suite</p>');
+ assert.equal(md('- a\n- [x] fait\n- [ ] à faire'),'<ul><li>a</li><li>☑ fait</li><li>☐ à faire</li></ul>');
+ assert.equal(md('1. un\n2) deux'),'<ol><li>un</li><li>deux</li></ol>');
+ assert.equal(md('> cité\n> encore'),'<blockquote><p>cité<br>encore</p></blockquote>');
+ assert.equal(md('---'),'<hr>');
+ assert.match(md('| A | B |\n| --- | --- |\n| 1 | 2 |'),/<thead><tr><th>A<\/th><th>B<\/th><\/tr><\/thead><tbody><tr><td>1<\/td><td>2<\/td><\/tr><\/tbody>/);
+ assert.equal(md('```\n<b>brut</b> **pas gras**\n```'),'<pre><code>&lt;b&gt;brut&lt;/b&gt; **pas gras**</code></pre>');
+ assert.equal(md('du `code **brut**` ici'),'<p>du <code>code **brut**</code> ici</p>');
+ assert.equal(md('[site](https://exemple.fr/a?b=1&c=2)'),'<p><a href="https://exemple.fr/a?b=1&amp;c=2" target="_blank" rel="noopener noreferrer">site</a></p>');
+ // Rien d’actif ne sort du texte : balises, attributs, liens en javascript:, guillemets dans une adresse.
+ for(const hostile of ['<script>alert(1)</script>','<img src=x onerror=alert(1)>','[x](javascript:alert(1))','[x](https://a.b/"onmouseover="alert(1))','# <svg onload=alert(1)>','| <b> |\n| --- |\n| <i> |','> <a href="javascript:x">y</a>']){
+  // Une fois retirées les seules balises que le rendu sait produire, il ne doit rester aucun chevron ouvrant : tout le reste est du texte.
+  const rest=md(hostile).replace(/<\/?(?:p|h[1-6]|strong|em|code|pre|ul|ol|li|blockquote|hr|br|div|table|thead|tbody|tr|th|td)(?: class="(?:tablewrap|table)")?>/g,'').replace(/<a href="https?:\/\/[^"<>\s]*" target="_blank" rel="noopener noreferrer">|<\/a>/g,'');
+  assert.doesNotMatch(rest,/</,hostile);
+ }
+ assert.equal(md(''),'');assert.equal(md(null),'');assert.match(md('a\r\nb'),/a<br>b/);
+});
+test('editor opens a text file in the files window, saves with its tag and guards unsaved or conflicting changes',async()=>{
+ let conflict=false;const f=editorFixture((url,body)=>url.endsWith('/text-save')&&conflict&&!body.force?response(409,{error:'Ce fichier a changé.'}):null);
+ await f.run('renderFiles()');f.mount();
+ // Bouton Modifier pour un fichier texte seulement ; Nouveau document dans les outils quand on écrit.
+ assert.equal(f.run('editorCan({name:"notes.MD",size:10})'),true);assert.equal(f.run('editorCan({name:"LISEZMOI",size:10})'),true);
+ for(const no of ['{name:"photo.jpg",size:10}','{name:"a.md",size:3000000}','{name:"d.md",directory:true}','{name:"l.md",link:true}','null'])assert.equal(f.run(`editorCan(${no})`),false,no);
+ f.run('fmSel=new Set(["notes.txt"])');assert.match(f.run('fmSide()'),/data-action="ed-open"[^>]*>.*Modifier/);
+ assert.match(f.run('fmTools()'),/data-action="ed-new"/);
+ await f.ed('ed-open');
+ assert.deepEqual(f.calls.find(c=>c[0].startsWith('/api/files/text?')),['/api/files/text?area=fichiers&path=notes.txt',null]);
+ let html=f.content();
+ assert.match(html,/<strong class="ed-name">notes\.md<\/strong>/);assert.match(html,/<textarea id="ed-text"[^>]*># Titre<\/textarea>/);assert.match(html,/id="ed-view"[^>]*><h1>Titre<\/h1>/);
+ assert.match(html,/Aussi ouvert par bruno &lt;b&gt;/);assert.match(html,/Aucune modification/);assert.doesNotMatch(html,/<b>|readonly/);
+ // Tant qu’un document est ouvert, la fenêtre Fichiers montre l’éditeur.
+ await f.run('renderFiles()');assert.match(f.content(),/id="ed"/);
+ const state={textContent:''};f.elements.set('#ed-state',state);
+ await f.ed('ed-save');assert.match(f.elements.get('#toast').textContent,/Aucune modification à enregistrer/);assert.ok(!f.calls.some(c=>c[0].endsWith('/text-save')));
+ f.type('# Titre\n\nSuite <b>');assert.equal(state.textContent,'Modifications non enregistrées');assert.equal(f.run('editorDirty()'),true);
+ await f.ed('ed-save');
+ assert.deepEqual(f.calls.at(-1),['/api/files/text-save',{area:'fichiers',path:'notes.md',text:'# Titre\n\nSuite <b>',etag:'1-7'}]);
+ assert.equal(f.run('editorDoc.etag'),'2-9');assert.equal(f.run('editorDirty()'),false);assert.match(state.textContent,/^Enregistré à /);
+ // Conflit : rien n’est écrasé sans le demander ; « enregistrer mon contenu » force, et l’autre contenu part aux versions.
+ conflict=true;f.type('ma version');await f.ed('ed-save');
+ const modal=f.elements.get('#modal');assert.match(modal.innerHTML,/Ce fichier a changé entre-temps[^]*gardé parmi les versions/);
+ await f.run('modalSubmit(new Map())');assert.deepEqual(f.calls.at(-1),['/api/files/text-save',{area:'fichiers',path:'notes.md',text:'ma version',etag:'2-9',force:true}]);
+ // Fermer avec des modifications demande confirmation ; sans, on revient aux fichiers.
+ conflict=false;f.type('autre chose');modal.innerHTML='';await f.ed('ed-close');assert.match(modal.innerHTML,/Fermer sans enregistrer \?/);assert.notEqual(f.run('editorDoc'),null);
+ f.type('ma version');modal.innerHTML='';await f.ed('ed-close');assert.equal(modal.innerHTML,'');assert.equal(f.run('editorDoc'),null);
+ assert.deepEqual(f.calls.filter(c=>c[0].endsWith('/text-presence')).at(-1),['/api/files/text-presence',{area:'fichiers',path:'notes.md',open:false}]);
+ // Ctrl+S enregistre ; un fichier en lecture seule n’offre ni bouton ni saisie.
+ await f.run('editorOpen("fichiers","notes.txt")');f.type('x');modal.open=false;
+ let prevented=0;f.listeners.get('keydown').filter(fn=>fn.toString().includes('editorSave')).forEach(fn=>fn({ctrlKey:true,key:'S',preventDefault(){prevented++;}}));await new Promise(r=>setImmediate(r));
+ assert.equal(prevented,1);assert.equal(f.calls.at(-1)[0],'/api/files/text-save');
+ const g=editorFixture(url=>url.startsWith('/api/files/text?')?response(200,{area:'fichiers',path:'lu.txt',name:'lu.txt',text:'contenu',etag:'1-7',writable:false,markdown:false,others:[]}):null,'viewer');
+ await g.run('renderFiles()');g.mount();await g.run('editorOpen("fichiers","lu.txt")');
+ html=g.content();assert.match(html,/readonly/);assert.match(html,/Lecture seule/);assert.doesNotMatch(html,/ed-save|ed-preview|ed-view/);
+ g.type('tentative');await g.ed('ed-save');assert.ok(!g.calls.some(c=>c[0].endsWith('/text-save')));
 });
 

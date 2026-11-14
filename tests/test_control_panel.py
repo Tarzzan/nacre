@@ -186,6 +186,8 @@ class ControlPanelTests(unittest.TestCase):
         for icon in manifest['icons']+[{'src':'/apple-touch-icon.png','sizes':'180x180'}]:
             code,raw=self.request('GET',icon['src'])
             self.assertEqual((code,raw[1:4],struct.unpack('>I',raw[16:20])[0]),(200,b'PNG',int(icon['sizes'].split('x')[0])),icon['src'])
+        code,raw=self.request('GET','/editor.js')
+        self.assertEqual(code,200);self.assertIn('mdRender',raw if isinstance(raw,str) else raw.decode())
         code,raw=self.request('GET','/kept.js')
         self.assertEqual(code,200);self.assertIn('keptStorageCard',raw if isinstance(raw,str) else raw.decode())
         code,raw=self.request('GET','/files.js')
