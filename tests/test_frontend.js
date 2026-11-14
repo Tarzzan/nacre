@@ -1639,6 +1639,41 @@ test('enlarging a camera opens its live view alone, and unknown cameras or late 
  g.run('selectedCamera="entry";survFocus=true;');const pending=g.run('renderCamera()');await new Promise(resolve=>setImmediate(resolve));g.run('deskSetView("cam","events");$("#content").innerHTML="autre vue";');release();await pending;
  assert.equal(g.content(),'autre vue');
 });
+test('events tab loads further pages camera by camera and only ever grows at its end',async()=>{
+ const calls=[],state={fail:false};
+ const ev=(id,offset)=>({id,label:'person',sub_label:null,day:'2026-11-09',start:dayStart+offset,end:dayStart+offset+10,ongoing:false,score:80,recorded:true});
+ const reply=(events,next,first)=>({camera:'x',timezone:'UTC',from:'2026-11-03',to:'2026-11-09',today:'2026-11-09',label:'',hours:null,events,next,facets:first?{total:events.length,matched:events.length,more:next!==null,types:[],days:[]}:null});
+ const f=survFixture(async url=>{calls.push(url);
+  if(url==='/api/cameras')return response(200,survCameras);
+  if(!url.startsWith('/api/camera/search'))return response(200,overviewSample);
+  if(url.includes('camera=yard'))return response(200,reply([ev('y1',950),ev('y2',700),ev('y3',300),ev('y4',100)],null,true));
+  if(!url.includes('camera=entry'))return response(200,reply([],null,true));
+  if(!url.includes('before='))return response(200,reply([ev('e1',1000),ev('e2',900)],dayStart+900,true));
+  if(state.fail)return response(503,{error:'Le service vidéo est arrêté.'});
+  return response(200,url.endsWith('before='+(dayStart+900))?reply([ev('e2',900),ev('e3',600),ev('e4',500)],dayStart+500,false):reply([ev('e5',200)],null,false));});
+ const html=()=>String(f.elements.get('#surv-events')?.innerHTML??f.run('survEventsHtml()')),starts=()=>[...html().matchAll(/data-start="(\d+)"/g)].map(m=>Number(m[1])-dayStart);
+ const further=()=>calls.filter(u=>u.includes('before='));
+ f.run('deskSetView("cam","events");');await f.run('renderCamera()');
+ // L'entrée a une suite : la liste s'arrête à son dernier événement chargé, sans montrer ce que la cour a de plus ancien.
+ assert.deepEqual(starts(),[1000,950,900]);assert.match(html(),/data-action="surv-more"/);assert.match(html(),/<span>Afficher la suite<\/span>/);
+ assert.match(html(),/« Afficher la suite » remonte plus loin dans la période\. Les pastilles comptent les événements déjà chargés\./);assert.doesNotMatch(html(),/style=|soixante/);
+ // Filtrée sur une caméra sans suite, la liste est complète ; sur celle qui en a une, le bouton reste.
+ await f.act('surv-filter',{kind:'camera',value:'yard'});assert.deepEqual(starts(),[950,700,300,100]);assert.doesNotMatch(html(),/surv-more/);assert.match(html(),/Tous les événements de la période sont listés\./);
+ await f.act('surv-filter',{kind:'camera',value:'entry'});assert.deepEqual(starts(),[1000,900]);assert.match(html(),/surv-more/);
+ await f.act('surv-filter',{kind:'camera',value:''});
+ // Un refus du serveur est dit, et rien ne bouge.
+ state.fail=true;await f.act('surv-more');
+ assert.match(html(),/role="alert">La suite n’a pas pu être chargée : Le service vidéo est arrêté\.</);assert.deepEqual(starts(),[1000,950,900]);assert.match(html(),/surv-more/);
+ // La suite demande la caméra qui borne la liste, sur la période exacte de la première réponse, jusqu'à épuisement ; aucun doublon.
+ state.fail=false;calls.length=0;await f.act('surv-more');
+ assert.deepEqual(further(),[`/api/camera/search?camera=entry&from=2026-11-03&to=2026-11-09&before=${dayStart+900}`,`/api/camera/search?camera=entry&from=2026-11-03&to=2026-11-09&before=${dayStart+500}`]);
+ assert.deepEqual(starts(),[1000,950,900,700,600,500,300,200,100]);assert.doesNotMatch(html(),/surv-more|role="alert"/);assert.match(html(),/Tous les événements de la période sont listés\./);
+ assert.equal(f.run('survEvents.items.length'),9);
+ // Plus rien à demander : un nouveau clic n'envoie rien. Une nouvelle recherche repart de la première page.
+ calls.length=0;await f.act('surv-more');assert.equal(further().length,0);
+ await f.run('renderCamera()');assert.deepEqual(starts(),[1000,950,900]);assert.equal(f.run('survLimit'),120);
+});
+
 test('events tab takes a period and a time slot for every camera, sums what the server counted and explains a refusal',async()=>{
  const calls=[],toasts=[],state={refuse:false};
  const sample=(url,extra={})=>({...JSON.parse(JSON.stringify(searchSample)),hours:url.includes('time_from')?{from:'22:00',to:'06:00'}:null,...(url.includes('from=2026-11-01')?{from:'2026-11-01',to:'2026-11-05'}:{}),...extra});

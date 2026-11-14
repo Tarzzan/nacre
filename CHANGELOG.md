@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.47 — Suite des événements
+
+Dans **Surveillance → Événements**, la liste ne s’arrête plus aux soixante événements les plus récents de chaque caméra : **Afficher la suite** remonte plus loin dans la période, jusqu’à tout lister. La suite est demandée à la caméra qui borne la liste, sur la période exacte de la première réponse, et la liste ne grandit que par la fin : tant qu’une caméra a des événements non chargés, rien de plus ancien que son dernier événement chargé n’est montré, pour qu’aucun ne vienne s’intercaler après coup. Un refus du serveur est dit sans rien perdre de ce qui est affiché. Côté navigateur seulement : aucun changement du serveur, du schéma ni de module figé. 356 tests Python, 135 JavaScript. [Guide](docs/DESKTOP.md).
+
 ## 0.8.0-alpha.46 — Restaurations natives « à vérifier » relues
 
 Une restauration native interrompue restait « à vérifier » sans fin : elle protégeait tous les points de son volume, bloquait leur suppression et faisait sauter chaque passage de la conservation automatique, sans recours depuis la console. Le service natif la **relit désormais de lui-même**, deux minutes au moins après son lancement, sans rien créer ni supprimer : copie présente, la restauration est terminée et garde sa destination ; copie absente, ou copie de fichiers LVM dont le processus a disparu, elle est en échec ; dans le doute, elle reste « à vérifier ». La suppression n’est alors plus bloquée. Le changement vit dans le point d’entrée du service (`native_service.py`) : il prend effet là où root réinstalle le service natif. Aucun changement de schéma ni de module figé. Prouvé sur banc VM avec de vraies restaurations Btrfs, ZFS et LVM interrompues. 356 tests Python, 134 JavaScript. [Détails](docs/NATIVE-SNAPSHOT-POLICY.md#une-restauration-restée--à-vérifier-).

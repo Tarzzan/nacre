@@ -157,7 +157,9 @@ Ce qu’il faut savoir :
 - **Le mur n’ouvre aucun direct.** Chaque caméra montre sa dernière image, redemandée toutes les dix secondes tant que l’onglet du navigateur est visible. Seule la caméra agrandie reçoit le flux en direct.
 - **Une image reçue ne prouve pas l’enregistrement.** La frise de l’onglet Relecture fait foi.
 - **Événements : période et tranche horaire pour toutes les caméras** (depuis la version 0.8.0-alpha.35). **Du**, **au** et les deux heures facultatives **entre** et **et** s’appliquent à chaque caméra, avec les mêmes règles que la [recherche d’une caméra](RECORDING-PLAYBACK.md#ne-garder-quune-tranche-horaire) : de 22:00 à 06:00, seules les nuits sont gardées. **Sept derniers jours** revient à l’affichage d’origine.
-- **Événements : les soixante plus récents par caméra sont listés.** Le résumé donne le nombre compté sur la période pour toutes les caméras ; les pastilles comptent ce qui est listé. Pour remonter plus loin, la recherche de l’onglet Relecture reste l’outil.
+- **Événements : la liste se prolonge** (depuis la version 0.8.0-alpha.47). Elle s’ouvre sur les plus récents ; **Afficher la suite** remonte plus loin dans la période, caméra par caméra, jusqu’à tout lister. La liste ne grandit que par la fin : tant qu’une caméra a encore des événements non chargés, rien de plus ancien que son dernier événement chargé n’est montré, pour qu’aucun ne vienne s’intercaler après coup. Filtrer sur une caméra montre tout ce qui est chargé pour elle. Le résumé donne le nombre compté sur la période pour toutes les caméras ; les pastilles comptent les événements déjà chargés.
+
+  ![Suite des événements sur le banc de démonstration](images/surveillance-events-more.jpg)
 - **Frise commune : une seule caméra lue à la fois.** Cliquer sur la ligne d’une autre caméra change de caméra et lit à l’heure cliquée ; s’il n’y a rien à cette heure, la lecture reprend à la plage suivante et le dit.
 - **Si les événements d’une caméra sont indisponibles**, elle est nommée et les autres restent listées.
 - **Lecture seule** : tout est consultable ; l’ajout de caméra et les réglages sont réservés aux administrateurs.
