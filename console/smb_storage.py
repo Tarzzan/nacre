@@ -5,7 +5,6 @@ import secrets
 import threading
 import time
 import configparser
-from compose_support import arguments
 
 
 def manifest(config, resources):
@@ -71,7 +70,7 @@ class Shares:
         self.app.private_write(self.runtime,render(config,{}))
 
     def check_permissions(self,config,resources):
-        group=self.app.compose('exec','-T','fichiers','id','-g','nas').strip()
+        group=self.app.service_op('samba_group').strip()
         if not group.isdecimal():raise self.app.Problem('Groupe SMB indisponible.',503)
         for share in config['shares']:
             if share['area'] not in resources:continue
@@ -79,12 +78,11 @@ class Shares:
             readonly=share['readonly'] or not resources[share['area']].get('writable',False)
             for username in share['users']:
                 uid=next(u['uid'] for u in config['users'] if u['name']==username)
-                self.app.compose('exec','-T','--user',str(uid)+':'+group,'fichiers','sh','-c',
-                    'test -r "$1" && test -x "$1" && { [ "$2" = r ] || test -w "$1"; }','sh',path,'r' if readonly else 'rw')
+                self.app.service_op('samba_access',uid=uid,group=group,path=path,readonly=bool(readonly))
 
     def valid_bindings(self,resources):
         for area,r in resources.items():
-            observed=self.app.compose('exec','-T','fichiers','stat','-c','%d:%i','/shares/'+area).strip()
+            observed=self.app.service_op('samba_identity',area=area).strip()
             if observed!=str(r['identity']['dev'])+':'+str(r['identity']['ino']):return False
         return True
 
@@ -118,8 +116,8 @@ class Shares:
             provisional=render(config,{} if changed else resources)
             self.app.private_write(candidate,provisional)
             self.app.private_write(candidate_override,desired_text)
-            self.app.command(arguments(self.app.ROOT,'config','--quiet',override=candidate_override))
-            self.app.compose('exec','-T','fichiers','testparm','-s','/etc/nas-autonome/'+candidate.name)
+            self.app.service_op('samba_mounts_check',override=candidate_override)
+            self.app.service_op('samba_config_check',name=candidate.name)
             if not changed and resources:
                 try:changed=not self.valid_bindings(resources)
                 except self.app.Problem:changed=True
@@ -127,7 +125,7 @@ class Shares:
                 self.app.private_write(self.runtime,render(config,{}))
                 self.app.private_write(self.directory/'users.tsv',users)
                 self.app.private_write(self.override,desired_text)
-                self.app.compose('up','-d','--no-deps','--force-recreate','fichiers',timeout=90)
+                self.app.service_op('recreate_files')
                 last=None
                 for _ in range(20):
                     try:
@@ -140,11 +138,11 @@ class Shares:
             final=render(config,resources)
             if previous[self.runtime]!=final or changed:
                 self.app.private_write(self.runtime,final)
-                self.app.compose('exec','-T','fichiers','smbcontrol','all','reload-config')
+                self.app.service_op('samba_reload')
                 # Fermer aussi les arbres SMB déjà connectés : un rechargement
                 # seul ne révoque pas leurs anciens droits.
                 for share in config['shares']:
-                    self.app.compose('exec','-T','fichiers','smbcontrol','all','close-share',share['name'])
+                    self.app.service_op('samba_close',share=share['name'])
             self.app.private_write(self.app.STATE/'smb.json',json.dumps(config,indent=2)+'\n')
             self.app.private_write(self.directory/'users.tsv',users)
         except Exception:
@@ -157,11 +155,11 @@ class Shares:
                 # doit être réactivé sans vérification de son montage.
                 self.app.private_write(self.runtime,render(old,{}))
                 self.app.private_write(self.override,json.dumps(manifest(old,self.resources(old)),indent=2)+'\n')
-                if changed or reconcile:self.app.compose('up','-d','--no-deps','--force-recreate','fichiers',timeout=90)
-                self.app.compose('exec','-T','fichiers','smbcontrol','all','reload-config')
+                if changed or reconcile:self.app.service_op('recreate_files')
+                self.app.service_op('samba_reload')
                 for share in old['shares']:
                     if share['area'].startswith('native_'):
-                        self.app.compose('exec','-T','fichiers','smbcontrol','all','close-share',share['name'])
+                        self.app.service_op('samba_close',share=share['name'])
             except Exception:pass
             raise
         finally:

@@ -35,6 +35,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(ROOT))
 from lab import private_write, load_config
+import service_agent
 from release import version as release_version
 
 STATIC = Path(__file__).resolve().parent / 'static'
@@ -113,6 +114,11 @@ def command(args, data=None, timeout=20):
 def compose(*args, data=None, timeout=25):
     from compose_support import arguments
     return command(arguments(ROOT,*args),data,timeout)
+
+
+def service_op(operation, **parameters):
+    """Toute demande de la console à Docker : une opération de la liste fermée de service_agent, rien d'autre."""
+    return service_agent.request(sys.modules[__name__], operation, **parameters)
 
 
 def audit(user, action, detail=''):
@@ -302,11 +308,9 @@ def video_ip():
     global _upstream_cache
     if time.monotonic() - _upstream_cache[0] < 10 and _upstream_cache[1]:
         return _upstream_cache[1]
-    cid = compose('ps', '-q', 'video').strip()
-    if not cid:
+    address = service_op('video_address')
+    if address is None:
         raise Problem('Le service vidéo est arrêté.', 503)
-    data = json.loads(command(['docker', 'inspect', cid]))[0]
-    address = next(iter(data['NetworkSettings']['Networks'].values()))['IPAddress']
     if not address:
         raise Problem('Le service vidéo redémarre.', 503)
     _upstream_cache = (time.monotonic(), address)
@@ -401,7 +405,7 @@ def overview():
         memory[key] = int(value.split()[0]) * 1024
     services = []
     try:
-        service_lines = compose('ps', '--all', '--format', 'json', timeout=3).splitlines()
+        service_lines = service_op('status').splitlines()
         services_available = True
     except (Problem, OSError, subprocess.TimeoutExpired):
         service_lines, services_available = [], False
@@ -916,12 +920,12 @@ class Handler(BaseHTTPRequestHandler):
                 if body['name']=='fichiers':
                     manager=shares()
                     if body['action']=='stop':
-                        manager.set_intent(False);compose('stop','fichiers')
+                        manager.set_intent(False);service_op('control',name='fichiers',action='stop')
                     else:
                         manager.prepare_start(smb_state());manager.set_intent(True)
-                        compose('up','-d','--no-deps','--force-recreate','fichiers',timeout=90)
+                        service_op('recreate_files')
                         manager.apply(smb_state())
-                else:compose(body['action'],body['name'])
+                else:service_op('control',name=body['name'],action=body['action'])
                 audit(user, 'Service ' + body['action'], body['name'])
             elif route == '/api/camera/ptz':
                 ptz_move(body['action'], body.get('preset'), body.get('camera','tapo'))
@@ -937,11 +941,10 @@ class Handler(BaseHTTPRequestHandler):
                 camera = config['cameras'][camera_id]
                 camera['enabled'] = enabled
                 camera.setdefault('record', {}).setdefault('continuous', {})['days'] = days
-                code = 'import json,sys;from frigate.config import FrigateConfig;FrigateConfig.model_validate(json.load(sys.stdin))'
-                compose('exec', '-T', 'video', 'python3', '-c', code, data=json.dumps(config))
+                service_op('video_validate', document=config)
                 private_write(STATE / 'config-avant-reglage-camera.yml', path.read_text())
                 private_write(path, json.dumps(config, indent=2) + '\n')
-                compose('restart', 'video')
+                service_op('control', name='video', action='restart')
                 for _ in range(15):
                     try:
                         with video_get('/api/version', timeout=1):
@@ -1068,10 +1071,10 @@ class Handler(BaseHTTPRequestHandler):
                         raise Problem('Mot de passe SMB : 12 à 128 caractères, sur une seule ligne.')
                     if not existing:
                         uid = max(u['uid'] for u in config['users']) + 1
-                        compose('exec', '-T', 'fichiers', 'adduser', '-D', '-H', '-u', str(uid), '-G', 'nas', name)
+                        service_op('samba_account', name=name, uid=uid)
                         existing = {'name': name, 'uid': uid, 'enabled': True}
                         config['users'].append(existing)
-                    compose('exec', '-T', 'fichiers', 'smbpasswd', '-s', '-a', name, data=password + '\n' + password + '\n')
+                    service_op('samba_password', name=name, password=password)
                     if name == 'nas':
                         # Conserver l’inode du secret monté dans le conteneur.
                         fd = os.open(ROOT / 'state/smb_password', os.O_WRONLY | os.O_TRUNC | os.O_NOFOLLOW)
@@ -1085,7 +1088,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise Problem('Valeur invalide.')
                 if name == 'nas' and not enabled:
                     raise Problem('Le compte initial nas doit rester actif.')
-                compose('exec', '-T', 'fichiers', 'smbpasswd', '-e' if enabled else '-d', name)
+                service_op('samba_enable', name=name, enabled=enabled)
                 existing['enabled'] = enabled
                 save_smb(config)
                 audit(user, 'Compte SMB mis à jour', name)

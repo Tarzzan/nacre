@@ -63,7 +63,7 @@ def applied(live, enabled, track):
 
 
 def apply(app, body, actor):
-    from cameras import VALIDATE, config, identifier
+    from cameras import config, identifier
     camera = identifier(app, body.get('camera'))
     enabled, track = body.get('enabled'), body.get('track')
     if type(enabled) is not bool or not isinstance(track, list) or not 1 <= len(track) <= TRACK_MAX or any(not isinstance(label, str) for label in track) or len(set(track)) != len(track):
@@ -86,7 +86,7 @@ def apply(app, body, actor):
     entry['objects']['track'] = track
     entry['detect']['enabled'] = enabled
     try:
-        app.compose('exec', '-T', 'video', 'python3', '-c', VALIDATE, data=json.dumps(document), timeout=30)
+        app.service_op('video_validate', document=document, timeout=30)
     except (app.Problem, OSError, subprocess.TimeoutExpired):
         raise app.Problem('Frigate n’a pas accepté ce réglage. Rien n’a été modifié.', 503) from None
     if path.read_bytes() != original:
