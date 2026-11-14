@@ -1,5 +1,15 @@
 # Déploiements de la console sur Spark
 
+## 13 novembre 2026 — alpha.40, programmation des captures natives
+
+L’installation alpha.39 a reçu le paquet `nacre-0.8.0-alpha.40.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.40), construit depuis le commit [`5e40bd6`](https://github.com/Tarzzan/nacre/commit/5e40bd616d0a11c2d7286630e0fe10e9777dcfd8) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
+
+Avant l’import : neuf modules figés identiques, aucune tâche active, répétition isolée alpha.39 → alpha.40 réussie. Fichier importé téléchargé depuis la release, empreinte contrôlée ; session administrateur temporaire refermée ; installation confirmée depuis la fenêtre Réglages du bureau et suivie jusqu’à **Mise à jour réussie**, session conservée.
+
+Validation enregistrée à 22 h 33 min 53 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Cette installation n’a pas de service natif : la [programmation des captures](NATIVE-SNAPSHOT-POLICY.md#lot-2--programmation-des-captures) n’y a rien à programmer, et sa preuve sur de vrais volumes vient du banc VM, pas d’ici. Constaté dans le navigateur : la page Volumes et snapshots s’affiche comme avant, sans les cartes de programmation et de conservation ; la liste des programmations répond « service non connecté, aucune programmation » ; aucun réglage natif n’est enregistré, aucune ligne du compte « programmation » au journal, aucune alerte de programmation.
+
 ## 13 novembre 2026 — alpha.39, conservation des points natifs
 
 L’installation alpha.38 a reçu le paquet `nacre-0.8.0-alpha.39.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.39), construit depuis le commit [`d58349a`](https://github.com/Tarzzan/nacre/commit/d58349a1a973d1745dd13726ea202669d9fd6947) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
