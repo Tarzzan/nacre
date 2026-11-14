@@ -1,5 +1,15 @@
 # Déploiements de la console sur Spark
 
+## 14 novembre 2026 — alpha.50, passages conservés : liste à jour aussitôt
+
+L’installation alpha.49 a reçu le paquet `nacre-0.8.0-alpha.50.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.50), construit depuis le commit [`edabf87`](https://github.com/Tarzzan/nacre/commit/edabf875173e4c9d6d0a92e48e3530c2be880dd5) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
+
+Avant l’import : neuf modules figés identiques, aucune tâche active, répétition isolée alpha.49 → alpha.50 réussie. Fichier importé identique à celui de la release, empreinte contrôlée ; session administrateur temporaire refermée ; installation confirmée depuis la fenêtre Réglages du bureau et suivie jusqu’à **Mise à jour réussie**, session conservée.
+
+Validation enregistrée à 14 h 13 min 11 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Constaté sur les données réelles, en nombres seulement, par le même essai qu’en alpha.49 : un extrait de dix secondes conservé à travers Nacre, prêt à la deuxième lecture de la liste pour 4,8 Mio, puis retiré ; **la liste lue aussitôt après le retrait est vide**, là où alpha.49 montrait encore le passage. Aucun passage n’est resté ; les deux gestes sont au journal. Aucune image n’a été affichée.
+
 ## 14 novembre 2026 — alpha.49, passages conservés et autonomie vidéo
 
 L’installation alpha.48 a reçu le paquet `nacre-0.8.0-alpha.49.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.49), construit depuis le commit [`90bafaf`](https://github.com/Tarzzan/nacre/commit/90bafaf01dc64e3a4c72f5a2ab5c318153f3d782) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
