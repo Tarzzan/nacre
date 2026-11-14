@@ -21,7 +21,8 @@ class NativeDeleteTests(unittest.TestCase):
         self.policy = {'version': 1, 'allowed_uid': 1000, 'deletion': True, 'volumes': [
             {'id': 'documents', 'name': 'Documents', 'family': 'lvm', 'lv': 'data/documents',
              'vg_uuid': 'vg-original', 'lv_uuid': 'lv-original', 'segtype': 'linear', 'cow_bytes': 1024**3},
-            {'id': 'archives', 'name': 'Archives', 'family': 'zfs', 'dataset': 'pool/archives', 'guid': '77'}]}
+            {'id': 'archives', 'name': 'Archives', 'family': 'zfs', 'dataset': 'pool/archives', 'guid': '77', 'restore_parent': 'pool/restores', 'restore_parent_guid': '88'}]}
+        self.copies, self.mounted, self.parent = set(), 'no', '88'       # copies ZFS présentes sous le parent de restauration
         self.calls = []
         self.lvm, self.zfs = {}, {}        # nom → identité, tels que le stockage les porte
         self.open, self.clones = set(), set()
@@ -82,7 +83,13 @@ class NativeDeleteTests(unittest.TestCase):
                 self.zfs.pop(name)
                 return ''
             if args[1] == 'list':
+                if 'snapshot' not in args:
+                    return 'pool/restores\n' + ''.join('pool/restores/%s\n' % name for name in self.copies)
                 return ''.join('pool/archives@%s\n' % name for name in self.zfs)
+            if last == 'pool/restores':
+                return self.parent + '\n'
+            if 'mounted' in args:
+                return self.mounted + '\n'
             if 'guid,type,mountpoint,readonly' in args:
                 return 'guid\t77\ntype\tfilesystem\nmountpoint\t/srv/archives\nreadonly\toff\n'
             name = last.split('@')[1]
@@ -289,6 +296,51 @@ class NativeDeleteTests(unittest.TestCase):
         self.assertNotIn('deletion', json.loads(files['etc/nacre-storage/policy.json']))
         self.assertTrue(issubclass(service.Engine, native.Engine))
         self.assertNotIn('delete', (SOURCE / 'console/native_storage.py').read_text().split('def request')[1].split('class NativeClient')[0])
+
+
+    def test_an_uncertain_restoration_is_settled_from_real_state_and_stops_blocking_deletion(self):
+        points = self.capture('archives', 2)
+        copy = 'restore_' + 'c' * 32
+
+        def restoration(identifier, volume='archives', name=copy, age=3600, status='uncertain'):
+            self.engine.db.execute("INSERT OR REPLACE INTO actions(id,ts,actor,action,volume,object,status) VALUES(?,?,?,?,?,?,?)", (identifier, time.time() - age, 'admin', 'clone', volume, name, status))
+            self.engine.db.commit()
+
+        def state(identifier):
+            return tuple(self.engine.db.execute('SELECT status,location FROM actions WHERE id=?', (identifier,)).fetchone())
+        # Trop récente, parent de restauration changé, copie encore montée, nom non géré : elle reste « à vérifier », et protège le volume.
+        restoration('r1', age=30)
+        self.engine.status(); self.assertEqual(state('r1'), ('uncertain', ''))
+        restoration('r1'); self.parent = '99'
+        self.engine.status(); self.assertEqual(state('r1'), ('uncertain', ''))
+        self.parent = '88'; self.copies.add(copy); self.mounted = 'yes'
+        self.engine.status(); self.assertEqual(state('r1'), ('uncertain', ''))
+        restoration('r2', name='restore_x')
+        with self.assertRaises(native.NativeError):
+            self.plan(points[:1], 'archives')
+        # Copie présente et non montée : terminée, avec sa destination. Copie absente : échouée. Rien n'est créé ni supprimé.
+        self.mounted = 'no'; before = len(self.calls)
+        self.engine.status()
+        self.assertEqual(state('r1'), ('done', 'pool/restores/' + copy))
+        self.assertFalse([call for call in self.calls[before:] if call[:2] in (['zfs', 'clone'], ['zfs', 'destroy'], ['zfs', 'snapshot'])])
+        self.copies.clear(); restoration('r1')
+        self.engine.status(); self.assertEqual(state('r1'), ('failed', ''))
+        self.assertEqual(state('r2'), ('uncertain', ''))
+        self.engine.db.execute("DELETE FROM actions WHERE id='r2'"); self.engine.db.commit()
+        self.assertEqual(self.commit(self.plan(points[:1], 'archives'))['deleted'], points[:1])      # la suppression n'est plus bloquée
+        # Copie LVM : processus disparu, la tâche est close en échec ; encore en cours, on n'y touche pas.
+        lvm = self.capture('documents', 1)
+        for identifier, pid, status, age in (('d' * 32, 2**22 + 1, 'uncertain', 3600), ('e' * 32, 2**22 + 2, 'running', 5)):
+            self.engine.db.execute('INSERT INTO native_jobs(id,actor,ts,status,options,pid) VALUES(?,?,?,?,?,?)', (identifier, 'admin', time.time() - age, status, '{}', pid))
+            restoration(identifier, 'documents', 'restore_' + identifier, age, status)
+        with self.assertRaises(native.NativeError):
+            self.plan(lvm, 'documents')
+        self.engine.status()
+        self.assertEqual((state('d' * 32)[0], state('e' * 32)[0]), ('failed', 'running'))
+        job = self.engine.db.execute('SELECT status,error FROM native_jobs WHERE id=?', ('d' * 32,)).fetchone()
+        self.assertEqual((job['status'], 'dossier partiel reste privé' in job['error']), ('failed', True))
+        self.engine.db.execute("DELETE FROM actions WHERE id=?", ('e' * 32,)); self.engine.db.execute("DELETE FROM native_jobs WHERE id=?", ('e' * 32,)); self.engine.db.commit()
+        self.assertEqual(self.commit(self.plan(lvm, 'documents'))['deleted'], lvm)
 
 
 if __name__ == '__main__':

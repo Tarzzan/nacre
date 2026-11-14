@@ -1,5 +1,11 @@
 # Validation
 
+## Restaurations natives « à vérifier » relues — 0.8.0-alpha.46
+
+356 tests Python et 134 JavaScript. Un essai Python du service face à un stockage simulé : restauration trop récente, emplacement de restauration changé, copie encore montée ou nom non géré, elle reste « à vérifier » et bloque la suppression ; copie ZFS présente et non montée, terminée avec sa destination ; copie absente, échec ; copie LVM dont le processus a disparu, tâche close en échec, tâche en cours laissée intacte ; aucune commande de création ni de suppression pendant la relecture ; suppression de nouveau acceptée ensuite.
+
+**Banc VM** (`tests/integration_native_review_vm.py`, VM isolée du banc natif) : service réinstallé depuis les sources. Restaurations Btrfs et ZFS coupées juste avant puis juste après la création de la copie, service arrêté ; au redémarrage, quatre restaurations « à vérifier » et suppression refusée sur leur volume ; une fois leur délai passé, échec pour les deux copies absentes, terminée avec destination pour les deux présentes, copie Btrfs lisible et publiée, copie ZFS non montée, inventaire du stockage inchangé par la relecture ; suppression acceptée, sauf le point dont dépend la copie ZFS reconnue. Restauration LVM classique : copie tuée en route, « à vérifier » après trente secondes, puis échec, dossier partiel privé et non publié, points supprimables. Non prouvé : coupure de courant de la machine entière.
+
 ## Dossiers de données protégés — 0.8.0-alpha.45
 
 355 tests Python et 134 JavaScript. Un essai Python de plus pour l’agent : seuls les dossiers où un conteneur écrit sont examinés, pas les montages en lecture seule ni les volumes Docker ; sans exigence, l’agent rapporte et démarre ; avec, démarrage, redémarrage et recréation refusés tant qu’un dossier est exposé, lecture d’état et arrêt toujours permis ; partage approuvé en écriture compté, en lecture seule non ; dossier absent jamais « protégé » ; image Frigate fixée par root. L’essai de l’installateur couvre la copie des sources des images, la description qui y renvoie, et les deux unités de montage au nom que systemd attend.

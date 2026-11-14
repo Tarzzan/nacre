@@ -20,6 +20,7 @@ from native_storage import NativeError, canonical, fingerprint
 
 MAX_DELETE = 50     # points par plan de suppression
 DELETE_BUDGET = 45  # secondes : au-delà, les points restants ne sont pas touchés
+SETTLE_AFTER = 120  # secondes : passé ce délai, la commande d'une restauration « à vérifier » a fini, d'une façon ou d'une autre
 
 
 class Engine(native_storage.Engine):
@@ -39,6 +40,10 @@ class Engine(native_storage.Engine):
         # Suppression non confirmée : relire l'état réel du stockage, sans rien rejouer.
         for row in self.db.execute("SELECT * FROM points WHERE status='uncertain' AND native_identity!=''").fetchall():
             self.settle(dict(row))
+        # Restauration « à vérifier » : même relecture. Tant qu'elle le reste, elle protège tous les points de son volume.
+        self.restorations().list()
+        for row in self.db.execute("SELECT * FROM actions WHERE action='clone' AND status='uncertain'").fetchall():
+            self.settle_clone(dict(row))
         return {**super().status(), 'deletion': self.policy().get('deletion') is True}
 
     def prepare(self, uid, actor, body):
@@ -229,6 +234,60 @@ class Engine(native_storage.Engine):
                 self.db.execute("UPDATE points SET status='uncertain',detail='Suppression non confirmée ; vérifier le stockage.' WHERE id=?", (point['id'],))
             self.db.execute("UPDATE actions SET status=? WHERE action='delete' AND object=? AND status IN ('running','uncertain')", (outcome, point['object']))
         print(canonical({'event': 'delete', 'volume': point['volume'], 'object': point['object'], 'state': state}), flush=True)
+        return state
+
+    def settle_clone(self, action):
+        """Accorder le journal à l'état réel d'une restauration interrompue. Ne crée, ne supprime ni ne rejoue rien.
+
+        Copie présente et entière pour le stockage : terminée, avec sa destination. Absente : échouée. Dans le doute,
+        ou tant que sa commande peut encore courir, elle reste « à vérifier ».
+        """
+        try:
+            if time.time() - action['ts'] < SETTLE_AFTER or not re.fullmatch(r'restore_[a-f0-9]{32}', action['object']):
+                return None
+            volume = self.volume(action['volume'])
+            name, family, location = action['object'], volume['family'], ''
+            if family == 'lvm':
+                job = self.db.execute('SELECT status,pid FROM native_jobs WHERE id=?', (action['id'],)).fetchone()
+                if not job or job['status'] != 'uncertain':
+                    return None
+                try:
+                    command = Path(f'/proc/{job["pid"]}/cmdline').read_bytes()
+                    if b'native_restore.py' in command and action['id'].encode() in command:
+                        return None  # la copie tourne encore
+                except OSError:
+                    pass
+                self.restorations().update(action['id'], status='failed', error='Copie interrompue ; le dossier partiel reste privé et n’est pas publié.')
+                state = 'failed'
+            else:
+                with self.paths(volume) as fds:
+                    self.inspect(volume, fds, require_capacity=False)
+                    if family == 'btrfs':
+                        try:
+                            os.stat(name, dir_fd=fds['restores'], follow_symlinks=False)
+                        except FileNotFoundError:
+                            state = 'failed'
+                        else:
+                            text = self.run(['btrfs', 'subvolume', 'show', f'/proc/self/fd/{fds["restores"]}/{name}'], tuple(fds.values()))
+                            if not re.search(r'^\s*UUID:\s+\S+', text, re.M):
+                                return None
+                            state, location = 'done', str(Path(volume['restores']) / name)
+                    else:
+                        parent = volume.get('restore_parent', '')
+                        if not parent or self.run(['zfs', 'get', '-Hp', '-o', 'value', 'guid', parent]).strip() != str(volume.get('restore_parent_guid')):
+                            return None
+                        listed = [line.strip() for line in self.run(['zfs', 'list', '-H', '-d', '1', '-o', 'name', parent]).splitlines()]
+                        if parent + '/' + name not in listed:
+                            state = 'failed'
+                        elif self.run(['zfs', 'get', '-Hp', '-o', 'value', 'mounted', parent + '/' + name]).strip() != 'no':
+                            return None
+                        else:
+                            state, location = 'done', parent + '/' + name
+                with self.db:
+                    self.db.execute("UPDATE actions SET status=?,location=? WHERE id=? AND status='uncertain'", (state, location, action['id']))
+        except (NativeError, OSError, ValueError, KeyError, TypeError):
+            return None
+        print(canonical({'event': 'restore-review', 'volume': action['volume'], 'object': action['object'], 'state': state}), flush=True)
         return state
 
 
