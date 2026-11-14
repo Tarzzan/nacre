@@ -1,5 +1,9 @@
 # Validation
 
+## Suite des événements — 0.8.0-alpha.47
+
+356 tests Python et 135 JavaScript. Un essai JavaScript : liste arrêtée au dernier événement chargé de la caméra qui a une suite ; filtre sur une caméra sans suite, liste complète, sur celle qui en a une, bouton conservé ; refus du serveur dit sans rien changer à l’affichage ; suite demandée à la caméra qui borne la liste, sur la période exacte de la première réponse, jusqu’à épuisement ; ordre du plus récent au plus ancien, aucun doublon ; plus rien à demander, aucun appel ; nouvelle recherche repartie de la première page. Sur le banc local, avec le vrai serveur et des pages raccourcies à huit événements : huit affichés, puis quarante-six après un clic, dans l’ordre et sans doublon, bouton disparu et mention « tous les événements de la période sont listés ».
+
 ## Restaurations natives « à vérifier » relues — 0.8.0-alpha.46
 
 356 tests Python et 134 JavaScript. Un essai Python du service face à un stockage simulé : restauration trop récente, emplacement de restauration changé, copie encore montée ou nom non géré, elle reste « à vérifier » et bloque la suppression ; copie ZFS présente et non montée, terminée avec sa destination ; copie absente, échec ; copie LVM dont le processus a disparu, tâche close en échec, tâche en cours laissée intacte ; aucune commande de création ni de suppression pendant la relecture ; suppression de nouveau acceptée ensuite.
