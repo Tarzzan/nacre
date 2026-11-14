@@ -1,6 +1,13 @@
 # Déploiements de la console sur Spark
 
-## 14 novembre 2026 — alpha.53, liens de partage
+## 14 novembre 2026 — alpha.54, espaces dans les sauvegardes
+
+L’installation alpha.53 a reçu le paquet `nacre-0.8.0-alpha.54.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.54), par le même [parcours de mise à jour](BROWSER-UPDATES.md) : neuf modules figés identiques, répétition isolée alpha.53 → alpha.54 réussie, fichier importé identique à celui de la release, installation confirmée depuis la fenêtre Réglages et suivie jusqu’à **Mise à jour réussie**.
+
+Validation enregistrée à 16 h 42 min 18 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Constaté en lecture seule : les sources de sauvegarde proposées sont l’espace commun et les espaces ; l’installation n’a aucun plan de sauvegarde, donc rien n’y est sauvegardé d’office. Aucune sauvegarde n’a été lancée ici.
+
 
 L’installation alpha.52 a reçu le paquet `nacre-0.8.0-alpha.53.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.53), construit depuis le commit [`61307d6`](https://github.com/Tarzzan/nacre/commit/61307d61ccab43f92735e5cd15bcd48381a4b7ea) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
 
