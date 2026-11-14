@@ -965,6 +965,9 @@ class Handler(BaseHTTPRequestHandler):
             elif route == '/api/storage/native-schedule':
                 from native_schedule import configure
                 return configure(sys.modules[__name__], body, user)
+            elif route == '/api/storage/native-auto':
+                from native_auto import configure
+                return configure(sys.modules[__name__], body, user)
             elif route == '/api/storage/native-retention-preview':
                 from native_retention import simulate
                 return simulate(sys.modules[__name__], body, user)

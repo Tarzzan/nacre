@@ -259,3 +259,19 @@ la console, sous le compte ubuntu. Il vérifie sur le stockage que seuls les
 points annoncés ont disparu. Résultat dans
 /home/ubuntu/native-delete-results.json. Arrêter la VM avec poweroff. Le banc
 ne se rejoue pas sur la même VM : repartir d'overlays neufs.
+
+
+CONSERVATION AUTOMATIQUE DES POINTS NATIFS
+Repartir d'overlays neufs sur la VM 0.3 arrêtée, comme pour la suppression.
+Copier les sources mises à jour dans /home/ubuntu/nas-autonome.
+
+Dans la VM uniquement :
+sudo env NACRE_VM_LAB=1 python3 /home/ubuntu/nas-autonome/tests/integration_native_auto_vm.py
+
+Ce banc ne formate rien. Il réinstalle le service natif, accorde la
+suppression dans la politique de l'invité, puis relance sa partie console
+sous le compte ubuntu : captures programmées et règle appliquée après chacune
+sur Btrfs, ZFS, LVM classique et LVM thin, plafond libéré, maximum dépassé.
+Il retire ensuite l'accord et vérifie la suspension. Chaque étape est
+confrontée au stockage. Résultat dans /home/ubuntu/native-auto-results.json.
+Arrêter la VM avec poweroff. Le banc ne se rejoue pas sur la même VM.

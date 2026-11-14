@@ -52,6 +52,8 @@ def prepare(source, output):
             if 'plans' in tables: db.execute('UPDATE plans SET enabled=0,next_run=NULL')
             from automatic_retention import disable_after_recovery
             disable_after_recovery(db)
+            from native_auto import disable_after_recovery as disable_native_auto
+            disable_native_auto(db)
             if 'jobs' in tables:
                 extra = ',pid=NULL' if 'pid' in columns(db, 'jobs') else ''
                 if 'cancel' in columns(db, 'jobs'): extra += ',cancel=1'

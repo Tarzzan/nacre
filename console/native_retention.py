@@ -70,6 +70,7 @@ def stored(app, prefix, identifier, fallback):
 
 def listing(app, actor):
     """Règle de chaque volume inscrit ; sans service natif, une liste vide plutôt qu'une erreur."""
+    import native_auto
     status = app.native_storage('status', actor)
     policies = []
     for item in status.get('volumes', []):
@@ -77,8 +78,11 @@ def listing(app, actor):
         try:
             policies.append({'volume': item['id'], 'saved': saved is not None, **rule(app, saved or {})})
         except app.Problem:
+            saved = None
             policies.append({'volume': item['id'], 'saved': False, **defaults(app)})
-    return {'connected': bool(status.get('connected')), 'policies': policies, 'defaults': defaults(app), 'deletion': status.get('deletion') is True}
+        policies[-1]['auto'] = native_auto.public(app, status, item, saved)
+    return {'connected': bool(status.get('connected')), 'policies': policies, 'defaults': defaults(app), 'deletion': status.get('deletion') is True,
+            'auto_phrase': native_auto.PHRASE, 'auto_floor': native_auto.FLOOR, 'batch': BATCH}
 
 
 def save(app, body, actor):
@@ -89,7 +93,9 @@ def save(app, body, actor):
     periods = ', '.join(f'{value["calendar"][key]} {label}' for key, label in (('daily', 'jours'), ('weekly', 'semaines'), ('monthly', 'mois')) if value['calendar'][key])
     app.audit(actor, 'Règle de conservation des points natifs enregistrée', f'{item["id"]} : {value["keep_last"]} derniers points' + (f', {periods}' if periods else '')
               + (' ; captures manuelles comprises' if value['manual'] else '') + ' ; aucune suppression')
-    return {'volume': item['id'], 'saved': True, **value}
+    import native_auto
+    stopped = native_auto.rule_saved(app, item['id'], value, actor)
+    return {'volume': item['id'], 'saved': True, **value, 'auto': native_auto.public(app, native(app, actor), item, value), 'auto_stopped': stopped}
 
 
 def selection(status, item, value, scheduled, now):
@@ -137,6 +143,14 @@ def simulate(app, body, actor):
             **selection(status, item, value, set(scheduled) if isinstance(scheduled, list) else set(), now)}
 
 
+def forget(app, identifier, deleted):
+    """Les points supprimés quittent aussi la note des points programmés."""
+    marks = stored(app, SCHEDULED, identifier, None)
+    if deleted and isinstance(marks, list):
+        with app.database() as db:
+            db.execute('UPDATE settings SET value=? WHERE key=?', (json.dumps([point for point in marks if point not in deleted]), SCHEDULED + identifier))
+
+
 def prune_prepare(app, body, actor):
     """Plan de suppression des points sortants de la simulation affichée, cinquante au plus, les plus anciens d'abord."""
     body = body if isinstance(body, dict) else {}
@@ -163,12 +177,7 @@ def prune_commit(app, body, actor):
         raise app.Problem('Recopier exactement la phrase du plan de suppression.')
     result = app.native_storage('commit', actor, {'plan': plan, 'confirmation': confirmation})
     deleted, uncertain, kept = (result.get(key) if isinstance(result.get(key), list) else [] for key in ('deleted', 'uncertain', 'kept'))
-    if deleted:
-        # Les points supprimés quittent aussi la note des points programmés.
-        marks = stored(app, SCHEDULED, item['id'], None)
-        if isinstance(marks, list):
-            with app.database() as db:
-                db.execute('UPDATE settings SET value=? WHERE key=?', (json.dumps([point for point in marks if point not in deleted]), SCHEDULED + item['id']))
+    forget(app, item['id'], deleted)
     detail = f'{item["id"]} : {len(deleted)} supprimé{"s" if len(deleted) > 1 else ""}'
     if not result.get('ok'):
         detail += f', {len(uncertain)} à vérifier, {len(kept)} non touché{"s" if len(kept) > 1 else ""} ; ' + str(result.get('reason', ''))

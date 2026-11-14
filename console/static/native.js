@@ -56,14 +56,14 @@ function nativeScheduleModal(identifier){
   modal('Programmer les captures de « '+volume.name+' »',
     field('Heure','time',s.time,'time')+
     `<div class="field"><label>Jours</label><div class="checks">${NATIVE_DAYS.map((d,i)=>`<label><input type="checkbox" name="weekdays" value="${i}" ${days.includes(i)?'checked':''}>${d}</label>`).join('')}</div></div>`+
-    `<div class="field"><label for="native-schedule-cap">Plafond de points programmés</label><input id="native-schedule-cap" name="cap" type="number" min="1" max="500" step="1" value="${esc(s.cap)}" required><small>Atteint, la programmation s’arrête et le signale : elle ne supprime jamais pour faire de la place.</small></div>`+
+    `<div class="field"><label for="native-schedule-cap">Plafond de points programmés</label><input id="native-schedule-cap" name="cap" type="number" min="1" max="500" step="1" value="${esc(s.cap)}" required><small>Atteint, la programmation s’arrête et le signale : elle ne supprime jamais pour faire de la place. La conservation automatique, si elle est activée, s’en charge.</small></div>`+
     `<div class="checks"><label><input type="checkbox" name="enabled" ${s.enabled?'checked':''}>Activer la programmation</label></div>`+
     `<div class="field"><label for="native-schedule-confirmation">Pour activer, recopiez « ${esc(phrase)} »</label><input id="native-schedule-confirmation" name="confirmation" autocomplete="off"><small>Vaut accord durable pour les captures de ce volume. Inutile pour désactiver.</small></div>`+
     `<p class="capacity-note">L’heure s’entend dans le fuseau ${esc(nativePlans?.defaults?.timezone||s.timezone)} de la console. Une occurrence tombant pendant une autre opération sur le volume est sautée ; une occurrence manquée pendant un arrêt n’est pas rattrapée. Le service natif revérifie identité, politique et capacité à chaque capture.</p>`,
     'Enregistrer',async form=>{
       const cap=Number(form.get('cap'));if(!Number.isInteger(cap))throw new Error('Saisir un plafond entier.');
       const saved=await api('storage/native-schedule',{volume:identifier,enabled:form.has('enabled'),time:form.get('time'),weekdays:form.getAll('weekdays').map(Number),cap,confirmation:String(form.get('confirmation')||'').trim()});
-      return {message:saved?.enabled?'Programmation activée. Aucun point ne sera supprimé.':'Programmation désactivée.'};
+      return {message:saved?.enabled?(nativeKeepPolicy(identifier).auto?.enabled?'Programmation activée. La conservation automatique s’appliquera après chaque capture.':'Programmation activée. Aucun point ne sera supprimé.'):'Programmation désactivée.'};
     });
 }
 // Tant qu’une règle est ouverte, l’actualisation périodique de la page attend : elle effacerait la saisie en cours.
@@ -76,7 +76,33 @@ function nativeKeepText(p){
 }
 function nativeKeepCard(){
   if(!nativeState.volumes.length)return '';
-  return `<section class="card" id="native-keep"><div class="cardhead"><h2>Conservation des points natifs</h2><span class="muted">${nativeKeep?.deletion===true?'La suppression demande toujours une confirmation':'Simulation seulement · aucun point n’est supprimé'}</span></div>${table(['Volume','Règle',''],nativeState.volumes.map(v=>{const p=nativeKeepPolicy(v.id);return `<tr><td>${esc(v.name)}<br><small class="muted">${esc(v.id)}</small></td><td>${esc(nativeKeepText(p))}<br><small class="muted">${p.saved?'Règle enregistrée':'Règle proposée, non enregistrée'}</small></td><td>${button('native-keep-open','Régler et simuler',null,'small',`data-volume="${esc(v.id)}" aria-expanded="${v.id===nativeKeepOpen}"`)}</td></tr>`;}))}<div id="native-keep-panel">${nativeKeepPanel()}</div></section><br>`;
+  return `<section class="card" id="native-keep"><div class="cardhead"><h2>Conservation des points natifs</h2><span class="muted">${nativeKeep?.deletion===true?'La suppression demande toujours une confirmation':'Simulation seulement · aucun point n’est supprimé'}</span></div>${table(['Volume','Règle',''],nativeState.volumes.map(v=>{const p=nativeKeepPolicy(v.id);return `<tr><td>${esc(v.name)}<br><small class="muted">${esc(v.id)}</small></td><td>${esc(nativeKeepText(p))}<br><small class="muted">${p.saved?'Règle enregistrée':'Règle proposée, non enregistrée'}</small>${nativeAutoLine(p.auto)}</td><td>${button('native-keep-open','Régler et simuler',null,'small',`data-volume="${esc(v.id)}" aria-expanded="${v.id===nativeKeepOpen}"`)}${nativeKeep?.deletion===true||p.auto?.enabled||p.auto?.reason?button('native-auto-edit','Automatique…',null,'small',`data-volume="${esc(v.id)}"`):''}</td></tr>`;}))}<div id="native-keep-panel">${nativeKeepPanel()}</div></section><br>`;
+}
+// Conservation automatique : son état sous la règle du volume, et sa fenêtre de réglage.
+function nativeAutoLine(a){
+  if(!a||typeof a!=='object')return '';
+  const last=a.last&&typeof a.last==='object'?` · dernier passage le ${date(a.last.ts)} : ${esc(a.last.detail||'')}`:'';
+  if(a.enabled)return `<br><small><span class="badge">Conservation automatique</span> au plus ${Number(a.cap)||0} point${a.cap>1?'s':''} par passage${last}</small>`;
+  if(a.reason)return `<br><small><span class="badge warn">Conservation automatique suspendue</span> ${esc(a.reason)}</small>`;
+  return '';
+}
+function nativeAutoModal(identifier){
+  const volume=nativeState.volumes.find(v=>v.id===identifier);if(!volume)return;
+  const p=nativeKeepPolicy(identifier),a=p.auto||{},phrase=(nativeKeep?.auto_phrase||'AUTOMATISER ')+identifier,most=Number(nativeKeep?.batch)||50;
+  if(!a.enabled&&nativeKeep?.deletion!==true)return toast('La suppression de points n’est pas accordée sur ce matériel.',true);
+  if(!a.enabled&&!p.saved)return toast('Enregistrer d’abord la règle de conservation de ce volume.',true);
+  const pending=Number.isInteger(a.pending)?a.pending:0,cap=a.enabled?a.cap:Math.min(most,pending+(Number(nativeKeep?.auto_floor)||5)); // le premier passage suit une capture de plus : garder de la marge
+  modal('Conservation automatique de « '+volume.name+' »',
+    `<p>Après chaque capture programmée réussie, la règle enregistrée de ce volume est appliquée : les points programmés qu’elle ne garde plus sont supprimés, sans autre confirmation.</p>`+
+    `<div class="native-plan"><div class="legendrow"><span>Règle enregistrée</span><b>${esc(nativeKeepText({...p,manual:false}))}</b></div><div class="legendrow"><span>Au prochain passage</span><b>${pending?`${pending} point${pending>1?'s':''} programmé${pending>1?'s':''} sortirai${pending>1?'en':''}t`:'aucun point ne sortirait'}</b></div><p class="muted">Une capture manuelle n’est jamais supprimée automatiquement.</p><p class="muted">Au premier refus ou arrêt, la conservation automatique se suspend et le signale ; rien n’est rejoué.</p><p class="muted">Enregistrer une autre règle la désactive.</p></div>`+
+    `<div class="field"><label for="native-auto-cap">Maximum de points supprimés par passage</label><input id="native-auto-cap" name="cap" type="number" min="1" max="${most}" step="1" value="${esc(cap)}" required><small>Si davantage de points sortaient, rien ne serait supprimé et la conservation automatique se suspendrait. Le premier passage suit une capture de plus : garder de la marge.</small></div>`+
+    `<div class="checks"><label><input type="checkbox" name="enabled" ${a.enabled?'checked':''}>Activer la conservation automatique</label></div>`+
+    `<div class="field"><label for="native-auto-confirmation">Pour activer, recopiez « ${esc(phrase)} »</label><input id="native-auto-confirmation" name="confirmation" autocomplete="off"><small>Vaut accord durable pour les suppressions de ce volume, selon cette règle. Inutile pour désactiver.</small></div>`,
+    'Enregistrer',async form=>{
+      const limit=Number(form.get('cap'));if(!Number.isInteger(limit))throw new Error('Saisir un maximum entier.');
+      const saved=await api('storage/native-auto',{volume:identifier,enabled:form.has('enabled'),cap:limit,confirmation:String(form.get('confirmation')||'').trim()});
+      return {message:saved?.enabled?'Conservation automatique activée : elle s’appliquera après la prochaine capture programmée.':'Conservation automatique désactivée. Aucun point n’est supprimé.'};
+    });
 }
 function nativeKeepPanel(){
   const volume=nativeState.volumes.find(v=>v.id===nativeKeepOpen);if(!volume)return '';
@@ -140,7 +166,7 @@ async function nativeKeepSend(save){
   try{
     const body=nativeKeepBody(form),result=await api(save?'storage/native-retention':'storage/native-retention-preview',body);
     if(!current())return;
-    if(save){nativeKeep={...nativeKeep,policies:[...(nativeKeep.policies||[]).filter(p=>p.volume!==volume),result]};toast('Règle enregistrée. Aucun point n’est supprimé.');return renderNative();}
+    if(save){nativeKeep={...nativeKeep,policies:[...(nativeKeep.policies||[]).filter(p=>p.volume!==volume),result]};toast(result?.auto_stopped?'Règle enregistrée. La conservation automatique est désactivée : la réactiver pour cette règle.':'Règle enregistrée. Aucun point n’est supprimé.');return renderNative();}
     nativeKeepResult=result;const box=$('#native-keep-result');if(box)box.innerHTML=nativeKeepSummary(result);
   }catch(problem){if(!current())return;const box=$('#native-keep-error');if(box)box.textContent=problem.message;else toast(problem.message,true);}
 }
@@ -176,6 +202,7 @@ document.addEventListener('click',async event=>{
     case 'mirror-repair':return repairMirror(element.dataset.volume);
     case 'native-refresh':return renderNative();
     case 'native-schedule-edit':return nativeScheduleModal(element.dataset.volume);
+    case 'native-auto-edit':return nativeAutoModal(element.dataset.volume);
     case 'native-keep-open':nativeKeepOpen=nativeKeepOpen===element.dataset.volume?'':element.dataset.volume;nativeKeepResult=nativeKeepDraft=nativePruneNote=null;nativeKeepRequest++;return renderNative();
     case 'native-keep-close':nativeKeepOpen='';nativeKeepResult=nativeKeepDraft=nativePruneNote=null;nativeKeepRequest++;return nativeKeepRedraw();
     case 'native-prune':return nativePrune();

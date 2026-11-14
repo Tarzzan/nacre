@@ -311,6 +311,64 @@ test('points leaving a native simulation are deleted through a service plan and 
  await click({action:'native-keep-close'});assert.equal(f.run('JSON.stringify([nativeKeepDraft,nativePruneNote,nativeKeepResult])'),'[null,null,null]');
 });
 
+test('automatic native retention shows its state per volume and is enabled in a dialog with a maximum and a typed phrase',async()=>{
+ const calls=[];let refuse='',stopped=false;
+ const volume=(id,name)=>({id,name,family:'btrfs',ready:true}),rule=(volume,saved,auto)=>({volume,saved,keep_last:3,manual:true,calendar:{daily:2,weekly:0,monthly:0,timezone:'UTC'},auto});
+ const state={connected:true,deletion:true,volumes:[volume('documents','Docs <b>'),volume('photos','Photos'),volume('films','Films'),volume('archives','Archives')],points:[],actions:[],jobs:[],resources:[],provisioning:{enabled:false,devices:[],deployments:[]}};
+ const keep={connected:true,deletion:true,auto_phrase:'AUTOMATISER ',auto_floor:5,batch:50,defaults:{keep_last:7,manual:false,calendar:{daily:0,weekly:0,monthly:0,timezone:'UTC'}},policies:[
+  rule('documents',true,{enabled:false,cap:5,reason:'',last:null,since:null,pending:3}),rule('photos',false,{enabled:false,cap:5,reason:'',last:null,since:null,pending:null}),
+  rule('films',true,{enabled:true,cap:7,reason:'',last:{ts:1794096000,outcome:'done',detail:'1 point <supprimé>.',deleted:1},since:1,pending:0}),
+  rule('archives',true,{enabled:false,cap:1,reason:'4 points sortiraient, plus que le maximum de 1 <par> passage.',last:{ts:1794096000,outcome:'suspended',detail:'x',deleted:0},since:1,pending:4})]};
+ const f=fixture(async(url,options)=>{
+  const body=options?.body?JSON.parse(options.body):null;calls.push([url,body]);
+  if(url.endsWith('/storage/native'))return response(200,state);
+  if(url.endsWith('/storage/profiles'))return response(200,[]);
+  if(url.endsWith('/storage/native-retention')&&!body)return response(200,keep);
+  if(url.endsWith('/storage/native-schedule')&&!body)return response(200,{connected:true,schedules:[],defaults:null,confirmation:'PROGRAMMER '});
+  if(refuse)return response(400,{error:refuse});
+  if(url.endsWith('/storage/native-retention'))return response(200,{...body,saved:true,auto:{enabled:false,cap:5,reason:'',last:null,pending:0},auto_stopped:stopped});
+  return response(200,{volume:body.volume,enabled:body.enabled,cap:body.cap,reason:'',last:null,pending:0});
+ });
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/native.js'),'utf8'),f.context);
+ f.run('user={name:"admin",role:"admin"};page="native";shell();');await f.run('renderNative()');
+ const content=()=>String(f.elements.get('#content').innerHTML),posts=()=>calls.filter(c=>c[1]),toast=()=>f.elements.get('#toast').textContent;
+ const click=dataset=>f.listeners.get('click').at(-1)({target:{closest:s=>s==='[data-action]'?{dataset}:null}});
+ const form=values=>{const map=new Map(Object.entries(values));map.getAll=name=>values[name]||[];return map;};
+ // Sous chaque règle : rien si jamais activée, l'état et le dernier passage si activée, la raison si suspendue.
+ assert.match(content(),/Règle enregistrée<\/small><\/td><td><button type="button" class="small" data-action="native-keep-open" data-volume="documents" aria-expanded="false"><span>Régler et simuler<\/span><\/button><button type="button" class="small" data-action="native-auto-edit" data-volume="documents"><span>Automatique…<\/span><\/button>/);
+ assert.match(content(),/<br><small><span class="badge">Conservation automatique<\/span> au plus 7 points par passage · dernier passage le [^:<]*:\d\d : 1 point &lt;supprimé&gt;\.<\/small>/);
+ assert.match(content(),/<br><small><span class="badge warn">Conservation automatique suspendue<\/span> 4 points sortiraient, plus que le maximum de 1 &lt;par&gt; passage\.<\/small>/);
+ assert.equal(content().match(/data-action="native-auto-edit"/g).length,4);assert.doesNotMatch(content(),/style=/);
+ // La fenêtre dit ce qui sera fait, ce que le prochain passage sortirait, et propose un maximum ; la phrase nomme le volume.
+ const modal=f.elements.get('#modal');let shown=0;modal.showModal=()=>shown++;modal.innerHTML='';
+ await click({action:'native-auto-edit',volume:'documents'});
+ assert.equal(shown,1);assert.match(modal.innerHTML,/<h2>Conservation automatique de « Docs &lt;b&gt; »<\/h2>/);
+ assert.match(modal.innerHTML,/<span>Règle enregistrée<\/span><b>3 derniers points \+ le dernier de 2 jours · captures programmées seulement<\/b>/);
+ assert.match(modal.innerHTML,/<span>Au prochain passage<\/span><b>3 points programmés sortiraient<\/b>/);assert.match(modal.innerHTML,/Une capture manuelle n’est jamais supprimée automatiquement\./);
+ assert.match(modal.innerHTML,/id="native-auto-cap" name="cap" type="number" min="1" max="50" step="1" value="8" required>/);assert.match(modal.innerHTML,/name="enabled" >Activer la conservation automatique/);
+ assert.match(modal.innerHTML,/Pour activer, recopiez « AUTOMATISER documents »<\/label><input id="native-auto-confirmation" name="confirmation" autocomplete="off">/);assert.doesNotMatch(modal.innerHTML,/style=/);
+ // Enregistrer envoie l'état, le maximum et la phrase saisie.
+ f.context.sent=form({cap:'8',enabled:'on',confirmation:' AUTOMATISER documents '});let result=await f.run('modalSubmit(sent)');
+ assert.deepEqual(posts().at(-1),['/api/storage/native-auto',{volume:'documents',enabled:true,cap:8,confirmation:'AUTOMATISER documents'}]);assert.match(result.message,/^Conservation automatique activée : elle s’appliquera après la prochaine capture programmée\.$/);
+ f.context.sent=form({cap:'8'});result=await f.run('modalSubmit(sent)');assert.deepEqual(posts().at(-1)[1],{volume:'documents',enabled:false,cap:8,confirmation:''});assert.equal(result.message,'Conservation automatique désactivée. Aucun point n’est supprimé.');
+ const count=posts().length;f.context.sent=form({cap:'2.5',enabled:'on'});await assert.rejects(f.run('modalSubmit(sent)'),/maximum entier/);assert.equal(posts().length,count);
+ refuse='Recopier exactement « AUTOMATISER documents » pour activer.';f.context.sent=form({cap:'8',enabled:'on',confirmation:'non'});await assert.rejects(f.run('modalSubmit(sent)'),/Recopier exactement/);refuse='';
+ // Le maximum proposé dépasse de cinq ce que la règle sortirait aujourd'hui, dans la limite d'une opération ; une conservation active garde le sien.
+ keep.policies[0].auto.pending=12;await f.run('renderNative()');await click({action:'native-auto-edit',volume:'documents'});assert.match(modal.innerHTML,/name="cap" type="number" min="1" max="50" step="1" value="17"/);
+ keep.policies[0].auto.pending=80;await f.run('renderNative()');await click({action:'native-auto-edit',volume:'documents'});assert.match(modal.innerHTML,/value="50" required/);
+ await click({action:'native-auto-edit',volume:'films'});assert.match(modal.innerHTML,/value="7" required/);assert.match(modal.innerHTML,/name="enabled" checked>Activer/);assert.match(modal.innerHTML,/<b>aucun point ne sortirait<\/b>/);
+ // Sans règle enregistrée, ou sans accord de suppression, rien ne s'ouvre et la raison est dite ; une conservation active reste désactivable.
+ shown=0;await click({action:'native-auto-edit',volume:'photos'});assert.equal(shown,0);assert.equal(toast(),'Enregistrer d’abord la règle de conservation de ce volume.');
+ await click({action:'native-auto-edit',volume:'inconnu'});assert.equal(shown,0);
+ keep.deletion=false;await f.run('renderNative()');assert.equal(content().match(/data-action="native-auto-edit"/g).length,2);
+ await click({action:'native-auto-edit',volume:'archives'});assert.equal(shown,0);assert.equal(toast(),'La suppression de points n’est pas accordée sur ce matériel.');
+ await click({action:'native-auto-edit',volume:'films'});assert.equal(shown,1);keep.deletion=true;
+ // Enregistrer une autre règle désactive la conservation automatique, et le message le dit.
+ await f.run('renderNative()');await click({action:'native-keep-open',volume:'films'});
+ f.elements.set('#native-keep-form',{getAttribute:()=> 'native-keep-form',values:{keep_last:'9',daily:'0',weekly:'0',monthly:'0',timezone:'UTC'}});f.elements.set('#native-keep-error',{textContent:''});
+ stopped=true;await click({action:'native-keep-save'});assert.equal(toast(),'Règle enregistrée. La conservation automatique est désactivée : la réactiver pour cette règle.');
+});
+
 test('native capture schedules show per volume and are set in a dialog that asks for a typed confirmation',async()=>{
  const calls=[];let refuse=0;
  const state={connected:true,volumes:[{id:'documents',name:'Docs <b>',family:'btrfs',ready:true},{id:'photos',name:'Photos',family:'zfs',ready:true},{id:'films',name:'Films',family:'lvm',ready:true}],points:[],actions:[],jobs:[],resources:[],provisioning:{enabled:false,devices:[],deployments:[]}};
