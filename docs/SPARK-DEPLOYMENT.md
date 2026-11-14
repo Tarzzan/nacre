@@ -1,6 +1,13 @@
 # Déploiements de la console sur Spark
 
-## 14 novembre 2026 — alpha.55, double authentification
+## 14 novembre 2026 — alpha.56, accès par le réseau
+
+L’installation alpha.55 a reçu le paquet `nacre-0.8.0-alpha.56.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.56), par le même [parcours de mise à jour](BROWSER-UPDATES.md) : neuf modules figés identiques, répétition isolée alpha.55 → alpha.56 réussie, fichier importé identique à celui de la release, installation confirmée depuis la fenêtre Réglages et suivie jusqu’à **Mise à jour réussie**.
+
+Validation enregistrée à 17 h 31 min 15 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Constaté en lecture seule : l’accès réseau est **fermé**, sans nom déclaré ni certificat ; OpenSSL est présent ; **26 ports en écoute avant, 26 après**, aucun sur 8443. **L’accès réseau n’a pas été ouvert ici** : exposer cette machine est une décision de son propriétaire, et son compte n’a pas encore la double authentification. L’ouverture, la connexion entre deux machines et la fermeture sont prouvées sur le banc.
+
 
 L’installation alpha.54 a reçu le paquet `nacre-0.8.0-alpha.55.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.55), par le même [parcours de mise à jour](BROWSER-UPDATES.md) : neuf modules figés identiques, répétition isolée alpha.54 → alpha.55 réussie, fichier importé identique à celui de la release, installation confirmée depuis la fenêtre Réglages et suivie jusqu’à **Mise à jour réussie**.
 

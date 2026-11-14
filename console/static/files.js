@@ -46,7 +46,9 @@ function fmTree(){
 function fmTools(){
  const chain=currentPath?currentPath.split('/'):[],name=fileAreas.find(a=>a.id===area)?.name||area,write=fmWritable();
  const crumbs=[`<button type="button" data-action="fm-go" data-area="${esc(area)}" data-path="">${esc(name)}</button>`,...chain.map((part,i)=>`<button type="button" data-action="fm-go" data-area="${esc(area)}" data-path="${esc(chain.slice(0,i+1).join('/'))}">${esc(part)}</button>`)].join('<span aria-hidden="true">›</span>');
- return `<div class="fm-crumbs" aria-label="Emplacement">${crumbs}</div><span class="fm-grow"></span><input id="fm-filter" type="search" placeholder="Filtrer ou rechercher" value="${esc(fmFilter)}" aria-label="Filtrer ce dossier ou rechercher un nom" title="Filtre ce dossier pendant la saisie ; Entrée cherche dans tout le NAS">${button('fm-criteria','Par critères',null,'small','title="Chercher sans nom, ici et dans les sous-dossiers : les plus gros fichiers, les plus récents, par type"')}${button('fm-view',fmView==='list'?'Grille':'Liste',null,'small')}${button('fm-preview','Aperçu',null,'small',`aria-pressed="${fmPreview}"`)}${write?button('mkdir','Nouveau dossier','plus','small')+button('fm-send','Déposer des fichiers','upload','primary small'):''}`;
+ // Sur un écran étroit, l’arbre est replié : ce sélecteur le remplace pour changer d’espace.
+ const spaces=fileAreas.length>1?`<select id="fm-area" class="fm-areasel" aria-label="Espace">${fileAreas.map(a=>`<option value="${esc(a.id)}" ${a.id===area?'selected':''}>${esc(a.name)}${a.writable?'':' · lecture seule'}</option>`).join('')}</select>`:'';
+ return `${spaces}<div class="fm-crumbs" aria-label="Emplacement">${crumbs}</div><span class="fm-grow"></span><input id="fm-filter" type="search" placeholder="Filtrer ou rechercher" value="${esc(fmFilter)}" aria-label="Filtrer ce dossier ou rechercher un nom" title="Filtre ce dossier pendant la saisie ; Entrée cherche dans tout le NAS">${button('fm-criteria','Par critères',null,'small','title="Chercher sans nom, ici et dans les sous-dossiers : les plus gros fichiers, les plus récents, par type"')}${button('fm-view',fmView==='list'?'Grille':'Liste',null,'small')}${button('fm-preview','Aperçu',null,'small',`aria-pressed="${fmPreview}"`)}${write?button('mkdir','Nouveau dossier','plus','small')+button('fm-send','Déposer des fichiers','upload','primary small'):''}`;
 }
 function fmBar(){
  const chosen=fmSelected(),write=fmWritable();if(!chosen.length)return '';
@@ -366,6 +368,11 @@ document.addEventListener('dblclick',e=>{
 // Retoucher le champ quitte les résultats : on revient au dossier, filtré par la saisie.
 document.addEventListener('input',e=>{if(e.target?.id==='fm-filter'&&page==='files'){fmFilter=e.target.value;fmSel.clear();if(fmFound){fmFindRequest++;fmFound=null;fmHit=-1;}fmRedraw();}});
 // Un filtre choisi relance la même recherche ; le choix doit être l’un de ceux proposés.
+// Changement d’espace par le sélecteur des écrans étroits.
+document.addEventListener('change',e=>{
+ if(e.target?.id!=='fm-area'||page!=='files'||!fileAreas.some(a=>a.id===e.target.value))return;
+ fmGo(e.target.value,'').catch(error=>{if(error.name!=='AbortError')toast(error.message,true);});
+});
 document.addEventListener('change',e=>{
  const key=e.target?.dataset?.refine;if(!key||page!=='files'||!fmFound?.items||fmFound.usage)return;
  const value=String(e.target.value||''),id=e.target.id;

@@ -6,7 +6,7 @@ Deuxième brique de l’espace collaboratif : se connecter en sécurité ailleur
 | --- | --- | --- |
 | Double authentification | Un code du téléphone en plus du mot de passe | Depuis 0.8.0-alpha.55 |
 | Accès par le réseau | Écoute en HTTPS, noms d’hôte reconnus | Depuis 0.8.0-alpha.56 |
-| Téléphone | Interface adaptée, installation sur l’écran d’accueil | À venir |
+| Téléphone | Interface adaptée, installation sur l’écran d’accueil | Depuis 0.8.0-alpha.57 |
 
 ## Double authentification
 
@@ -89,4 +89,24 @@ Un relais HTTPS (Nginx Proxy Manager, Caddy…) peut se placer devant : il se co
 - **Exposer ce port à Internet** se décide sur la box ou le pare-feu, pas ici. Nacre est en version alpha : préférer un réseau privé ou un VPN.
 - **« Pour tout le monde »** : un membre doit alors activer sa double authentification depuis la machine avant sa première connexion par le réseau.
 - **Changer un réglage relance l’écoute** : les connexions en cours par le réseau sont coupées un instant.
+
+## Sur un téléphone
+
+Le bureau s’adapte de lui-même à un écran étroit : chaque application occupe tout l’écran, le dock reste en bas. Depuis **0.8.0-alpha.57**, trois points complètent cet usage.
+
+<img src="images/phone-files.jpg" alt="Fichiers sur un écran de téléphone" width="280">
+
+*Banc local, largeur d’un téléphone.*
+
+- **Changer d’espace** : sur un écran étroit, l’arbre de Fichiers est replié ; un sélecteur en haut de la fenêtre le remplace. Sans lui, un membre restait enfermé dans le premier espace ouvert.
+- **Se connecter** : le formulaire n’est plus prérempli avec « admin » et se laisse remplir par le gestionnaire de mots de passe du téléphone, code de double authentification compris.
+- **Installer sur l’écran d’accueil** : la console se déclare comme une application (nom, icône, affichage plein écran). Dans le navigateur du téléphone, « Ajouter à l’écran d’accueil » ou « Installer » ; elle s’ouvre ensuite comme une application, sans barre d’adresse. Cela demande l’[accès par le réseau](#accès-par-le-réseau), en HTTPS.
+
+### Limites
+
+- **Pas d’application native**, donc pas de notifications poussées ni d’envoi de photos en arrière-plan.
+- **Hors connexion, rien ne s’affiche** : la console ne garde aucune page en réserve sur le téléphone.
+- **Avec un certificat autosigné**, certains téléphones refusent l’installation ou répètent l’avertissement : un certificat reconnu par le téléphone règle ce point.
+- **Les grands tableaux défilent de côté** (liens, personnes) plutôt que de se réorganiser.
+- Vérifié à la largeur d’un téléphone dans le navigateur du banc, **pas sur un vrai téléphone**.
 

@@ -2580,3 +2580,28 @@ test('open network access shows its addresses and certificate, and closes or ren
  html=g.content();assert.match(html,/Ouvert, mais à l’arrêt/);assert.match(html,/role="alert">Port déjà utilisé &lt;x&gt;/);assert.match(html,/Certificat fourni par vos soins/);assert.match(html,/par le réseau, il sera refusé/);
 });
 
+// Téléphone : sélecteur d’espace quand l’arbre est replié, connexion adaptée aux gestionnaires de mots de passe, installation sur l’écran d’accueil.
+test('narrow screens get a space selector, the login form suits password managers and the console declares itself installable',async()=>{
+ const areas=[{id:'espace_e0e0e0e0e0e0',name:'Mon espace',writable:true,kind:'personal'},{id:'espace_c0c0c0c0c0c0',name:'Compta <b>',writable:false,kind:'team'},{id:'fichiers',name:'Fichiers partagés',writable:false,kind:'local'}];
+ const f=fmFixture(async url=>response(200,url.startsWith('/api/areas')?areas:{items:[]}),'member');
+ await f.run('renderFiles()');
+ const tools=f.run('fmTools()');
+ assert.match(tools,/^<select id="fm-area" class="fm-areasel" aria-label="Espace"><option value="espace_e0e0e0e0e0e0" selected>Mon espace<\/option><option value="espace_c0c0c0c0c0c0" >Compta &lt;b&gt; · lecture seule<\/option>/);assert.doesNotMatch(tools,/<b>/);
+ const change=value=>Promise.all(f.listeners.get('change').map(fn=>fn({target:{id:'fm-area',value}})));
+ await change('espace_c0c0c0c0c0c0');assert.equal(f.run('area'),'espace_c0c0c0c0c0c0');assert.equal(f.run('currentPath'),'');
+ await change('espace_inconnu');assert.equal(f.run('area'),'espace_c0c0c0c0c0c0');
+ // Un seul espace : pas de sélecteur.
+ const g=fmFixture(async url=>response(200,url.startsWith('/api/areas')?[areas[2]]:{items:[]}),'viewer');await g.run('renderFiles()');assert.doesNotMatch(g.run('fmTools()'),/fm-area/);
+ const css=fs.readFileSync(path.join(__dirname,'../console/static/style.css'),'utf8');
+ assert.match(css,/\.fm-areasel\{display:none\}@media\(max-width:1000px\)\{\.fm-areasel\{display:block/);
+ // Connexion : aucun identifiant prérempli, et des champs que le téléphone sait remplir.
+ assert.match(source,/name="username" type="text" autocomplete="username" autocapitalize="none"/);assert.match(source,/name="password" type="password" autocomplete="current-password"/);assert.doesNotMatch(source,/field\('Identifiant','username','admin'\)/);
+ // Installation sur l’écran d’accueil : manifeste, icônes, et rien qui sorte de la console.
+ const page=fs.readFileSync(path.join(__dirname,'../console/static/index.html'),'utf8');
+ assert.match(page,/<link rel="manifest" href="\/manifest\.webmanifest">/);assert.match(page,/<link rel="apple-touch-icon" href="\/apple-touch-icon\.png">/);
+ const manifest=JSON.parse(fs.readFileSync(path.join(__dirname,'../console/static/manifest.webmanifest'),'utf8'));
+ assert.deepEqual([manifest.name,manifest.start_url,manifest.scope,manifest.display,manifest.lang],['Nacre','/','/','standalone','fr']);
+ for(const icon of manifest.icons){assert.match(icon.src,/^\/icon-[a-z0-9]+\.png$/);const data=fs.readFileSync(path.join(__dirname,'../console/static',icon.src));assert.equal(data.subarray(1,4).toString(),'PNG');assert.equal(data.readUInt32BE(16),Number(icon.sizes.split('x')[0]));}
+ assert.ok(manifest.icons.some(i=>i.purpose==='maskable'));
+});
+
