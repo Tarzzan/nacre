@@ -159,6 +159,11 @@ class ControlPanelTests(unittest.TestCase):
         self.assertEqual(code,200);self.assertIn('qrMatrix',raw if isinstance(raw,str) else raw.decode())
         code,raw=self.request('GET','/network.js')
         self.assertEqual(code,200);self.assertIn('renderNetwork',raw if isinstance(raw,str) else raw.decode())
+        code,raw=self.request('GET','/manifest.webmanifest')
+        self.assertEqual(code,200);self.assertIn('"standalone"',raw if isinstance(raw,str) else raw.decode())
+        for name in ('/icon-192.png','/icon-512.png','/icon-maskable.png','/apple-touch-icon.png'):
+            code,raw=self.request('GET',name)
+            self.assertEqual((code,raw[1:4]),(200,b'PNG'),name)
         code,raw=self.request('GET','/kept.js')
         self.assertEqual(code,200);self.assertIn('keptStorageCard',raw if isinstance(raw,str) else raw.decode())
         code,raw=self.request('GET','/files.js')

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.57 — Sur un téléphone
+
+Troisième temps de la brique « accès de partout ». Le bureau s’adaptait déjà à un écran étroit ; trois manques sont comblés. **Changer d’espace** : l’arbre de Fichiers étant replié sur un téléphone, un sélecteur le remplace, sans quoi un membre restait dans le premier espace ouvert. **Se connecter** : le formulaire n’est plus prérempli avec « admin » et se laisse remplir par le gestionnaire de mots de passe. **Installer** : la console se déclare comme une application (manifeste, icônes), pour l’ajouter à l’écran d’accueil et l’ouvrir en plein écran. Pas d’application native ni de fonctionnement hors connexion. Aucun changement de schéma ni de module figé. 391 tests Python, 155 JavaScript. [Guide](docs/ACCESS.md#sur-un-téléphone).
+
 ## 0.8.0-alpha.56 — Accès par le réseau
 
 Deuxième temps de la brique « accès de partout ». Un administrateur peut ouvrir la console au réseau, en **HTTPS**, dans **Réglages → Accès réseau** : il déclare les noms ou adresses du NAS, choisit le port, confirme. Rien ne s’ouvre tout seul, et l’accès se referme d’un clic. Le port ne répond qu’en TLS et qu’aux noms déclarés ; un **administrateur ne se connecte par le réseau qu’avec la double authentification** ; le lien de connexion locale y est refusé ; les tentatives sont limitées par adresse ; les connexions sont au journal avec leur origine. Le certificat est autosigné, produit par OpenSSL pour les noms déclarés, ou fourni par l’administrateur ; son empreinte est affichée. Les liens de partage deviennent ainsi utilisables depuis d’autres appareils. Le point d’écoute local ne change pas. Aucun changement de schéma ni de module figé. 391 tests Python, 154 JavaScript. [Guide](docs/ACCESS.md#accès-par-le-réseau).
