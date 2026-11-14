@@ -1,5 +1,17 @@
 # Déploiements de la console sur Spark
 
+## 14 novembre 2026 — alpha.49, passages conservés et autonomie vidéo
+
+L’installation alpha.48 a reçu le paquet `nacre-0.8.0-alpha.49.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.49), construit depuis le commit [`90bafaf`](https://github.com/Tarzzan/nacre/commit/90bafaf01dc64e3a4c72f5a2ab5c318153f3d782) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
+
+Avant l’import : neuf modules figés identiques, aucune tâche active, répétition isolée alpha.48 → alpha.49 réussie. Fichier importé identique à celui de la release, empreinte contrôlée ; session administrateur temporaire refermée ; installation confirmée depuis la fenêtre Réglages du bureau et suivie jusqu’à **Mise à jour réussie**, session conservée.
+
+Validation enregistrée à 13 h 48 min 46 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Constaté sur les données réelles, en nombres seulement. Stockage vidéo : état « espace suffisant », 2 789 Gio libres sur 3 755, débit de 40,9 Gio par jour, 41,7 Gio d’enregistrements, autonomie d’environ 68 jours, aucun passage conservé. Conservation, à travers Nacre : un extrait de dix secondes conservé avec un nom, copie prête en moins de deux secondes pour 5,6 Mio, relue par plage d’octets (réponse partielle, type vidéo), puis retirée ; les deux gestes sont au journal. Aucune image n’a été affichée.
+
+**Défaut trouvé par cet essai** : le retrait était fait, mais la liste le montrait encore. Frigate garde ses réponses cinq secondes, ce que le banc ne simulait pas. Rien n’était gardé à tort ; corrigé en alpha.50.
+
 ## 14 novembre 2026 — alpha.48, poids des espaces
 
 L’installation alpha.47 a reçu le paquet `nacre-0.8.0-alpha.48.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.48), construit depuis le commit [`1d9279e`](https://github.com/Tarzzan/nacre/commit/1d9279eaa4f120b3fb0f1a137ad57cb51103796b) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).

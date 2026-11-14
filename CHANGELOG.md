@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.50 — Passages conservés : liste à jour aussitôt
+
+Correctif d’alpha.49, trouvé en l’essayant sur une installation réelle. Le service vidéo garde ses réponses cinq secondes : juste après **Conserver** ou **Retirer**, la liste des passages pouvait montrer l’état d’avant, sans le passage tout juste conservé ou avec celui qu’on venait de retirer. La liste est désormais lue sans ce cache, et relue deux fois après une demande de conservation, le temps que la copie apparaisse. Rien n’était perdu ni gardé à tort : seul l’affichage retardait. Aucun changement de schéma ni de module figé. 365 tests Python, 141 JavaScript. [Guide](docs/RECORDING-PLAYBACK.md#conserver-un-extrait).
+
 ## 0.8.0-alpha.49 — Passages conservés et autonomie vidéo
 
 Dans **Surveillance → Relecture**, **Conserver cet extrait** garde à part l’extrait en cours de lecture, avec un nom facultatif. Une carte **Passages conservés** les liste par caméra : lire, télécharger, retirer. Un passage conservé est une copie faite par le service vidéo : ni la durée de conservation ni un volume plein ne l’effacent, et il occupe de la place tant qu’on ne le retire pas. Dans **Réglages**, une carte **Stockage vidéo** donne l’autonomie : le temps d’enregistrement que l’espace libre représente au débit mesuré, et dit quand la durée de conservation réglée ne tient pas sur le volume. Quand le volume est plein, l’enregistrement continue en effaçant les plus anciens ; c’est le comportement du service vidéo, désormais écrit dans la console. Nacre ne lit ni n’écrit lui-même aucun fichier vidéo. Aucun changement de schéma ni de module figé. 365 tests Python, 141 JavaScript. [Guide](docs/RECORDING-PLAYBACK.md#conserver-un-extrait).

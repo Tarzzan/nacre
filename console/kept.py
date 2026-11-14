@@ -68,7 +68,7 @@ def entry(item, camera, weights):
 
 def exports(app, camera, weights=None):
     try:
-        payload = playback.fetch(app, f'/api/exports?cameras={camera}')
+        payload = playback.fetch(app, f'/api/exports?cameras={camera}', fresh=True)
     except app.Problem:
         raise app.Problem(UNAVAILABLE, 503) from None
     if not isinstance(payload, list):

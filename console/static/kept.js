@@ -3,6 +3,8 @@
 // Stockage vidéo : espace libre rapporté au débit d’enregistrement mesuré par le service vidéo.
 const KEPT_RECHECK=3000,KEPT_RECHECKS=6;
 let keptData=null,keptRequest=0,keptTimer=null;
+// Relectures dues après une demande de conservation : la copie peut n’apparaître qu’un instant plus tard.
+let keptAwait=0;
 
 function keptValid(d){
  const text=v=>typeof v==='string'&&v.length<=80,size=v=>v===null||(Number.isFinite(v)&&v>=0);
@@ -48,7 +50,8 @@ async function keptLoad(round=0){
  keptData=data;
  // Une lecture en cours n’est pas interrompue par une relecture de la liste.
  const box=$('#kept-list');if(box&&!(playing&&round))box.innerHTML=keptList(data);
- if(!data.failed&&round<KEPT_RECHECKS&&data.items.some(e=>e.pending))keptTimer=setTimeout(()=>{if(current())keptLoad(round+1).catch(()=>{});},KEPT_RECHECK);
+ const due=keptAwait>0;if(due)keptAwait--;
+ if(!data.failed&&round<KEPT_RECHECKS&&(due||data.items.some(e=>e.pending)))keptTimer=setTimeout(()=>{if(current())keptLoad(round+1).catch(()=>{});},KEPT_RECHECK);
 }
 // Demande de conservation de l’extrait en cours de lecture.
 function keptAsk(){
@@ -61,6 +64,7 @@ function keptAsk(){
   '<p class="capacity-note">Une copie de cet extrait est gardée à part. Elle n’est plus effacée automatiquement et occupe de la place tant que vous ne la retirez pas.</p>',
   'Conserver',async form=>{
    await api('camera/keep',{camera:data.camera,start:clip.start,end:clip.end,name:String(form.get('name')||'')});
+   keptAwait=2;
    // La page est redessinée après une fenêtre : la relecture reprend au même extrait.
    if(typeof survPending!=='undefined'&&typeof deskMode==='function'&&deskMode())survPending={day:data.day,start:clip.start};
    return {message:'Extrait conservé. La copie se termine en arrière-plan.'};
