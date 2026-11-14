@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.58 — Installation sur l’écran d’accueil : icônes servies après une mise à jour
+
+Correctif d’alpha.57, trouvé en la vérifiant sur une installation réelle. Le manifeste et les icônes qui permettent d’installer la console sur l’écran d’accueil étaient des fichiers qu’un paquet de mise à jour n’emporte pas : une installation mise à jour par paquet ne les avait donc pas, et l’installation sur le téléphone n’y était pas proposée. Ils sont désormais servis depuis le code, qui voyage toujours dans un paquet. Un essai vérifie maintenant que tout ce que la console sert est bien embarqué. Rien d’autre ne change : le sélecteur d’espace et la connexion d’alpha.57 fonctionnaient. Aucun changement de schéma ni de module figé. 392 tests Python, 155 JavaScript. [Guide](docs/ACCESS.md#sur-un-téléphone).
+
 ## 0.8.0-alpha.57 — Sur un téléphone
 
 Troisième temps de la brique « accès de partout ». Le bureau s’adaptait déjà à un écran étroit ; trois manques sont comblés. **Changer d’espace** : l’arbre de Fichiers étant replié sur un téléphone, un sélecteur le remplace, sans quoi un membre restait dans le premier espace ouvert. **Se connecter** : le formulaire n’est plus prérempli avec « admin » et se laisse remplir par le gestionnaire de mots de passe. **Installer** : la console se déclare comme une application (manifeste, icônes), pour l’ajouter à l’écran d’accueil et l’ouvrir en plein écran. Pas d’application native ni de fonctionnement hors connexion. Aucun changement de schéma ni de module figé. 391 tests Python, 155 JavaScript. [Guide](docs/ACCESS.md#sur-un-téléphone).

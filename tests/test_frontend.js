@@ -2599,9 +2599,7 @@ test('narrow screens get a space selector, the login form suits password manager
  // Installation sur l’écran d’accueil : manifeste, icônes, et rien qui sorte de la console.
  const page=fs.readFileSync(path.join(__dirname,'../console/static/index.html'),'utf8');
  assert.match(page,/<link rel="manifest" href="\/manifest\.webmanifest">/);assert.match(page,/<link rel="apple-touch-icon" href="\/apple-touch-icon\.png">/);
- const manifest=JSON.parse(fs.readFileSync(path.join(__dirname,'../console/static/manifest.webmanifest'),'utf8'));
- assert.deepEqual([manifest.name,manifest.start_url,manifest.scope,manifest.display,manifest.lang],['Nacre','/','/','standalone','fr']);
- for(const icon of manifest.icons){assert.match(icon.src,/^\/icon-[a-z0-9]+\.png$/);const data=fs.readFileSync(path.join(__dirname,'../console/static',icon.src));assert.equal(data.subarray(1,4).toString(),'PNG');assert.equal(data.readUInt32BE(16),Number(icon.sizes.split('x')[0]));}
- assert.ok(manifest.icons.some(i=>i.purpose==='maskable'));
+ // Le manifeste et les icônes sont servis par le code : un paquet de mise à jour n’emporte pas d’image matricielle.
+ for(const name of ['manifest.webmanifest','icon-192.png','apple-touch-icon.png'])assert.equal(fs.existsSync(path.join(__dirname,'../console/static',name)),false,name);
 });
 

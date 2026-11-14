@@ -679,9 +679,15 @@ class Handler(BaseHTTPRequestHandler):
                     raise Problem('Ce lien de connexion a expiré ou a déjà été utilisé.', 401)
                 session_token, _ = make_session('admin')
                 return self.reply(303, b'', extra={'Location': '/', 'Set-Cookie': f'nas_session={session_token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800'})
-            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/timezone.js', '/desktop.js', '/desk-prefs.js', '/bell.js', '/palette.js', '/updates.js', '/components.js', '/playback.js', '/detection.js', '/surveillance.js', '/kept.js', '/people.js', '/links.js', '/public.js', '/qr.js', '/network.js', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/icon-maskable.png', '/apple-touch-icon.png', '/files.js', '/search.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
+            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/timezone.js', '/desktop.js', '/desk-prefs.js', '/bell.js', '/palette.js', '/updates.js', '/components.js', '/playback.js', '/detection.js', '/surveillance.js', '/kept.js', '/people.js', '/links.js', '/public.js', '/qr.js', '/network.js', '/files.js', '/search.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
                 path = STATIC / ('index.html' if url.path == '/' else url.path[1:])
-                return self.reply(200, path.read_bytes(), 'application/manifest+json' if path.suffix == '.webmanifest' else mimetypes.guess_type(path)[0] or 'text/plain')
+                return self.reply(200, path.read_bytes(), mimetypes.guess_type(path)[0] or 'text/plain')
+            if not post:
+                # Manifeste et icônes d'installation : servis depuis le code, sans session.
+                import pwa
+                installable = pwa.served(url.path)
+                if installable:
+                    return self.reply(200, installable[0], installable[1])
             if not post and url.path.startswith('/p/'):
                 # Page d'un lien de partage : la même pour tout jeton, le contenu vient ensuite par l'API publique.
                 return self.reply(200, (STATIC / 'public.html').read_bytes(), 'text/html; charset=utf-8')

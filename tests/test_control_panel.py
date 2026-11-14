@@ -1,7 +1,9 @@
 """Panneau et révocation sur HTTP/SQLite temporaires, sans service NAS."""
 import json
+import re
 import time
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 import test_onboarding as base
 import control_panel
@@ -22,6 +24,22 @@ class ControlPanelTests(unittest.TestCase):
     def get(self):
         code,raw=self.request('GET','/api/control-panel',token=self.token)
         self.assertEqual(code,200,raw);return json.loads(raw)
+    def test_everything_the_console_serves_travels_in_an_update_package(self):
+        """Un paquet n'embarque que certains fichiers : un fichier servi mais non embarqué manquerait après une mise à jour."""
+        import update_engine
+        root=Path(app.__file__).resolve().parents[1]
+        source=(root/'console/server.py').read_text()
+        served=re.search(r"url\.path in \(('/',[^)]*)\)",source)[1]
+        names=[name for name in re.findall(r"'(/[^']*)'",served) if name!='/']
+        self.assertGreater(len(names),25)
+        for name in names:
+            self.assertTrue(update_engine.code_path('console/static'+name),name)
+            self.assertTrue((root/'console/static'/name[1:]).is_file(),name)
+        for path in sorted((root/'console/static').iterdir()):
+            self.assertTrue(update_engine.code_path('console/static/'+path.name),path.name)
+        for path in sorted((root/'console').glob('*.py')):
+            self.assertTrue(update_engine.code_path('console/'+path.name),path.name)
+
     def test_administrator_csrf_and_origin_required(self):
         self.assertEqual(self.request('GET','/api/control-panel')[0],401)
         with app.database() as db:db.execute("INSERT INTO users(name,salt,hash,role) VALUES('reader','00','unused','viewer')")
@@ -159,11 +177,15 @@ class ControlPanelTests(unittest.TestCase):
         self.assertEqual(code,200);self.assertIn('qrMatrix',raw if isinstance(raw,str) else raw.decode())
         code,raw=self.request('GET','/network.js')
         self.assertEqual(code,200);self.assertIn('renderNetwork',raw if isinstance(raw,str) else raw.decode())
+        # Manifeste et icônes d'installation : servis sans session, depuis le code.
+        import struct
         code,raw=self.request('GET','/manifest.webmanifest')
-        self.assertEqual(code,200);self.assertIn('"standalone"',raw if isinstance(raw,str) else raw.decode())
-        for name in ('/icon-192.png','/icon-512.png','/icon-maskable.png','/apple-touch-icon.png'):
-            code,raw=self.request('GET',name)
-            self.assertEqual((code,raw[1:4]),(200,b'PNG'),name)
+        manifest=json.loads(raw)
+        self.assertEqual((code,manifest['name'],manifest['start_url'],manifest['display'],manifest['lang']),(200,'Nacre','/','standalone','fr'))
+        self.assertTrue(any(icon.get('purpose')=='maskable' for icon in manifest['icons']))
+        for icon in manifest['icons']+[{'src':'/apple-touch-icon.png','sizes':'180x180'}]:
+            code,raw=self.request('GET',icon['src'])
+            self.assertEqual((code,raw[1:4],struct.unpack('>I',raw[16:20])[0]),(200,b'PNG',int(icon['sizes'].split('x')[0])),icon['src'])
         code,raw=self.request('GET','/kept.js')
         self.assertEqual(code,200);self.assertIn('keptStorageCard',raw if isinstance(raw,str) else raw.decode())
         code,raw=self.request('GET','/files.js')
