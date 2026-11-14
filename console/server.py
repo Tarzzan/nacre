@@ -817,6 +817,12 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == '/api/files/usage-spaces':
                 from file_search import spaces as weighed
                 return self.reply(200, weighed(sys.modules[__name__], session))
+            if url.path == '/api/files/versions':
+                import versions
+                return self.reply(200, versions.listing(sys.modules[__name__], query.get('area', 'fichiers'), query.get('path', '')))
+            if url.path == '/api/files/version':
+                import versions
+                return versions.send(sys.modules[__name__], self, query)
             if url.path == '/api/files/usage':
                 from file_search import usage
                 return self.reply(200, usage(sys.modules[__name__], query, session))
@@ -1003,6 +1009,9 @@ class Handler(BaseHTTPRequestHandler):
             if route in ('/api/network/configure','/api/network/certificate'):
                 import network
                 return (network.configure if route.endswith('/configure') else network.certificate)(sys.modules[__name__],body,session)
+            if route in ('/api/files/version-restore','/api/files/version-delete'):
+                import versions
+                return (versions.restore if route.endswith('-restore') else versions.delete)(sys.modules[__name__],body,user)
             if route in ('/api/links/create','/api/links/revoke'):
                 import links
                 return (links.create if route.endswith('/create') else links.revoke)(sys.modules[__name__],body,session)
@@ -1049,10 +1058,15 @@ class Handler(BaseHTTPRequestHandler):
                     if name in os.listdir(fd):
                         raise FileExistsError()
                     rename_noreplace(fd, old, fd, name)
+                import versions
+                versions.moved(sys.modules[__name__], body.get('area','fichiers'), body['path'], '/'.join(parts(body['path'])[:-1] + [name]))
                 audit(user, 'Fichier renommé', spaces.detail(sys.modules[__name__], body.get('area','fichiers'), body['path']))
             elif route == '/api/move':
                 area=body.get('area','fichiers')
                 count=move_entries(area,body.get('path',''),body.get('names'),body.get('target',''))
+                import versions
+                for moved_name in body.get('names'):
+                    versions.moved(sys.modules[__name__], area, '/'.join(parts(body.get('path','')) + [moved_name]), '/'.join(parts(body.get('target','')) + [moved_name]))
                 audit(user,'Éléments déplacés',spaces.detail(sys.modules[__name__],area,f"/{body.get('path','')} → /{body.get('target','')} · {count}") if area.startswith('espace_') else f"{area}: /{body.get('path','')} → /{body.get('target','')} · {count}")
             elif route == '/api/trash':
                 token=secrets.token_hex(16)
@@ -1287,8 +1301,15 @@ class Handler(BaseHTTPRequestHandler):
             if length>available_bytes(fd):
                 self.close_connection=True
                 raise Problem('Espace physique insuffisant sur le volume de destination.',507)
-            if name in os.listdir(fd):
+            # Un nom déjà pris n'est remplacé que sur demande explicite, et seulement s'il désigne un fichier ordinaire.
+            existing = name in os.listdir(fd)
+            if existing and query.get('replace') != '1':
+                # Le contenu envoyé n'est pas lu : la connexion est fermée, pour qu'il ne soit pas pris pour la requête suivante.
+                self.close_connection = True
                 raise FileExistsError()
+            if existing and not stat.S_ISREG(os.stat(name, dir_fd=fd, follow_symlinks=False).st_mode):
+                self.close_connection = True
+                raise Problem('Un dossier ou un lien porte déjà ce nom : il n’est pas remplacé.', 409)
             temporary_name = '.nacre-upload-' + secrets.token_hex(12)
             output_fd = os.open(temporary_name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o660, dir_fd=fd)
             os.fchmod(output_fd, 0o660)
@@ -1305,7 +1326,17 @@ class Handler(BaseHTTPRequestHandler):
                         remaining -= len(data)
                     output.flush()
                     os.fsync(output.fileno())
-                rename_noreplace(fd, temporary_name, fd, name)
+                if existing:
+                    # Remplacement : l'ancien et le nouveau échangent leurs noms d'un coup, puis l'ancien rejoint les versions.
+                    import versions
+                    versions.exchange(fd, temporary_name, fd, name)
+                    try:
+                        versions.keep(sys.modules[__name__], area, '/'.join(parts(path) + [name]), fd, temporary_name, session['name'])
+                    except Exception:
+                        # L'ancien contenu n'a pas pu rejoindre les versions : il reste à côté, sous un nom visible, plutôt que d'être perdu.
+                        rename_noreplace(fd, temporary_name, fd, f'{name}.avant-remplacement-{secrets.token_hex(3)}')
+                else:
+                    rename_noreplace(fd, temporary_name, fd, name)
                 # Le succès HTTP suit la synchronisation du contenu et du nom.
                 os.fsync(fd)
             except Exception:
@@ -1314,8 +1345,8 @@ class Handler(BaseHTTPRequestHandler):
                 try:os.unlink(temporary_name, dir_fd=fd)
                 except FileNotFoundError:pass
                 raise
-        audit(session['name'], 'Fichier déposé', spaces.detail(sys.modules[__name__], area, path + '/' + name))
-        return self.reply(200, {'ok': True})
+        audit(session['name'], 'Fichier remplacé' if existing else 'Fichier déposé', spaces.detail(sys.modules[__name__], area, path + '/' + name))
+        return self.reply(200, {'ok': True, 'replaced': existing})
 
     def download(self, query):
         with parent(query.get('area', 'fichiers'), query['path']) as (fd, name):

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.59 — Versions d’un fichier
+
+Troisième brique de l’espace collaboratif. Déposer un fichier dont le nom existe déjà ne remplace plus rien d’office : Nacre demande, et si l’on confirme, **l’ancien contenu devient une version**. Dans **Fichiers**, le bouton **Versions** d’un fichier liste ses dix dernières versions : télécharger, **remettre en place** (le contenu actuel devient alors une version, donc le retour se défait) ou retirer. Les versions suivent le fichier quand il est renommé ou déplacé depuis Nacre, et obéissent aux droits de l’espace. Elles ne sont pas une sauvegarde : même volume, et un fichier modifié par le réseau n’en laisse pas. Au passage, un dépôt refusé parce que le nom existe ferme proprement sa connexion. Aucun changement de schéma ni de module figé. 397 tests Python, 156 JavaScript. [Guide](docs/VERSIONS.md).
+
 ## 0.8.0-alpha.58 — Installation sur l’écran d’accueil : icônes servies après une mise à jour
 
 Correctif d’alpha.57, trouvé en la vérifiant sur une installation réelle. Le manifeste et les icônes qui permettent d’installer la console sur l’écran d’accueil étaient des fichiers qu’un paquet de mise à jour n’emporte pas : une installation mise à jour par paquet ne les avait donc pas, et l’installation sur le téléphone n’y était pas proposée. Ils sont désormais servis depuis le code, qui voyage toujours dans un paquet. Un essai vérifie maintenant que tout ce que la console sert est bien embarqué. Rien d’autre ne change : le sélecteur d’espace et la connexion d’alpha.57 fonctionnaient. Aucun changement de schéma ni de module figé. 392 tests Python, 155 JavaScript. [Guide](docs/ACCESS.md#sur-un-téléphone).

@@ -2603,3 +2603,41 @@ test('narrow screens get a space selector, the login form suits password manager
  for(const name of ['manifest.webmanifest','icon-192.png','apple-touch-icon.png'])assert.equal(fs.existsSync(path.join(__dirname,'../console/static',name)),false,name);
 });
 
+// Versions d’un fichier : un nom déjà pris n’est remplacé que sur demande, et l’ancien contenu se retrouve.
+test('a taken name is replaced only after asking, and the versions panel restores or removes one after confirmation',async()=>{
+ const sent=[],calls=[];let versions=[{id:'v2',ts:1794268800,size:2048,by:'cam <b>'},{id:'v1',ts:1794182400,size:10,by:''},{id:7},null];
+ const f=fmFixture(async(url,options)=>{const body=options?.body?JSON.parse(options.body):null;calls.push([url,body]);
+  return response(200,url.startsWith('/api/areas')?fmAreas:url.startsWith('/api/files/versions')?{keep:10,versions}:url.startsWith('/api/files')?{items:fmSample.filter(i=>i&&i.name)}:{ok:true});});
+ const modal=f.elements.get('#modal');modal.showModal=()=>{modal.open=true;};modal.close=()=>{modal.open=false;};
+ await f.run('renderFiles()');f.mount();
+ // Dépôt : un nom libre passe, un nom pris est mis de côté, une autre erreur est dite ; rien n’est remplacé d’office.
+ f.context.sent=sent;f.run('uploadFile=async(file,replace=false)=>{sent.push([file.name,replace]);if(file.name==="notes.txt"&&!replace){const e=new Error("Ce nom existe déjà.");e.status=409;throw e;}if(file.name==="refus.txt")throw new Error("trop gros");};');
+ await f.run('fmSend([{name:"neuf.txt"},{name:"notes.txt"},{name:"refus.txt"}])');
+ assert.deepEqual(JSON.parse(JSON.stringify(sent)),[['neuf.txt',false],['notes.txt',false],['refus.txt',false]]);
+ assert.match(f.elements.get('#toast').textContent,/1 fichier déposé\. Non envoyé : refus\.txt : trop gros\./);
+ assert.match(modal.innerHTML,/Remplacer ce fichier \?/);assert.match(modal.innerHTML,/« notes\.txt » existe déjà[^]*gardé parmi les versions/);
+ const result=await f.run('modalSubmit(new Map())');assert.deepEqual(JSON.parse(JSON.stringify(sent)).at(-1),['notes.txt',true]);assert.equal(result.message,'1 fichier remplacé.');
+ // Un dossier du même nom n’est jamais proposé au remplacement : l’erreur est simplement dite.
+ f.run('uploadFile=async file=>{const e=new Error("Ce nom existe déjà.");e.status=409;throw e;};');modal.innerHTML='';
+ await f.run('fmSend([{name:"Docs & co"}])');assert.equal(modal.innerHTML,'');assert.match(f.elements.get('#toast').textContent,/Non envoyé : Docs & co/);
+ // Panneau des versions : à la place de l’aperçu, pour un fichier seulement.
+ f.run('fmSel=new Set(["notes.txt"])');assert.match(f.run('fmSide()'),/data-action="fm-versions"/);
+ f.run('fmSel=new Set(["Docs & co"])');assert.doesNotMatch(f.run('fmSide()'),/fm-versions/);
+ f.run('fmSel=new Set(["notes.txt"])');await f.hit({action:'fm-versions'});
+ assert.deepEqual(calls.at(-1),['/api/files/versions?area=fichiers&path=notes.txt',null]);
+ let side=f.run('fmSide()');
+ assert.match(side,/<h3>Versions de notes\.txt<\/h3>/);assert.equal((side.match(/<li>/g)||[]).length,2);assert.match(side,/2 Kio · remplacée par cam &lt;b&gt;/);assert.doesNotMatch(side,/<b>/);
+ assert.match(side,/href="\/api\/files\/version\?area=fichiers&amp;path=notes\.txt&amp;id=v2">Télécharger/);assert.match(side,/data-action="fm-version-restore"[^>]*data-id="v2"/);assert.match(side,/ce n’est pas une sauvegarde/);
+ modal.open=false;await f.hit({action:'fm-version-restore',id:'inconnue'});assert.equal(modal.open,false);
+ await f.hit({action:'fm-version-restore',id:'v1'});assert.match(modal.innerHTML,/Remettre cette version en place \?[^]*ce retour se défait/);
+ await f.run('modalSubmit(new Map())');assert.deepEqual(calls.at(-1),['/api/files/version-restore',{area:'fichiers',path:'notes.txt',id:'v1'}]);assert.equal(f.run('fmVers'),null);
+ await f.hit({action:'fm-versions'});await f.hit({action:'fm-version-delete',id:'v2'});assert.match(modal.innerHTML,/supprimée définitivement/);
+ await f.run('modalSubmit(new Map())');assert.deepEqual(calls.at(-1),['/api/files/version-delete',{area:'fichiers',path:'notes.txt',id:'v2',confirm:true}]);
+ // Changer de sélection referme le panneau ; sans version, on le dit ; un lecteur consulte sans remettre en place.
+ await f.hit({action:'fm-versions'});f.run('fmSel=new Set(["Docs & co"])');assert.doesNotMatch(f.run('fmSide()'),/Versions de/);assert.equal(f.run('fmVers'),null);
+ versions=[];f.run('fmSel=new Set(["notes.txt"])');await f.hit({action:'fm-versions'});assert.match(f.run('fmSide()'),/Aucune version gardée/);
+ const g=fmFixture(async url=>response(200,url.startsWith('/api/areas')?fmAreas.map(a=>({...a,writable:false})):url.startsWith('/api/files/versions')?{keep:10,versions:[{id:'v1',ts:1794182400,size:10,by:'x'}]}:{items:fmSample.filter(i=>i&&i.name)}),'viewer');
+ await g.run('renderFiles()');g.mount();g.run('fmSel=new Set(["notes.txt"])');await g.hit({action:'fm-versions'});
+ side=g.run('fmSide()');assert.match(side,/Télécharger/);assert.doesNotMatch(side,/fm-version-restore|fm-version-delete/);
+});
+
