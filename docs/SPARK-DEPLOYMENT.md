@@ -1,5 +1,15 @@
 # Déploiements de la console sur Spark
 
+## 14 novembre 2026 — alpha.48, poids des espaces
+
+L’installation alpha.47 a reçu le paquet `nacre-0.8.0-alpha.48.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.48), construit depuis le commit [`1d9279e`](https://github.com/Tarzzan/nacre/commit/1d9279eaa4f120b3fb0f1a137ad57cb51103796b) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
+
+Avant l’import : neuf modules figés identiques, aucune tâche active, répétition isolée alpha.47 → alpha.48 réussie. Fichier importé identique à celui de la release, empreinte contrôlée ; session administrateur temporaire refermée ; installation confirmée depuis la fenêtre Réglages du bureau et suivie jusqu’à **Mise à jour réussie**, session conservée.
+
+Validation enregistrée à 4 h 36 min 46 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Constaté sur les données réelles, en nombres seulement : quatre espaces, aucun pesé avant ; l’espace Vidéos pesé en entier en 0,06 seconde ; sa pesée ensuite gardée, 40 Gio pour 11 722 éléments, complète ; les trois autres espaces toujours « non pesés ». Aucun nom de fichier n’a été relevé. Cette pesée gardée est le seul réglage écrit par le contrôle ; elle se remplace à la prochaine pesée de l’espace.
+
 ## 14 novembre 2026 — alpha.47, suite des événements
 
 L’installation alpha.46 a reçu le paquet `nacre-0.8.0-alpha.47.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.47), construit depuis le commit [`7587cf8`](https://github.com/Tarzzan/nacre/commit/7587cf8470b46405a1b4ec7636a43749769ff6a6) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
