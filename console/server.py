@@ -36,6 +36,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(ROOT))
 from lab import private_write, load_config
 import service_agent
+import spaces
 from release import version as release_version
 
 STATIC = Path(__file__).resolve().parent / 'static'
@@ -155,7 +156,21 @@ def native_resources():
     except Problem:return []
 
 
+# Session de la requête en cours sur ce fil : tout dossier ouvert pendant la requête est soumis à ses droits.
+# Un fil de fond (tâches, surveillance) n'en a pas et agit pour le système.
+ACTOR=threading.local()
+
+
+def actor():
+    return getattr(ACTOR,'session',None)
+
+
 def resolve_area(area,write=False):
+    session=actor()
+    if session is not None:
+        spaces.authorize(sys.modules[__name__],session,area,write)
+    if isinstance(area,str) and area.startswith('espace_'):
+        return spaces.resource(sys.modules[__name__],area)
     if isinstance(area,str) and area.startswith('native_'):
         resource=next((r for r in native_resources() if r['id']==area[7:]),None)
         if not resource:
@@ -175,6 +190,9 @@ def area_root(area):
 
 
 def file_areas(admin=True):
+    # Une session reçoit ses espaces, selon ses droits ; un booléen garde l'ancienne liste, pour le système.
+    if isinstance(admin,dict):
+        return spaces.areas(sys.modules[__name__],admin)
     values=[{'id':x,'name':n,'writable':x=='fichiers','kind':'local'} for x,n in
             [('fichiers','Fichiers partagés'),('video','Vidéos'),('sauvegardes','Sauvegardes')]]
     if admin:
@@ -626,6 +644,7 @@ class Handler(BaseHTTPRequestHandler):
         self.handle_request(True)
 
     def handle_request(self, post):
+        ACTOR.session = None
         try:
             if not self.allowed_host():
                 raise Problem('Hôte non autorisé.', 403)
@@ -639,7 +658,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise Problem('Ce lien de connexion a expiré ou a déjà été utilisé.', 401)
                 session_token, _ = make_session('admin')
                 return self.reply(303, b'', extra={'Location': '/', 'Set-Cookie': f'nas_session={session_token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800'})
-            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/timezone.js', '/desktop.js', '/desk-prefs.js', '/bell.js', '/palette.js', '/updates.js', '/components.js', '/playback.js', '/detection.js', '/surveillance.js', '/kept.js', '/files.js', '/search.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
+            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/timezone.js', '/desktop.js', '/desk-prefs.js', '/bell.js', '/palette.js', '/updates.js', '/components.js', '/playback.js', '/detection.js', '/surveillance.js', '/kept.js', '/people.js', '/files.js', '/search.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
                 path = STATIC / ('index.html' if url.path == '/' else url.path[1:])
                 return self.reply(200, path.read_bytes(), mimetypes.guess_type(path)[0] or 'text/plain')
             if post and url.path == '/api/login':
@@ -663,11 +682,14 @@ class Handler(BaseHTTPRequestHandler):
                 from updates import probe
                 return self.reply(200,probe(sys.modules[__name__],self))
             session = self.session()
+            ACTOR.session = session
+            if not spaces.allowed(sys.modules[__name__], session, url.path, post):
+                raise Problem('Cette partie de la console ne vous est pas ouverte.', 403)
             from updates import maintenance
             if maintenance(sys.modules[__name__]) and (post or url.path not in ('/api/me','/api/updates')):
                 raise Problem('Mise à jour en cours. La console sera bientôt disponible.',503)
             if post:
-                self.authorize_write(session, require_admin=url.path not in ('/api/logout', '/api/desk'))
+                self.authorize_write(session, require_admin=url.path not in ('/api/logout', '/api/desk', '/api/account/password') and not (session['role'] == 'member' and url.path in spaces.MEMBER_WRITES))
                 if url.path == '/api/updates/upload':
                     from updates import upload
                     return self.reply(200,upload(sys.modules[__name__],self))
@@ -678,7 +700,7 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == '/api/me':
                 from onboarding import read, unset
                 setup = read(sys.modules[__name__])
-                return self.reply(200, {**{key: session[key] for key in ('name', 'csrf', 'role')}, 'setup_required': session['role'] == 'admin' and setup['phase'] != 'complete', 'timezone': setup['timezone'], 'timezone_unset': session['role'] == 'admin' and unset(setup), 'nas_name': setup['name'], 'app_version': release_version()})
+                return self.reply(200, {**{key: session[key] for key in ('name', 'csrf', 'role')}, 'setup_required': session['role'] == 'admin' and setup['phase'] != 'complete', 'timezone': setup['timezone'], 'timezone_unset': session['role'] == 'admin' and unset(setup), 'nas_name': setup['name'], 'app_version': release_version(), **spaces.me(sys.modules[__name__], session)})
             if url.path == '/api/desk':
                 from desk_prefs import read
                 return self.reply(200, read(sys.modules[__name__], session))
@@ -713,9 +735,18 @@ class Handler(BaseHTTPRequestHandler):
                 from alerts import listing
                 return self.reply(200,listing(sys.modules[__name__]))
             if url.path == '/api/overview':
+                if session['role'] == 'member':
+                    # Un membre voit le nom et l'heure du NAS, pas son journal, ses services ni sa caméra.
+                    from onboarding import read as setup_read
+                    return self.reply(200, {'services_available': False, 'host': setup_read(sys.modules[__name__])['name'], 'time': time.time(), 'services': [], 'camera': {}, 'events': []})
                 return self.reply(200, overview())
+            if url.path == '/api/account':
+                return self.reply(200, {'name': session['name'], 'role': session['role']})
+            if url.path == '/api/spaces':
+                if session['role'] != 'admin':raise Problem('Accès réservé aux administrateurs.',403)
+                return self.reply(200, spaces.overview(sys.modules[__name__]))
             if url.path == '/api/areas':
-                return self.reply(200,file_areas(session['role']=='admin'))
+                return self.reply(200,file_areas(session))
             if url.path == '/api/files':
                 if (query.get('area') == 'restaurations' or query.get('area','').startswith('native_')) and session['role'] != 'admin':
                     raise Problem('Accès réservé aux administrateurs.', 403)
@@ -724,8 +755,8 @@ class Handler(BaseHTTPRequestHandler):
                 from file_search import search
                 return self.reply(200, search(sys.modules[__name__], query, session))
             if url.path == '/api/files/usage-spaces':
-                from file_search import spaces
-                return self.reply(200, spaces(sys.modules[__name__], session))
+                from file_search import spaces as weighed
+                return self.reply(200, weighed(sys.modules[__name__], session))
             if url.path == '/api/files/usage':
                 from file_search import usage
                 return self.reply(200, usage(sys.modules[__name__], query, session))
@@ -806,7 +837,15 @@ class Handler(BaseHTTPRequestHandler):
                     return self.reply(200, [dict(r) for r in db.execute('SELECT ts,username,action,detail FROM audit ORDER BY id DESC LIMIT 200')])
             if url.path == '/api/trash':
                 with database() as db:
-                    return self.reply(200,[dict(r) for r in db.execute('SELECT * FROM trash ORDER BY ts DESC') if session['role']=='admin' or r['area']=='fichiers'])
+                    rows=[dict(r) for r in db.execute('SELECT * FROM trash ORDER BY ts DESC')]
+                # Chacun ne voit que la corbeille des espaces où il peut écrire ; un compte en lecture seule garde celle de l'espace commun.
+                opened={}
+                def seen(area):
+                    if area not in opened:
+                        found=spaces.level(sys.modules[__name__],session,area)
+                        opened[area]=found=='write' or (session['role']=='viewer' and area=='fichiers')
+                    return opened[area]
+                return self.reply(200,[r for r in rows if seen(r['area'])])
             if url.path == '/api/jobs':
                 with database() as db:
                     return self.reply(200, [dict(r) for r in db.execute('SELECT * FROM jobs ORDER BY ts DESC LIMIT 30')])
@@ -896,6 +935,13 @@ class Handler(BaseHTTPRequestHandler):
             if route == '/api/cameras/add':
                 from cameras import submit
                 return submit(sys.modules[__name__],body,user)
+            if route.startswith('/api/spaces/'):
+                action={'group':spaces.save_group,'group-delete':spaces.delete_group,'space':spaces.save_space,'space-delete':spaces.delete_space,
+                        'common':spaces.save_common,'person':spaces.save_person,'adopt':spaces.adopt}.get(route[len('/api/spaces/'):])
+                if not action:raise Problem('Ressource inconnue.',404)
+                return action(sys.modules[__name__],body,user)
+            if route == '/api/account/password':
+                return spaces.change_password(sys.modules[__name__],body,session)
             if route in ('/api/camera/keep','/api/camera/unkeep'):
                 import kept
                 return (kept.keep if route.endswith('/keep') else kept.remove)(sys.modules[__name__],body,user)
@@ -925,18 +971,18 @@ class Handler(BaseHTTPRequestHandler):
                 with folder(body.get('area','fichiers'), body.get('path', ''),write=True) as fd:
                     os.mkdir(name, mode=0o770, dir_fd=fd)
                     os.chmod(name, 0o2770, dir_fd=fd, follow_symlinks=False)
-                audit(user, 'Dossier créé', name)
+                audit(user, 'Dossier créé', spaces.detail(sys.modules[__name__], body.get('area','fichiers'), name))
             elif route == '/api/rename':
                 name = safe_name(body['name'])
                 with parent(body.get('area','fichiers'), body['path'],write=True) as (fd, old):
                     if name in os.listdir(fd):
                         raise FileExistsError()
                     rename_noreplace(fd, old, fd, name)
-                audit(user, 'Fichier renommé', body['path'])
+                audit(user, 'Fichier renommé', spaces.detail(sys.modules[__name__], body.get('area','fichiers'), body['path']))
             elif route == '/api/move':
                 area=body.get('area','fichiers')
                 count=move_entries(area,body.get('path',''),body.get('names'),body.get('target',''))
-                audit(user,'Éléments déplacés',f"{area}: /{body.get('path','')} → /{body.get('target','')} · {count}")
+                audit(user,'Éléments déplacés',spaces.detail(sys.modules[__name__],area,f"/{body.get('path','')} → /{body.get('target','')} · {count}") if area.startswith('espace_') else f"{area}: /{body.get('path','')} → /{body.get('target','')} · {count}")
             elif route == '/api/trash':
                 token=secrets.token_hex(16)
                 area=body.get('area','fichiers')
@@ -944,7 +990,7 @@ class Handler(BaseHTTPRequestHandler):
                     with database() as db:
                         db.execute('INSERT INTO trash(id,original,ts,area) VALUES(?,?,?,?)',(token,body['path'],time.time(),area))
                         rename_noreplace(fd,name,target_fd,token)
-                audit(user,'Déplacé en corbeille',area+': '+body['path'])
+                audit(user,'Déplacé en corbeille',spaces.detail(sys.modules[__name__],area,body['path']) if area.startswith('espace_') else area+': '+body['path'])
             elif route == '/api/restore':
                 with database() as db:
                     row=db.execute('SELECT * FROM trash WHERE id=?',(body['id'],)).fetchone()
@@ -952,7 +998,7 @@ class Handler(BaseHTTPRequestHandler):
                     with parent(row['area'],row['original'],write=True) as (fd,name),trash_folder(row['area']) as trash_fd:
                         rename_noreplace(trash_fd,row['id'],fd,name)
                     db.execute('DELETE FROM trash WHERE id=?',(body['id'],))
-                audit(user,'Élément restauré',row['area']+': '+row['original'])
+                audit(user,'Élément restauré',spaces.detail(sys.modules[__name__],row['area'],row['original']) if row['area'].startswith('espace_') else row['area']+': '+row['original'])
             elif route == '/api/service':
                 if body.get('name') not in ('video', 'fichiers') or body.get('action') not in ('start', 'stop', 'restart'):
                     raise Problem('Action de service non autorisée.')
@@ -1071,7 +1117,7 @@ class Handler(BaseHTTPRequestHandler):
                 return {'ok': True}
             elif route == '/api/user':
                 name, password, role = body['name'], body['password'], body.get('role', 'viewer')
-                if not USER_RE.fullmatch(name) or len(password) < 12 or len(password) > 128 or role not in ('admin', 'viewer'):
+                if not USER_RE.fullmatch(name) or len(password) < 12 or len(password) > 128 or role not in ('admin', 'member', 'viewer'):
                     raise Problem('Nom : 3 à 24 caractères simples. Mot de passe : 12 caractères minimum.')
                 salt = secrets.token_hex(16)
                 with database() as db:
@@ -1082,7 +1128,7 @@ class Handler(BaseHTTPRequestHandler):
             elif route == '/api/user/update':
                 name, role, active = body['name'], body.get('role'), body.get('active')
                 password = body.get('password', '')
-                if role not in ('admin', 'viewer') or not isinstance(active, bool) or password and not 12 <= len(password) <= 128:
+                if role not in ('admin', 'member', 'viewer') or not isinstance(active, bool) or password and not 12 <= len(password) <= 128:
                     raise Problem('Paramètres de compte invalides. Mot de passe : 12 caractères minimum.')
                 if name == user and (not active or role != 'admin'):
                     raise Problem('Conserver votre propre compte administrateur actif.')
@@ -1197,7 +1243,7 @@ class Handler(BaseHTTPRequestHandler):
                 try:os.unlink(temporary_name, dir_fd=fd)
                 except FileNotFoundError:pass
                 raise
-        audit(session['name'], 'Fichier déposé', path + '/' + name)
+        audit(session['name'], 'Fichier déposé', spaces.detail(sys.modules[__name__], area, path + '/' + name))
         return self.reply(200, {'ok': True})
 
     def download(self, query):
@@ -1260,7 +1306,7 @@ class Handler(BaseHTTPRequestHandler):
             for name in names:
                 os.stat(name, dir_fd=fd, follow_symlinks=False)
             title = (parts(path) or [area])[-1] if len(names) > 1 else names[0]
-            audit(session['name'], 'Archive téléchargée', f'{area}: /{path} · {len(names)}')
+            audit(session['name'], 'Archive téléchargée', spaces.detail(sys.modules[__name__], area, f'/{path} · {len(names)}') if area.startswith('espace_') else f'{area}: /{path} · {len(names)}')
             self.send_response(200)
             self.send_header('Content-Type', 'application/zip')
             self.send_header('Content-Disposition', "attachment; filename*=UTF-8''" + quote(title + '.zip'))

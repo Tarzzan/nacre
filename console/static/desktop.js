@@ -7,15 +7,19 @@ const DESK_APPS=[
  {id:'cam',name:'Surveillance',pages:[['camera','Caméras']],views:[['wall','Mur'],['events','Événements'],['replay','Relecture'],['settings','Réglages']]},
  {id:'storage',name:'Stockage',pages:[['storage','Disques'],['native','Volumes et snapshots']]},
  {id:'protect',name:'Protection',pages:[['backups','Sauvegardes'],['snapshots','Points de restauration'],['retention','Conservation',true]]},
- {id:'share',name:'Partages et comptes',pages:[['shares','Partages'],['users','Utilisateurs']]},
+ {id:'share',name:'Personnes et partages',pages:[['people','Personnes et espaces',true],['shares','Partages SMB'],['users','Comptes']]},
  {id:'settings',name:'Réglages',pages:[['settings','Général',true],['services','Services'],['updates','Mises à jour',true],['notifications','Notifications',true]]},
- {id:'activity',name:'Activité',pages:[['alerts','Alertes',true],['events','Journal']]}];
+ {id:'activity',name:'Activité',pages:[['alerts','Alertes',true],['events','Journal']]},
+ {id:'me',name:'Mon compte',pages:[['account','Mon compte']]}];
+// Un membre n’ouvre que ses fichiers et son compte ; la surveillance s’ajoute si elle lui est ouverte.
+const DESK_MEMBER=['files','me'];
 const DESK_ICONS={
  files:'<path d="M3 7h6l2 2h10v10H3z"/>',cam:'<path d="M3 8h12v8H3zM15 11l6-3v8l-6-3"/>',
  storage:'<path d="M4 5h16v14H4zM4 14h16M8 17h.01"/>',protect:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
  share:'<circle cx="8" cy="8" r="3"/><path d="M2 20c0-3.5 2.5-6 6-6s6 2.500 6 6M16 5a3 3 0 010 6M17 14c3 0 5 2.5 5 6"/>',
  settings:'<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
- activity:'<path d="M3 12h4l3-8 4 16 3-8h4"/>'};
+ activity:'<path d="M3 12h4l3-8 4 16 3-8h4"/>',
+ me:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.600 8 7"/>'};
 const DESK_KEY='nacre-shell',DESK_MIN=[420,300];
 let deskWins=[],deskZ=10,deskDrag=null,deskTouched=false;
 const deskViews={};
@@ -36,7 +40,10 @@ function deskChoose(mode){try{localStorage.setItem(DESK_KEY,mode);}catch{}}
 function deskEmbedded(){try{return typeof window!=='undefined'&&!!window.parent&&window.parent!==window&&typeof window.parent.deskChildAt==='function';}catch{return false;}}
 function deskParent(name,...values){try{return window.parent[name](window,...values);}catch{return undefined;}}
 // Les onglets réservés aux administrateurs disparaissent pour un compte en lecture seule, et l’application avec eux si elle est vide.
-function deskPages(app){return app.pages.filter(p=>!p[2]||user?.role==='admin');}
+function deskPages(app){
+ if(user?.role==='member'&&!DESK_MEMBER.includes(app.id)&&!(app.id==='cam'&&user.camera))return [];
+ return app.pages.filter(p=>!p[2]||user?.role==='admin');
+}
 function deskApps(){return DESK_APPS.filter(a=>deskPages(a).length);}
 function deskApp(name){return deskApps().find(a=>deskPages(a).some(p=>p[0]===name))||null;}
 function deskTile(app){return `<span class="dk-tile dk-${app.id}"><svg viewBox="0 0 24 24" aria-hidden="true">${DESK_ICONS[app.id]}</svg></span>`;}
@@ -154,6 +161,7 @@ function deskReload(except=null){for(const win of deskWins){try{const child=$('#
 // Le bureau remplace la vue d’ensemble : mêmes mesures, présentées en widgets qui ouvrent l’application concernée.
 function deskWidgets(d){
  const widget=(target,label,value,note,meter='')=>`<button type="button" class="dk-wg" data-page="${target}"><small>${label}</small><b>${value}</b><small>${note}</small>${meter}</button>`;
+ if(user?.role==='member')return widget('files','Mes fichiers','Ouvrir','Mon espace et ceux qui me sont ouverts')+(user.camera?widget('camera','Surveillance','Ouvrir','Caméras, en lecture'):'')+widget('account','Mon compte',esc(user.name),'Changer mon mot de passe');
  const meter=(value,total)=>Number.isFinite(value/total)?`<progress value="${Math.round(value/total*100)}" max="100"></progress>`:'';
  const services=Array.isArray(d.services)?d.services:[],running_services=services.filter(s=>s.state==='running').length;
  const fps=Number(d.camera?.camera_fps),events=Array.isArray(d.events)?d.events.slice(0,3):[];

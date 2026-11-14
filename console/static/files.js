@@ -19,7 +19,10 @@ function fmKind(item){
 function fmJoin(name,base=currentPath){return [base,name].filter(Boolean).join('/');}
 function fmUrl(name,inline=false,base=currentPath,space=area){return `/api/download?area=${encodeURIComponent(space)}&path=${encodeURIComponent(fmJoin(name,base))}${inline?'&inline=1':''}`;}
 function fmArchive(names,base=currentPath,space=area){return `/api/archive?area=${encodeURIComponent(space)}&path=${encodeURIComponent(base)}${names.map(n=>'&name='+encodeURIComponent(n)).join('')}`;}
-function fmWritable(){return user?.role==='admin'&&!!fileAreas.find(a=>a.id===area)?.writable;}
+function fmWritable(){return !!fileAreas.find(a=>a.id===area)?.writable;}
+// Premier espace ouvert : celui de la personne pour un membre, l’espace commun sinon.
+let fmHomed=false;
+function fmFirst(){return (fileAreas.find(a=>a.id==='fichiers')||fileAreas[0])?.id||'fichiers';}
 function fmShown(){
  const needle=fmFilter.trim().toLowerCase(),[key,way]=fmSort;
  return fmItems.filter(i=>!needle||i.name.toLowerCase().includes(needle)).sort((a,b)=>(Number(b.directory)-Number(a.directory))||(key==='name'?a.name.localeCompare(b.name,'fr',{numeric:true}):(a[key]||0)-(b[key]||0))*way);
@@ -33,7 +36,12 @@ function fmTree(){
   const next=chain[depth],names=fmDirs.get(area+'|'+path)||(next?[next]:[]);
   return names.map(name=>{const target=fmJoin(name,path);return `<button type="button" class="fm-node ${target===currentPath?'on':''}" data-action="fm-go" data-area="${esc(area)}" data-path="${esc(target)}" data-fm-drop="${esc(target)}" data-depth="${Math.min(depth+1,6)}">${esc(name)}</button>${next===name?level(target,depth+1):''}`;}).join('');
  };
- return fileAreas.map(a=>`<button type="button" class="fm-node fm-area ${a.id===area&&!currentPath?'on':''}" data-action="fm-go" data-area="${esc(a.id)}" data-path="" ${a.id===area?'data-fm-drop=""':''}>${esc(a.name)}${a.writable?'':'<small>lecture seule</small>'}</button>${a.id===area?level('',0):''}`).join('');
+ // Titres de section : espaces d’équipe, puis le reste du NAS, seulement s’il y a des espaces au-dessus.
+ let section='';
+ return fileAreas.map(a=>{
+  const kind=a.kind==='personal'?'':a.kind==='team'?'Équipes':'NAS',head=kind&&kind!==section&&fileAreas.some(x=>x.kind==='personal'||x.kind==='team')?`<p class="fm-group">${kind}</p>`:'';section=kind;
+  return head+`<button type="button" class="fm-node fm-area ${a.id===area&&!currentPath?'on':''}" data-action="fm-go" data-area="${esc(a.id)}" data-path="" ${a.id===area?'data-fm-drop=""':''}>${esc(a.name)}${a.writable?'':'<small>lecture seule</small>'}</button>${a.id===area?level('',0):''}`;
+ }).join('');
 }
 function fmTools(){
  const chain=currentPath?currentPath.split('/'):[],name=fileAreas.find(a=>a.id===area)?.name||area,write=fmWritable();
@@ -159,7 +167,8 @@ async function renderFileManager(){
  const asked=fmPending,big=fmPendingBig,weigh=fmPendingWeigh,spaces=fmPendingSpaces;fmPending='';fmPendingBig=fmPendingWeigh=fmPendingSpaces=false;if(asked||big||weigh||spaces){fmFilter=asked;fmFound=null;}
  const areas=await api('areas');if(!current())return;
  fileAreas=areas;
- if(!fileAreas.some(a=>a.id===area)){area='fichiers';currentPath='';toast('Le volume est indisponible. Retour aux fichiers partagés.',true);}
+ if(!fmHomed){fmHomed=true;const mine=fileAreas.find(a=>a.kind==='personal');if(user?.role==='member'&&mine&&area==='fichiers'&&!currentPath)area=mine.id;}
+ if(!fileAreas.some(a=>a.id===area)){const gone=area!=='fichiers';area=fmFirst();currentPath='';if(gone)toast('Cet espace n’est plus disponible. Retour au premier espace ouvert.',true);}
  let data;
  try{data=await api('files?area='+encodeURIComponent(area)+'&path='+encodeURIComponent(currentPath));}
  catch(error){
