@@ -33,6 +33,8 @@ ID = re.compile(r'[a-z][a-z0-9_-]{0,47}\Z')
 DATASET = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.:/-]*\Z')
 LV = re.compile(r'[A-Za-z0-9_+][A-Za-z0-9_.+-]*/[A-Za-z0-9_+][A-Za-z0-9_.+-]*\Z')
 MAX_MESSAGE = 65536
+MAX_DELETE = 50    # points par plan de suppression
+DELETE_BUDGET = 45  # secondes : au-delà, les points restants ne sont pas touchés
 
 
 class NativeError(ValueError):
@@ -115,6 +117,8 @@ def read_policy(path=POLICY):
     policy = json.loads(raw)
     if policy.get('version') != 1 or type(policy.get('allowed_uid')) is not int or policy['allowed_uid'] <= 0 or not isinstance(policy.get('volumes'), list):
         raise NativeError('Politique invalide.')
+    if type(policy.get('deletion', False)) is not bool:
+        raise NativeError('Politique invalide : « deletion » vaut true ou false.')
     seen = set()
     for volume in policy.get('volumes', []):
         if not ID.fullmatch(volume['id']) or volume['id'] in seen or volume['family'] not in ('btrfs', 'zfs', 'lvm'):
@@ -144,6 +148,7 @@ CREATE TABLE IF NOT EXISTS actions (id TEXT PRIMARY KEY, ts REAL, actor TEXT, ac
             self.provisioning()
             with self.db:
                 self.db.execute("UPDATE points SET status='uncertain', detail='Service interrompu pendant la création ; vérifier le stockage.' WHERE status='creating'")
+                self.db.execute("UPDATE points SET status='uncertain', detail='Service interrompu pendant la suppression ; vérifier le stockage.' WHERE status='deleting'")
                 self.db.execute("UPDATE actions SET status='uncertain' WHERE status='running' AND action!='repair' AND id NOT IN (SELECT id FROM native_jobs WHERE status IN ('queued','running'))")
                 self.db.execute("UPDATE deployments SET phase='uncertain',error='Service interrompu pendant l’initialisation. Vérifier le stockage ; aucun formatage ne sera rejoué.' WHERE phase='creating'")
 
@@ -303,6 +308,9 @@ CREATE TABLE IF NOT EXISTS actions (id TEXT PRIMARY KEY, ts REAL, actor TEXT, ac
             except (NativeError, OSError, ValueError, KeyError) as error:
                 item['reason'] = str(error) if isinstance(error, NativeError) else 'Volume indisponible ou politique incomplète.'
             volumes.append(item)
+        # Suppression non confirmée : relire l'état réel du stockage, sans rien rejouer.
+        for row in self.db.execute("SELECT * FROM points WHERE status='uncertain' AND native_identity!=''").fetchall():
+            self.settle(dict(row))
         points = []
         for row in self.db.execute('SELECT * FROM points ORDER BY created DESC'):
             point = dict(row)
@@ -315,7 +323,7 @@ CREATE TABLE IF NOT EXISTS actions (id TEXT PRIMARY KEY, ts REAL, actor TEXT, ac
             points.append({key: point[key] for key in ('id', 'volume', 'family', 'created', 'actor', 'status', 'detail')})
         actions = [dict(row) for row in self.db.execute('SELECT id,ts,actor,action,volume,object,status,location FROM actions ORDER BY ts DESC LIMIT 100')]
         provisioning=self.provisioning().status()
-        return {'connected': True, 'execution_enabled': any(v['ready'] for v in volumes) or any(d['ready'] for d in provisioning['devices']), 'volumes': volumes, 'points': points, 'actions': actions,
+        return {'connected': True, 'deletion': self.policy().get('deletion') is True, 'execution_enabled': any(v['ready'] for v in volumes) or any(d['ready'] for d in provisioning['devices']), 'volumes': volumes, 'points': points, 'actions': actions,
                 'provisioning':provisioning,'jobs':self.restorations().list(),'resources':self.resources()}
 
     def verify_point(self, volume, point, fds=None):
@@ -353,6 +361,8 @@ CREATE TABLE IF NOT EXISTS actions (id TEXT PRIMARY KEY, ts REAL, actor TEXT, ac
             return MirrorRepair(self).prepare(uid,actor,body)
         if action == 'provision':
             return self.provisioning().prepare(uid,actor,body)
+        if action == 'delete':
+            return self.prepare_delete(uid, actor, body)
         if action not in ('snapshot', 'clone'):
             raise NativeError('Opération native non autorisée.')
         volume = self.volume(body.get('volume'))
@@ -397,6 +407,8 @@ CREATE TABLE IF NOT EXISTS actions (id TEXT PRIMARY KEY, ts REAL, actor TEXT, ac
             return MirrorRepair(self).commit(row,plan)
         if plan['action']=='provision':
             return self.provisioning().commit(row,plan)
+        if plan['action']=='delete':
+            return self.commit_delete(row, plan, actor)
         volume = self.volume(plan['volume'])
         if fingerprint(volume) != plan['policy']:
             raise NativeError('Politique modifiée ; préparer un nouveau plan.')
@@ -473,6 +485,180 @@ CREATE TABLE IF NOT EXISTS actions (id TEXT PRIMARY KEY, ts REAL, actor TEXT, ac
             raise NativeError('La lecture seule du snapshot LVM n’a pas été confirmée.')
         return {'location': target, 'mounted': False, 'native_identity': raw['lv_uuid'].strip()}
 
+    # --- Suppression explicite de points : jamais implicite, jamais récursive, jamais forcée. ---
+
+    def may_delete(self):
+        if self.policy().get('deletion') is not True:
+            raise NativeError('La suppression de points n’est pas autorisée par la politique système.')
+
+    def unread(self, volume):
+        if self.db.execute("SELECT 1 FROM actions WHERE action='clone' AND volume=? AND status IN ('queued','running','uncertain')", (volume['id'],)).fetchone():
+            raise NativeError('Une restauration est en cours ou à vérifier sur ce volume : aucun point ne peut être supprimé.')
+
+    def deletable(self, volume, point, fds):
+        """Identité inchangée, et rien ne lit ni ne dépend du point."""
+        self.verify_point(volume, point, fds)
+        if volume['family'] == 'zfs':
+            raw = self.run(['zfs', 'get', '-Hp', '-o', 'property,value', 'clones,userrefs', volume['dataset'] + '@' + point['object']])
+            props = {line.partition('\t')[0]: line.partition('\t')[2].strip() for line in raw.splitlines()}
+            if props.get('clones') not in ('', '-') or props.get('userrefs') != '0':
+                raise NativeError('Une copie ZFS dépend de ce point, ou il est retenu : il ne peut pas être supprimé.')
+        elif volume['family'] == 'lvm':
+            group, origin = volume['lv'].split('/')
+            raw = json.loads(self.run(['lvs', '--reportformat', 'json', '-o', 'lv_attr,origin', group + '/' + point['object']]))['report'][0]['lv'][0]
+            attr = raw['lv_attr'].strip()
+            if str(raw.get('origin', '')).strip() != origin or len(attr) < 6 or attr[5] == 'o':
+                raise NativeError('Ce point LVM est ouvert, ou n’est pas un point de ce volume : il ne peut pas être supprimé.')
+
+    def current(self, volume, item, fds):
+        row = self.db.execute("SELECT * FROM points WHERE id=? AND volume=? AND status='ready'", (item['id'], volume['id'])).fetchone()
+        if not row or row['object'] != item['object'] or row['native_identity'] != item['native_identity']:
+            raise NativeError('Un point du plan n’est plus prêt : préparer un nouveau plan.')
+        point = dict(row)
+        self.deletable(volume, point, fds)
+        return point
+
+    def prepare_delete(self, uid, actor, body):
+        self.may_delete()
+        volume = self.volume(body.get('volume'))
+        wanted = body.get('points')
+        if (not isinstance(wanted, list) or not 1 <= len(wanted) <= MAX_DELETE
+                or not all(isinstance(value, str) and re.fullmatch(r'[a-f0-9]{32}', value) for value in wanted) or len(set(wanted)) != len(wanted)):
+            raise NativeError(f'Liste de points invalide : de 1 à {MAX_DELETE} points distincts.')
+        self.unread(volume)
+        points = []
+        with self.paths(volume) as fds:
+            identity = self.inspect(volume, fds, require_capacity=False)
+            for identifier in wanted:
+                row = self.db.execute("SELECT * FROM points WHERE id=? AND volume=? AND status='ready'", (identifier, volume['id'])).fetchone()
+                if not row:
+                    raise NativeError('Point inconnu, d’un autre volume ou non prêt : aucun point ne sera supprimé.')
+                point = dict(row)
+                self.deletable(volume, point, fds)
+                points.append({key: point[key] for key in ('id', 'object', 'native_identity', 'created')})
+        identifier = secrets.token_hex(16)
+        count = len(points)
+        confirmation = f'SUPPRIMER {count} POINT{"S" if count > 1 else ""} DE {volume["id"]}'
+        payload = {'action': 'delete', 'volume': volume['id'], 'identity': identity, 'policy': fingerprint(volume),
+                   'points': points, 'confirmation': confirmation}
+        expiry = time.time() + 120
+        with self.db:
+            self.db.execute('DELETE FROM plans WHERE expires < ?', (time.time(),))
+            self.db.execute('INSERT INTO plans(id,uid,actor,expires,payload) VALUES(?,?,?,?,?)', (identifier, uid, actor, expiry, canonical(payload)))
+        return {'id': identifier, 'expires': expiry, 'action': 'delete', 'volume': volume['id'], 'confirmation': confirmation,
+                'points': [{'id': point['id'], 'created': point['created']} for point in points],
+                'effect': 'Supprimer définitivement ' + ('ces %d points natifs.' % count if count > 1 else 'ce point natif.'),
+                'notes': ['Un point supprimé ne peut pas être récupéré.', 'Le volume, ses fichiers actuels et les points non listés ne sont pas modifiés.',
+                          'Au premier point qui ne peut pas être supprimé, l’opération s’arrête et les suivants restent intacts.']}
+
+    def commit_delete(self, row, plan, actor):
+        started = time.monotonic()
+        self.may_delete()
+        volume = self.volume(plan['volume'])
+        if fingerprint(volume) != plan['policy']:
+            raise NativeError('Politique modifiée ; préparer un nouveau plan.')
+        with self.paths(volume) as fds:
+            if self.inspect(volume, fds, require_capacity=False) != plan['identity']:
+                raise NativeError('Identité modifiée ; préparer un nouveau plan.')
+            self.unread(volume)
+            # Tout le plan est revérifié avant le premier effet : un seul refus, et rien n'est supprimé.
+            for item in plan['points']:
+                self.current(volume, item, fds)
+            with self.db:
+                self.db.execute('UPDATE plans SET consumed=1 WHERE id=?', (row['id'],))
+            deleted, uncertain, reason = [], [], ''
+            for item in plan['points']:
+                if time.monotonic() - started > DELETE_BUDGET:
+                    reason = 'Durée maximale atteinte : les points restants n’ont pas été touchés.'
+                    break
+                try:
+                    point = self.current(volume, item, fds)
+                except NativeError as error:
+                    reason = str(error)
+                    break
+                # Marquer et journaliser AVANT la commande : une coupure laisse une trace, jamais un rejeu.
+                with self.db:
+                    self.db.execute("UPDATE points SET status='deleting',detail='Suppression en cours.' WHERE id=?", (point['id'],))
+                    self.db.execute('INSERT INTO actions(id,ts,actor,action,volume,object,status) VALUES(?,?,?,?,?,?,?)',
+                                    (secrets.token_hex(16), time.time(), actor, 'delete', volume['id'], point['object'], 'running'))
+                try:
+                    self.remove(volume, point, fds)
+                except Exception:
+                    pass  # l'état réel du stockage décide, pas le code de retour
+                state = self.settle(point, volume, fds)
+                if state == 'absent':
+                    deleted.append(point['id'])
+                    continue
+                if state == 'unknown':
+                    uncertain.append(point['id'])
+                    reason = 'La suppression d’un point n’est pas confirmée : vérifier le stockage.'
+                else:
+                    reason = 'Le système a refusé la suppression d’un point, qui reste intact.'
+                break
+            done = set(deleted) | set(uncertain)
+            return {'ok': not reason, 'deleted': deleted, 'uncertain': uncertain,
+                    'kept': [item['id'] for item in plan['points'] if item['id'] not in done], 'reason': reason}
+
+    def remove(self, volume, point, fds):
+        name = point['object']
+        if not re.fullmatch(r'nacre_[a-f0-9]{32}', name):
+            raise NativeError('Nom de point non géré.')
+        if volume['family'] == 'btrfs':
+            self.run(['btrfs', 'subvolume', 'delete', '--commit-after', f'/proc/self/fd/{fds["snapshots"]}/{name}'], tuple(fds.values()))
+        elif volume['family'] == 'zfs':
+            # Sans -r, -R ni -f : un clone ou une retenue font échouer la commande.
+            self.run(['zfs', 'destroy', volume['dataset'] + '@' + name])
+        else:
+            self.run(['lvremove', '--yes', volume['lv'].split('/')[0] + '/' + name])
+
+    def presence(self, volume, point, fds):
+        """Lecture seule. « absent » demande une preuve : le bon conteneur a été lu et le nom n'y est plus."""
+        try:
+            name = point['object']
+            if volume['family'] == 'btrfs':
+                try:
+                    os.stat(name, dir_fd=fds['snapshots'], follow_symlinks=False)
+                except FileNotFoundError:
+                    return 'absent'
+            elif volume['family'] == 'zfs':
+                listed = self.run(['zfs', 'list', '-H', '-t', 'snapshot', '-d', '1', '-o', 'name', volume['dataset']]).splitlines()
+                if volume['dataset'] + '@' + name not in [line.strip() for line in listed]:
+                    return 'absent'
+            else:
+                rows = json.loads(self.run(['lvs', '--reportformat', 'json', '-a', '-o', 'lv_name', volume['lv'].split('/')[0]]))['report'][0]['lv']
+                if not any(str(item['lv_name']).strip() == name for item in rows):
+                    return 'absent'
+            self.verify_point(volume, point, fds)
+            return 'present'
+        except (NativeError, OSError, ValueError, KeyError):
+            return 'unknown'  # nom encore là mais identité non confirmée, ou stockage illisible
+
+    def settle(self, point, volume=None, fds=None):
+        """Accorder le catalogue à l'état réel d'un point marqué pour suppression. Ne supprime jamais rien du stockage."""
+        try:
+            if volume is None:
+                volume = self.volume(point['volume'])
+                with self.paths(volume) as opened:
+                    self.inspect(volume, opened, require_capacity=False)
+                    state = self.presence(volume, point, opened)
+            else:
+                state = self.presence(volume, point, fds)
+        except (NativeError, OSError, ValueError, KeyError):
+            state = 'unknown'
+        if state == 'unknown' and point['status'] == 'uncertain':
+            return state  # déjà « à vérifier » : rien de nouveau à écrire
+        outcome = {'absent': 'done', 'present': 'failed', 'unknown': 'uncertain'}[state]
+        with self.db:
+            if state == 'absent':
+                self.db.execute('DELETE FROM points WHERE id=?', (point['id'],))
+            elif state == 'present':
+                self.db.execute("UPDATE points SET status='ready',detail='' WHERE id=?", (point['id'],))
+            else:
+                self.db.execute("UPDATE points SET status='uncertain',detail='Suppression non confirmée ; vérifier le stockage.' WHERE id=?", (point['id'],))
+            self.db.execute("UPDATE actions SET status=? WHERE action='delete' AND object=? AND status IN ('running','uncertain')", (outcome, point['object']))
+        print(canonical({'event': 'delete', 'volume': point['volume'], 'object': point['object'], 'state': state}), flush=True)
+        return state
+
     def request(self, uid, message):
         if uid != self.policy()['allowed_uid']:
             raise NativeError('Identité du client système non autorisée.')
@@ -515,7 +701,7 @@ class NativeClient:
         try:
             return self.request('status', actor)
         except (OSError, ValueError):
-            return {'connected': False, 'execution_enabled': False, 'volumes': [], 'points': [], 'actions': [],
+            return {'connected': False, 'deletion': False, 'execution_enabled': False, 'volumes': [], 'points': [], 'actions': [],
                     'provisioning':{'enabled':False,'devices':[],'deployments':[]},'jobs':[],'resources':[],
                     'message': 'Service natif non activé. Inscrivez les volumes autorisés sur le matériel cible pour activer les opérations.'}
 

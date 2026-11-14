@@ -1,6 +1,6 @@
 # Conservation et programmation des points natifs
 
-Ce document répond à l’[issue 4](https://github.com/Tarzzan/nacre/issues/4) : il dit ce qui existe, ce que chaque lot apporte, et les règles que les lots suivants devront respecter. Les deux premiers lots sont livrés, en 0.8.0-alpha.39 et 0.8.0-alpha.40 ; les deux suivants sont spécifiés ici et ne sont pas codés.
+Ce document répond à l’[issue 4](https://github.com/Tarzzan/nacre/issues/4) : il dit ce qui existe, ce que chaque lot apporte, et les règles que les lots suivants devront respecter. Les deux premiers lots sont livrés, en 0.8.0-alpha.39 et 0.8.0-alpha.40. Pour le troisième, l’action du service natif est codée et prouvée sur banc VM, sans être distribuée. Le quatrième est spécifié et n’est pas codé.
 
 ## Point de départ
 
@@ -15,7 +15,7 @@ Deux conséquences guident le découpage :
 | --- | --- | --- | --- |
 | 1 | Règle de conservation par volume et simulation | Paquet signé | Livré en alpha.39 |
 | 2 | Programmation des captures, avec plafond | Paquet signé | Livré en alpha.40 |
-| 3 | Suppression explicite des points sortants | Installation accompagnée, banc VM | Spécifié |
+| 3 | Suppression explicite des points sortants | Installation accompagnée, banc VM | Service codé et prouvé en VM ; ni distribué, ni relié à la console |
 | 4 | Conservation appliquée automatiquement | Après le lot 3 | Spécifié |
 
 ## Lot 1 — Règle et simulation
@@ -96,17 +96,41 @@ La programmation vit dans la table de réglages existante, une clé par volume :
 
 ## Lot 3 — Suppression explicite
 
-Nouvelle action du service natif, sur le modèle des actions existantes :
+**État.** L’action du service natif existe et a passé sa campagne sur banc VM. Elle n’est dans aucune version, et la console ne la propose pas : il reste le bouton, sa confirmation, puis l’installation accompagnée.
 
-1. **Préparation.** La console envoie le volume et la liste exacte des points sortants d’une simulation. Le service vérifie chaque point : il appartient au volume, il est prêt, son identité est inchangée, il n’est lu par aucune restauration et, pour ZFS, aucun clone n’en dépend. Un seul refus annule le plan entier.
-2. **Plan.** Le service renvoie la liste, valable deux minutes, et une confirmation à recopier qui nomme le volume et le nombre de points.
-3. **Validation.** Chaque point est marqué avant sa suppression, supprimé, puis retiré du catalogue. Le journal garde une ligne par point.
+**Accord de root.** Le service refuse toute suppression tant que la politique `/etc/nacre-storage/policy.json` ne porte pas `"deletion": true`. Mettre le service à jour ne donne donc pas ce pouvoir à la console : root l’accorde, machine par machine, et peut le retirer.
 
-**Interruption.** Un point marqué dont la suppression n’est pas confirmée passe « à vérifier ». Rien n’est rejoué automatiquement : une nouvelle simulation repart de l’état réel.
+L’action suit le modèle des actions existantes :
 
-**Refus.** Plan expiré, déjà utilisé, d’un autre compte ; politique ou identité modifiée depuis la préparation ; point devenu protégé entre-temps.
+1. **Préparation.** La console envoie le volume et la liste exacte des points sortants d’une simulation, cinquante au plus. Le service vérifie chaque point : il appartient au volume, il est prêt, son identité est inchangée. Il refuse si une restauration est en cours ou à vérifier sur le volume ; pour ZFS, si une copie dépend du point ou s’il est retenu ; pour LVM, si le point est ouvert ou n’est pas issu du volume. Un seul refus annule le plan entier.
+2. **Plan.** Le service renvoie la liste, valable deux minutes, et la phrase à recopier, qui nomme le nombre de points et le volume : « SUPPRIMER 3 POINTS DE documents ».
+3. **Validation.** Tout le plan est revérifié avant le premier effet. Puis, point par point : le point est marqué et inscrit au journal, supprimé, son absence est relue sur le stockage, et il est retiré du catalogue. La commande n’est jamais récursive ni forcée.
 
-**Preuves attendues sur banc VM**, pour Btrfs, ZFS et LVM : suppression nominale ; coupure pendant la suppression ; point lu par une restauration ; clone ZFS dépendant ; identité modifiée ; plan rejoué. Aucune de ces preuves ne se fait sur une installation en service.
+**Arrêt en cours de liste.** Au premier point que le système refuse de supprimer, l’opération s’arrête : ce point reste prêt, les suivants ne sont pas touchés. Il en va de même après quarante-cinq secondes. La réponse dit ce qui a été supprimé et ce qui reste.
+
+**Interruption.** Un point marqué dont la suppression n’est pas confirmée passe « à vérifier ». Rien n’est rejoué. À la lecture d’état suivante, le service relit le stockage : le point est là, identité intacte, il redevient prêt ; son absence est prouvée, il quitte le catalogue ; sinon il reste à vérifier.
+
+**Refus.** Politique sans accord de suppression ; plan expiré, déjà utilisé, d’un autre compte ; phrase inexacte ; politique ou identité modifiée depuis la préparation ; point devenu protégé entre-temps.
+
+**Prouvé sur banc VM** (`tests/integration_native_delete_vm.py`), avec de vrais volumes Btrfs, ZFS, LVM classique et LVM thin et le vrai service, joint par son socket sous le compte non privilégié :
+
+- refus sans accord dans la politique ;
+- deux points supprimés par volume : exactement ceux-là disparaissent du stockage, les autres points et les fichiers du volume sont intacts ;
+- plan rejoué, autre compte et phrase inexacte refusés ;
+- plan entier refusé pour un point d’un autre volume, un point inconnu, un point ZFS dont dépend une copie, un point ZFS retenu ;
+- politique modifiée après le plan : refus ;
+- coupure juste avant et juste après la commande de suppression, pour chaque famille : « à vérifier » au redémarrage, rien de rejoué, puis point intact redevenu prêt dans un cas, point absent retiré du catalogue dans l’autre ;
+- point remplacé par un autre objet de même nom après le plan : refus, l’objet de remplacement n’est pas supprimé ;
+- point LVM pendant une vraie restauration : refus ; copie terminée et vérifiée, point monté ailleurs : refus ; point refermé : suppression acceptée.
+
+Au total, treize points supprimés, exactement ceux annoncés. Ces preuves ne se font jamais sur une installation en service.
+
+**Limites connues :**
+
+- **Coupure de courant de la machine entière** : non essayée. Seul l’arrêt brutal du service autour de la commande l’a été.
+- **Thin pool saturé** : non essayé. La suppression ne demande pas de capacité libre, mais ce cas n’a pas été reproduit.
+- **Une restauration restée « à vérifier »** interdit toute suppression sur son volume, et rien ne permet encore de la lever depuis la console.
+- **Un point invalide**, par exemple une réserve LVM saturée, n’est pas supprimable par le service : il reste une intervention manuelle sur le stockage.
 
 ## Lot 4 — Conservation automatique
 
@@ -114,6 +138,6 @@ Après le lot 3 seulement, et sur demande explicite par volume : la règle enreg
 
 ## Ce qui ne change pas
 
-- **Aucune suppression implicite** : ni la règle, ni la simulation, ni la programmation ne suppriment un point. La suppression n’existe pas encore.
+- **Aucune suppression implicite** : ni la règle, ni la simulation, ni la programmation ne suppriment un point. Aucune version ne propose encore la suppression.
 - **Un point natif n’est pas une sauvegarde** : il vit sur le même support que les données.
 - **Les opérations natives ne se valident que sur banc VM** ; aucune donnée ni clé d’une installation en service n’y entre.
