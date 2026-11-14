@@ -1,6 +1,6 @@
 # Conservation et programmation des points natifs
 
-Ce document répond à l’[issue 4](https://github.com/Tarzzan/nacre/issues/4) : il dit ce qui existe, ce que chaque lot apporte, et les règles que le dernier lot devra respecter. Les trois premiers lots sont livrés, en 0.8.0-alpha.39, alpha.40 et alpha.41. Le quatrième est spécifié et n’est pas codé.
+Ce document répond à l’[issue 4](https://github.com/Tarzzan/nacre/issues/4) : il dit ce qui existe et ce que chaque lot apporte. Les quatre lots sont livrés, de 0.8.0-alpha.39 à alpha.42.
 
 ## Point de départ
 
@@ -11,7 +11,7 @@ Le service natif savait **créer** un point (Btrfs, ZFS, LVM) et le **restaurer*
 | 1 | Règle de conservation par volume et simulation | Paquet signé | Livré en alpha.39 |
 | 2 | Programmation des captures, avec plafond | Paquet signé | Livré en alpha.40 |
 | 3 | Suppression explicite des points sortants | Paquet signé pour la console ; service natif à réinstaller par root | Livré en alpha.41 |
-| 4 | Conservation appliquée automatiquement | Paquet signé | Spécifié |
+| 4 | Conservation appliquée automatiquement | Paquet signé | Livré en alpha.42 |
 
 ## Lot 1 — Règle et simulation
 
@@ -70,14 +70,14 @@ Chaque ligne montre la programmation, le nombre de points programmés présents,
 | --- | --- | --- |
 | **Occurrence sautée** | Une capture, une restauration ou une copie est en cours sur le volume ; le volume ou le service natif est indisponible. | Rien n’est mis en attente. Alerte. |
 | **Capture refusée** | Le service natif a refusé la préparation ou la validation, par exemple faute de capacité. | Rien n’est réessayé. Alerte. |
-| **Plafond atteint** | Le volume porte déjà autant de points programmés que le plafond. | Aucune capture tant qu’un point n’est pas retiré ou le plafond relevé. Alerte. |
+| **Plafond atteint** | Le volume porte déjà autant de points programmés que le plafond. | Aucune capture tant qu’un point n’est pas retiré ou le plafond relevé. Alerte. La [conservation automatique](#lot-4--conservation-automatique), si elle est activée, libère la place pour l’occurrence suivante. |
 | **Occurrence manquée** | La console était arrêtée à l’heure dite, depuis plus de quinze minutes. | Aucun rattrapage. Pas d’alerte : la suivante a lieu à son heure. |
 
 L’alerte apparaît dans le centre de notifications et se clôt à la prochaine capture réussie, ou quand la programmation est réglée de nouveau ou désactivée. Chaque occurrence est inscrite au journal.
 
 Ce qu’il faut savoir :
 
-- **Jamais de suppression.** La programmation ne retire aucun point, même au plafond. Pour faire de la place, [supprimer les points sortants](#lot-3--suppression-explicite) de la règle de conservation.
+- **Jamais de suppression par la programmation elle-même.** Elle ne retire aucun point, même au plafond. Pour faire de la place, [supprimer les points sortants](#lot-3--suppression-explicite) de la règle de conservation, ou activer la [conservation automatique](#lot-4--conservation-automatique).
 - **Une occurrence n’a lieu qu’une fois.** Elle est consommée avant d’être tentée : une réponse perdue ou un redémarrage ne la rejouent pas.
 - **Changement d’heure.** Une heure locale qui n’existe pas le jour du passage à l’heure d’été est sautée ; une heure qui existe deux fois ne déclenche qu’une capture.
 - **Une capture par jour au plus par volume** : pas encore d’intervalle en heures.
@@ -160,14 +160,55 @@ Quatorze points supprimés au total, exactement ceux annoncés. Ces preuves ne s
 - **Thin pool saturé** : non essayé. La suppression ne demande pas de capacité libre, mais ce cas n’a pas été reproduit.
 - **Une restauration restée « à vérifier »** interdit toute suppression sur son volume, et rien ne permet encore de la lever depuis la console.
 - **Un point invalide**, par exemple une réserve LVM saturée, n’est pas supprimable par le service : il reste une intervention manuelle sur le stockage.
-- **Une programmation arrêtée à son plafond ne repart pas toute seule** : il faut supprimer des points à la main, jusqu’au lot 4.
 
 ## Lot 4 — Conservation automatique
 
-Sur demande explicite par volume : la règle enregistrée est appliquée après une capture programmée réussie, par la même action de suppression, dans la limite de ce que la dernière simulation affichée a montré. Désactivée d’office après une interruption ou un refus, comme la rétention automatique des sauvegardes.
+Sur demande, la règle enregistrée d’un volume s’applique d’elle-même après chaque capture programmée : les points programmés qu’elle ne garde plus sont supprimés, sans autre confirmation. Avec elle, une programmation ne s’arrête plus à son plafond.
+
+![Conservation automatique activée sur le banc de démonstration](images/native-auto.jpg)
+
+### Activer
+
+Trois conditions : le matériel [accorde la suppression](#activer-la-suppression-sur-un-matériel), la règle du volume est **enregistrée**, et le volume a une [programmation](#lot-2--programmation-des-captures) active, sans quoi rien ne déclenche de passage.
+
+Dans **Stockage → Volumes et snapshots**, carte **Conservation des points natifs**, **Automatique…** ouvre le réglage du volume :
+
+| Réglage | Effet |
+| --- | --- |
+| **Maximum de points supprimés par passage** | De 1 à 50. Si davantage de points sortaient, rien ne serait supprimé et la conservation automatique se suspendrait. La valeur proposée dépasse de cinq ce que la règle ferait sortir aujourd’hui. |
+| **Activer la conservation automatique** | Demande de recopier « AUTOMATISER » suivi du nom du volume. Cette phrase vaut accord durable pour les suppressions de ce volume, selon cette règle. |
+
+La fenêtre rappelle la règle enregistrée et dit combien de points programmés sortiraient au prochain passage.
+
+### Ce que fait un passage
+
+Un passage a lieu après une capture programmée réussie, et quand la programmation bute sur son plafond. La console recalcule ce que la règle garde, puis demande au service natif de supprimer les points programmés qui sortent, par son plan habituel et sous le compte « programmation ». Le service revérifie tout, comme pour une suppression faite à la main.
+
+| Résultat | Cause | Suite |
+| --- | --- | --- |
+| **Appliquée** | Les points sortants ont été supprimés. | Inscrit au journal ; l’état du volume montre le dernier passage. |
+| **Rien à supprimer** | La règle garde tous les points programmés. | Aucune. |
+| **Passage sauté** | Une restauration est en cours ou à vérifier sur le volume ; le service natif ne répond pas. | Rien n’est supprimé, rien n’est mis en attente. La conservation reste activée. |
+| **Suspendue** | Plus de points sortants que le maximum ; accord de suppression retiré ; plan refusé ; suppression arrêtée en cours de liste. | La conservation automatique se désactive, lève une alerte et attend d’être réactivée. Rien n’est rejoué. |
+
+Ce qu’il faut savoir :
+
+- **Une capture manuelle n’est jamais supprimée automatiquement**, même si la règle enregistrée s’applique aux captures manuelles. Seul le [bouton de suppression](#supprimer-les-points-sortants) peut la retirer.
+- **La règle appliquée est celle qui était enregistrée à l’activation.** En enregistrer une autre désactive la conservation automatique, sans alerte : il faut la réactiver pour la nouvelle règle.
+- **Pas de passage sans capture programmée.** Une capture manuelle n’en déclenche pas.
+- **Le premier passage suit une capture de plus** que la simulation du jour : garder de la marge dans le maximum.
+- **L’alerte de suspension** apparaît dans le centre de notifications et se clôt quand la conservation est réactivée ou désactivée.
+- **Après une récupération de l’installation**, toute conservation automatique est désactivée et attend une réactivation.
+- **Désactiver** arrête les suppressions et conserve tous les points.
+
+Un nouveau module de la console, `console/native_auto.py`, et la table de réglages existante, une clé par volume : aucun changement de schéma, de module figé ni du service natif.
+
+**Prouvé sur banc VM** (`tests/integration_native_auto_vm.py`), avec de vrais volumes Btrfs, ZFS, LVM classique et LVM thin, le vrai service et la console sous son compte non privilégié : activation refusée sans règle enregistrée puis sans la phrase ; pour chaque famille, quatre captures programmées et la règle « 2 derniers » appliquée après chacune, les deux plus anciens points programmés disparus du stockage, le point manuel intact ; programmation au plafond libérée par le passage, capture suivante réussie ; trois points sortants pour un maximum de un : rien de supprimé, suspension et alerte ; accord retiré de la politique par root : capture faite, aucune suppression, suspension.
+
+**Non prouvé :** le déclenchement par l’horloge sur plusieurs jours ; un passage sauté pendant une vraie restauration ; l’alerte vue à l’écran.
 
 ## Ce qui ne change pas
 
-- **Aucune suppression implicite** : ni la règle, ni la simulation, ni la programmation ne suppriment un point. Seule la suppression confirmée du lot 3 le fait, sur un matériel où root l’a accordée.
+- **Aucune suppression implicite** : ni la règle, ni la simulation, ni la programmation ne suppriment un point. Seules le font la suppression confirmée du lot 3 et la conservation automatique du lot 4, activée volume par volume, sur un matériel où root a accordé la suppression.
 - **Un point natif n’est pas une sauvegarde** : il vit sur le même support que les données.
 - **Les opérations natives ne se valident que sur banc VM** ; aucune donnée ni clé d’une installation en service n’y entre.

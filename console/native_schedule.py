@@ -156,6 +156,14 @@ def tick(app, now=None):
             if (current.get('last') or {}).get('outcome') == 'running':
                 write(app, identifier, {**current, 'last': {'ts': now, 'outcome': outcome, 'detail': detail[:300]}})
         app.audit(ACTOR, 'Capture native programmée' if outcome == 'done' else 'Capture native programmée non faite', identifier + ' : ' + detail)
+        # Conservation automatique, si elle est activée pour ce volume : après une capture réussie, ou pour libérer un plafond atteint.
+        if outcome in ('done', 'capped'):
+            try:
+                from native_auto import run
+                # Heure relue : le point qui vient d'être créé ne doit pas paraître daté du futur.
+                run(app, identifier, max(now, time.time()))
+            except Exception:
+                pass
         results.append((identifier, outcome))
     return results
 

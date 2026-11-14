@@ -62,6 +62,11 @@ def collect(app):
     except Exception:
         pass
     try:
+        from native_auto import conditions as automatic
+        scopes['storage'].extend(condition(*values) for values in automatic(app))
+    except Exception:
+        pass
+    try:
         disk = shutil.disk_usage(app.ROOT)
         ratio = disk.used / disk.total
         if ratio >= .9:
