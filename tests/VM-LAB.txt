@@ -254,7 +254,8 @@ nominale, plans refusés, clone et retenue ZFS, coupure avant et après la
 commande (moteur lancé à part, service arrêté), identité modifiée, point LVM
 lu par une restauration puis monté. Il écrit 64 Mio sur le volume LVM
 classique et inscrit, dans la politique de l'invité seulement, l'accord de
-suppression et un dossier de restauration. Il vérifie sur le stockage que
-seuls les points annoncés ont disparu. Résultat dans
+suppression et un dossier de restauration. Il finit par toute la chaîne depuis
+la console, sous le compte ubuntu. Il vérifie sur le stockage que seuls les
+points annoncés ont disparu. Résultat dans
 /home/ubuntu/native-delete-results.json. Arrêter la VM avec poweroff. Le banc
 ne se rejoue pas sur la même VM : repartir d'overlays neufs.

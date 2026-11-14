@@ -1,9 +1,12 @@
-"""Conservation des points natifs : une règle par volume et sa simulation. Rien n'est supprimé.
+"""Conservation des points natifs : une règle par volume, sa simulation, et la suppression explicite des points sortants.
 
-Le service natif sait créer un point et le restaurer, pas le supprimer. Ce module prépare la suite sans y toucher : il
-enregistre la règle de conservation d'un volume et dit exactement quels points elle garderait, lesquels sortiraient et
-lesquels sont protégés. La règle vit dans la table `settings` existante ; l'état des points vient du service natif, lu
-tel quel. Voir docs/NATIVE-SNAPSHOT-POLICY.md.
+Ce module enregistre la règle de conservation d'un volume et dit exactement quels points elle garderait, lesquels
+sortiraient et lesquels sont protégés. La règle vit dans la table `settings` existante ; l'état des points vient du
+service natif, lu tel quel. Ni la règle ni la simulation ne suppriment quoi que ce soit.
+
+La suppression part toujours d'une simulation : la console la recalcule, vérifie qu'elle est celle qui était affichée,
+puis demande au service natif un plan pour cette liste exacte. Le service revérifie tout et exige sa phrase de
+confirmation. Voir docs/NATIVE-SNAPSHOT-POLICY.md.
 """
 import json
 import re
@@ -17,6 +20,7 @@ SCHEDULED = 'native-scheduled:'
 VOLUME = re.compile(r'[a-z][a-z0-9_-]{0,47}\Z')
 POINT = re.compile(r'[a-f0-9]{32}\Z')
 KEEP = 1000
+BATCH = 50  # points par opération de suppression : la limite du service natif
 STATES = {'creating': 'Création en cours.', 'uncertain': 'État à vérifier sur le stockage.', 'invalid': 'Point absent, modifié ou saturé.'}
 
 
@@ -74,7 +78,7 @@ def listing(app, actor):
             policies.append({'volume': item['id'], 'saved': saved is not None, **rule(app, saved or {})})
         except app.Problem:
             policies.append({'volume': item['id'], 'saved': False, **defaults(app)})
-    return {'connected': bool(status.get('connected')), 'policies': policies, 'defaults': defaults(app), 'deletion': False}
+    return {'connected': bool(status.get('connected')), 'policies': policies, 'defaults': defaults(app), 'deletion': status.get('deletion') is True}
 
 
 def save(app, body, actor):
@@ -120,11 +124,54 @@ def selection(status, item, value, scheduled, now):
 
 
 def simulate(app, body, actor):
-    """Ce que la règle donnée ferait des points existants. Lecture seule : rien n'est enregistré ni supprimé."""
+    """Ce que la règle donnée ferait des points existants. Lecture seule : rien n'est enregistré ni supprimé.
+
+    `deletion` dit seulement si le service natif de ce matériel accepte de supprimer des points.
+    """
     body = body if isinstance(body, dict) else {}
     status = native(app, actor)
     item, value = volume(app, status, body.get('volume')), rule(app, body)
     scheduled = stored(app, SCHEDULED, item['id'], [])
     now = time.time()
-    return {'volume': item['id'], 'name': item.get('name', item['id']), 'rule': value, 'at': now, 'deletion': False,
+    return {'volume': item['id'], 'name': item.get('name', item['id']), 'rule': value, 'at': now, 'deletion': status.get('deletion') is True,
             **selection(status, item, value, set(scheduled) if isinstance(scheduled, list) else set(), now)}
+
+
+def prune_prepare(app, body, actor):
+    """Plan de suppression des points sortants de la simulation affichée, cinquante au plus, les plus anciens d'abord."""
+    body = body if isinstance(body, dict) else {}
+    result = simulate(app, body, actor)
+    if not result['deletion']:
+        raise app.Problem('La suppression de points n’est pas accordée sur ce matériel.', 409)
+    leaving = result['remove']
+    if body.get('expected') != [point['id'] for point in leaving]:
+        raise app.Problem('Les points ont changé depuis la simulation. Simuler de nouveau avant de supprimer.', 409)
+    if not leaving:
+        raise app.Problem('Aucun point ne sort de cette règle : rien à supprimer.')
+    plan = app.native_storage('prepare', actor, {'action': 'delete', 'volume': result['volume'], 'points': [point['id'] for point in leaving[:BATCH]]})
+    manual = {point['id']: point['manual'] for point in leaving}
+    return {**plan, 'name': result['name'], 'remaining': len(leaving) - len(leaving[:BATCH]),
+            'points': [{'id': point['id'], 'created': point.get('created'), 'manual': manual.get(point['id'], True)} for point in plan.get('points', [])]}
+
+
+def prune_commit(app, body, actor):
+    """Valider un plan de suppression. Le service natif supprime, s'arrête au premier refus et dit ce qu'il a fait."""
+    body = body if isinstance(body, dict) else {}
+    item = volume(app, native(app, actor), body.get('volume'))
+    plan, confirmation = body.get('plan'), body.get('confirmation')
+    if not isinstance(plan, str) or not POINT.fullmatch(plan) or not isinstance(confirmation, str) or not confirmation.startswith('SUPPRIMER '):
+        raise app.Problem('Recopier exactement la phrase du plan de suppression.')
+    result = app.native_storage('commit', actor, {'plan': plan, 'confirmation': confirmation})
+    deleted, uncertain, kept = (result.get(key) if isinstance(result.get(key), list) else [] for key in ('deleted', 'uncertain', 'kept'))
+    if deleted:
+        # Les points supprimés quittent aussi la note des points programmés.
+        marks = stored(app, SCHEDULED, item['id'], None)
+        if isinstance(marks, list):
+            with app.database() as db:
+                db.execute('UPDATE settings SET value=? WHERE key=?', (json.dumps([point for point in marks if point not in deleted]), SCHEDULED + item['id']))
+    detail = f'{item["id"]} : {len(deleted)} supprimé{"s" if len(deleted) > 1 else ""}'
+    if not result.get('ok'):
+        detail += f', {len(uncertain)} à vérifier, {len(kept)} non touché{"s" if len(kept) > 1 else ""} ; ' + str(result.get('reason', ''))
+    app.audit(actor, 'Points natifs supprimés' if result.get('ok') else 'Suppression de points natifs interrompue', detail)
+    return {'volume': item['id'], 'name': item.get('name', item['id']), 'ok': bool(result.get('ok')), 'deleted': deleted, 'uncertain': uncertain, 'kept': kept,
+            'reason': str(result.get('reason', ''))}

@@ -49,7 +49,7 @@ L’interface permet la gestion des partages, des plans et des réglages d’une
 
 ## Activer les fonctions natives
 
-Lire la section native du [guide détaillé](../LIRE-MOI.txt). Le service root est optionnel : générer d’abord son installation avec `console/install_native.py --stage`, puis faire revoir la politique par l’administrateur. Une politique vide n’autorise aucune initialisation. Les exemples ne doivent jamais être copiés avec des identités de disques approximatives.
+Lire la section native du [guide détaillé](../LIRE-MOI.txt). Le service root est optionnel : générer d’abord son installation avec `console/install_native.py --stage`, puis faire revoir la politique par l’administrateur. Une politique vide n’autorise aucune initialisation. La suppression de points natifs demande en plus un accord explicite dans cette politique : voir [la marche à suivre](NATIVE-SNAPSHOT-POLICY.md#activer-la-suppression-sur-un-matériel). Les exemples ne doivent jamais être copiés avec des identités de disques approximatives.
 
 Le provisionnement actuel utilise des disques entiers explicitement autorisés. La présence d’une confirmation ne rend pas une mauvaise sélection de disque réversible. Les bancs `integration_*_vm.py` sont strictement réservés à leurs VM de test.
 

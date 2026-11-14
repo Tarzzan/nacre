@@ -13,10 +13,11 @@ from pathlib import Path
 import sqlite3
 import subprocess
 import sys
+import tempfile
 import time
 
 SOURCE = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(SOURCE / 'console')]
+sys.path[:0] = [str(SOURCE), str(SOURCE / 'console')]
 VOLUMES = ('btrfs', 'zfs', 'classic', 'thin')
 RESULTS = Path('/home/ubuntu/native-delete-results.json')
 POLICY = Path('/etc/nacre-storage/policy.json')
@@ -37,8 +38,10 @@ def run(*args):
 
 
 def guard():
-    assert os.geteuid() == 0 and os.environ.get('NACRE_VM_LAB') == '1', 'Banc VM explicitement requis'
+    assert os.environ.get('NACRE_VM_LAB') == '1', 'Banc VM explicitement requis'
     assert Path('/sys/class/dmi/id/sys_vendor').read_text().strip() in ('QEMU', 'Bochs')
+    if os.geteuid() != 0:
+        return
     policy = json.loads(POLICY.read_text())
     assert policy['allowed_uid'] == 1000 and [volume['id'] for volume in policy['volumes']][:4] == list(VOLUMES), 'Fixture du banc natif attendue'
     serials = {item['name']: item.get('serial') for item in json.loads(run('lsblk', '-J', '-o', 'NAME,SERIAL'))['blockdevices']}
@@ -104,7 +107,8 @@ def swap(volume, name):
 
 def crash(volume, point, moment):
     """Moteur à part, tué juste avant ou juste après la commande destructive. Ne répond jamais."""
-    from native_storage import Engine, execute
+    from native_service import Engine
+    from native_storage import execute
 
     def runner(argv, pass_fds=()):
         destructive = argv[:3] == ['btrfs', 'subvolume', 'delete'] or argv[:2] == ['zfs', 'destroy'] or argv[0] == 'lvremove'
@@ -118,6 +122,40 @@ def crash(volume, point, moment):
     plan = engine.prepare(1000, 'admin', {'action': 'delete', 'volume': volume, 'points': [point]})
     engine.commit(1000, 'admin', {'plan': plan['id'], 'confirmation': plan['confirmation']})
     os._exit(1)
+
+
+def console(volume):
+    """Côté console, sous le compte non privilégié : simulation, plan pour la liste affichée, validation, journal."""
+    assert os.geteuid() == 1000
+    root = Path(tempfile.mkdtemp(prefix='nacre-prune-'))
+    import server
+    server.ROOT, server.STATE = root, root / 'state/console'
+    server.DB = server.STATE / 'console.db'
+    server.initialize()
+    import native_retention
+    rule = {'volume': volume, 'keep_last': 1, 'manual': True}
+    preview = native_retention.simulate(server, rule, 'admin')
+    leaving = [point['id'] for point in preview['remove']]
+    assert preview['deletion'] and len(leaving) == 1 and len(preview['keep']) == 1 and len(preview['protected']) == 1, preview
+    with server.database() as db:
+        db.execute("INSERT INTO settings(key,value) VALUES(?,?)", ('native-scheduled:' + volume, json.dumps(leaving + ['f' * 32])))
+    # Une liste qui n'est pas celle de la simulation ne produit aucun plan.
+    try:
+        native_retention.prune_prepare(server, {**rule, 'expected': []}, 'admin')
+    except server.Problem:
+        pass
+    else:
+        raise AssertionError('Plan préparé pour une liste non affichée')
+    plan = native_retention.prune_prepare(server, {**rule, 'manual': True, 'expected': leaving}, 'admin')
+    assert plan['confirmation'] == 'SUPPRIMER 1 POINT DE ' + volume and [point['id'] for point in plan['points']] == leaving, plan
+    result = native_retention.prune_commit(server, {'volume': volume, 'plan': plan['id'], 'confirmation': plan['confirmation']}, 'admin')
+    after = native_retention.simulate(server, {**rule, 'manual': True}, 'admin')
+    with server.database() as db:
+        journal = [tuple(row) for row in db.execute("SELECT username,action,detail FROM audit ORDER BY rowid")]
+        marks = json.loads(db.execute('SELECT value FROM settings WHERE key=?', ('native-scheduled:' + volume,)).fetchone()['value'])
+    assert result['ok'] and result['deleted'] == leaving and after['remove'] == [] and marks == ['f' * 32], (result, after, marks)
+    assert journal == [('admin', 'Points natifs supprimés', volume + ' : 1 supprimé')], journal
+    print(json.dumps({'deleted': result['deleted']}))
 
 
 def main():
@@ -260,18 +298,24 @@ def main():
     plan, body = delete('classic', [point])
     assert ask('commit', body)['deleted'] == [point]
 
+    # 7. Toute la chaîne depuis la console, sous son compte : la règle « garder le dernier » sort le plus ancien point Btrfs.
+    chain = json.loads(run('runuser', '-u', 'ubuntu', '--', 'env', 'NACRE_VM_LAB=1', 'python3', str(Path(__file__).resolve()), 'console', 'btrfs').splitlines()[-1])
+    assert chain['deleted'] == old['btrfs'], chain
+    out['console_chain'] = 'simulation, plan, validation et journal depuis la console : 1 point Btrfs supprimé'
+
     # Bilan sur le stockage : exactement les points annoncés ont disparu, rien d'autre, et les données sont intactes.
     final = inventory()
     gone = {volume: {'nacre_' + fresh[volume][index] for index in (0, 1, 3)} for volume in VOLUMES}
     gone['classic'].add('nacre_' + point)
+    gone['btrfs'].add('nacre_' + old['btrfs'][0])
     for volume in VOLUMES:
         assert set(start[volume]) - set(final[volume]) == gone[volume] and set(final[volume]) < set(start[volume]), (volume, final[volume])
-        assert 'nacre_' + old[volume][0] in final[volume]
+        assert volume == 'btrfs' or 'nacre_' + old[volume][0] in final[volume]
     assert all(Path(path).read_text() == 'version 2\n' for path in witnesses) and hashlib.sha256(load.read_bytes()).hexdigest() == digest
     status = ask('status')
     assert all(volume['ready'] for volume in status['volumes']) and run('systemctl', 'is-active', 'nacre-storage.service') == 'active'
     journal = dict(catalog("SELECT status,COUNT(*) FROM actions WHERE action='delete' GROUP BY status"))
-    assert journal == {'done': 13, 'failed': 4}, journal
+    assert journal == {'done': 14, 'failed': 4}, journal
     result = {'verified': list(VOLUMES), 'deleted_on_storage': {volume: len(gone[volume]) for volume in VOLUMES}, 'other_points_intact': True, 'data_intact': True,
               'journal': journal, **out}
     RESULTS.write_text(json.dumps(result, indent=1, ensure_ascii=False))
@@ -280,4 +324,4 @@ def main():
 
 if __name__ == '__main__':
     guard()
-    crash(*sys.argv[2:]) if sys.argv[1:2] == ['crash'] else main()
+    crash(*sys.argv[2:]) if sys.argv[1:2] == ['crash'] else console(*sys.argv[2:]) if sys.argv[1:2] == ['console'] else main()

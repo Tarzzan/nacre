@@ -10,6 +10,7 @@ from unittest.mock import patch
 SOURCE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SOURCE / 'console'))
 import native_storage as native
+import native_service as service
 
 
 class NativeDeleteTests(unittest.TestCase):
@@ -28,7 +29,7 @@ class NativeDeleteTests(unittest.TestCase):
         self.serial = 0
         patches = [patch.object(native, 'read_policy', side_effect=lambda _: copy.deepcopy(self.policy)),
                    patch.object(native, 'private_directory'), patch('provisioning.private_directory'),
-                   patch.object(native, 'print', create=True)]  # le journal root du service n'a rien à faire dans la sortie des essais
+                   patch.object(service, 'print', create=True)]  # le journal root du service n'a rien à faire dans la sortie des essais
         for item in patches:
             item.start()
             self.addCleanup(item.stop)
@@ -37,7 +38,7 @@ class NativeDeleteTests(unittest.TestCase):
         self.addCleanup(lambda: self.engine.db.close())
 
     def start(self):
-        return native.Engine(Path(self.temp.name) / 'policy.json', self.temp.name, self.run_command)
+        return service.Engine(Path(self.temp.name) / 'policy.json', self.temp.name, self.run_command)
 
     def run_command(self, args, pass_fds=()):
         self.calls.append(args)
@@ -120,6 +121,9 @@ class NativeDeleteTests(unittest.TestCase):
 
     def test_policy_must_allow_deletion(self):
         points = self.capture()
+        self.policy['deletion'] = 'oui'
+        with self.assertRaises(native.NativeError):
+            self.engine.status()
         self.policy['deletion'] = False
         self.assertFalse(self.engine.status()['deletion'])
         with self.assertRaises(native.NativeError):
@@ -274,6 +278,17 @@ class NativeDeleteTests(unittest.TestCase):
             result = self.commit(plan)
         self.assertEqual((result['ok'], result['deleted'], result['kept']), (False, points[:1], points[1:]))
         self.assertEqual(self.catalog(), {points[1]: 'ready', points[2]: 'ready'})
+
+
+    def test_installed_service_starts_the_extended_engine_and_leaves_the_frozen_module_alone(self):
+        from install_native import stage
+        files = stage(Path(self.temp.name) / 'racine', 1000)
+        self.assertIn('ExecStart=/usr/bin/python3 -I /usr/local/lib/nacre-storage/native_service.py\n', files['etc/systemd/system/nacre-storage.service'])
+        for name in ('native_service.py', 'native_storage.py'):
+            self.assertEqual(files['usr/local/lib/nacre-storage/' + name], (SOURCE / 'console' / name).read_text())
+        self.assertNotIn('deletion', json.loads(files['etc/nacre-storage/policy.json']))
+        self.assertTrue(issubclass(service.Engine, native.Engine))
+        self.assertNotIn('delete', (SOURCE / 'console/native_storage.py').read_text().split('def request')[1].split('class NativeClient')[0])
 
 
 if __name__ == '__main__':

@@ -1,8 +1,10 @@
 'use strict';
 let nativeState = {volumes:[],points:[],actions:[],jobs:[],provisioning:{enabled:false,devices:[],deployments:[]}}, storageProfiles = [];
 let pendingNativePlan=null;
-// Conservation des points natifs : règle par volume et simulation. Rien n’est supprimé par cette version.
-let nativeKeep={policies:[],defaults:null},nativeKeepOpen='',nativeKeepResult=null,nativeKeepRequest=0;
+// Conservation des points natifs : règle par volume, simulation, puis suppression explicite des points sortants.
+// La suppression part toujours de la simulation affichée et passe par un plan du service natif, avec sa phrase à recopier.
+let nativeKeep={policies:[],defaults:null,deletion:false},nativeKeepOpen='',nativeKeepResult=null,nativeKeepRequest=0;
+let nativeKeepDraft=null,nativePruneNote=null,nativePrunePlan=null;
 // Programmation des captures : une heure et des jours par volume, arrêt au plafond, jamais de suppression.
 let nativePlans={schedules:[],defaults:null,confirmation:'PROGRAMMER '};
 const NATIVE_DAYS=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
@@ -26,7 +28,7 @@ async function renderNative(){
   <section class="card"><div class="cardhead"><h2>Volumes natifs autorisés</h2><span class="muted">Identités vérifiées à chaque opération</span></div>${nativeState.volumes.length?table(['Volume','Famille','État',''],nativeState.volumes.map(v=>`<tr><td>${esc(v.name)}<br><small class="muted">${esc(v.id)}</small></td><td>${familyNames[v.family]||esc(v.family)}</td><td><span class="badge ${v.ready?'':'warn'}">${v.ready?'Prêt':'Indisponible'}</span>${v.reason?`<br><small>${esc(v.reason)}</small>`:''}</td><td>${button('native-snapshot','Préparer une capture',null,'small',`data-volume="${esc(v.id)}" ${v.ready?'':'disabled'}`)}</td></tr>`)):empty('Aucun volume inscrit. La politique système du matériel cible permettra de les autoriser.','lock')}</section><br>
   <section class="card"><div class="cardhead"><h2>Points de restauration natifs</h2><span class="muted">Conservés sur le même stockage</span></div>${nativeState.points.length?table(['Création','Volume','État',''],nativeState.points.map(p=>{const v=nativeState.volumes.find(v=>v.id===p.volume);return `<tr><td>${date(p.created)}<br><small class="muted">${esc(p.id.slice(0,8))}</small></td><td>${esc(v?.name||p.volume)} · ${familyNames[p.family]||esc(p.family)}</td><td><span class="badge ${p.status==='ready'?'':'warn'}">${nativeStatus[p.status]||esc(p.status)}</span>${p.detail?`<br><small>${esc(p.detail)}</small>`:''}</td><td>${v?.clone?button('native-clone','Préparer une restauration',null,'small',`data-volume="${esc(p.volume)}" data-point="${esc(p.id)}" ${p.status==='ready'&&v.ready?'':'disabled'}`):'<small class="muted">Restauration par copie à venir</small>'}</td></tr>`;})):empty('Les captures Btrfs, ZFS ou LVM apparaîtront ici après autorisation et exécution.','backup')}</section><br>
   ${nativeScheduleCard()}${nativeKeepCard()}<section class="card"><div class="cardhead"><h2>Copies de restauration LVM</h2><span class="muted">Tâches système indépendantes</span></div>${nativeState.jobs?.length?table(['Date','État','Progression','Destination / résultat',''],nativeState.jobs.map(j=>`<tr><td>${date(j.ts)}</td><td><span class="badge ${j.status==='done'?'':j.status==='failed'||j.status==='uncertain'?'warn':'dim'}">${({queued:'En attente',running:'En cours',done:'Terminée',cancelled:'Annulée',failed:'Échec',uncertain:'À vérifier'})[j.status]||esc(j.status)}</span></td><td>${sizes(j.bytes)}<br><small class="muted">${j.files} fichier(s)</small></td><td class="native-location">${esc(j.location||j.error||'Nouvelle destination privée en préparation')}</td><td>${['queued','running'].includes(j.status)?button('native-job-cancel','Annuler',null,'small',`data-job="${esc(j.id)}" ${j.cancel?'disabled':''}`):''}</td></tr>`)):empty('Les copies LVM sont suivies ici, même après fermeture du navigateur.','backup')}</section><br>
-  <section class="card"><div class="cardhead"><h2>Opérations et restaurations</h2><span class="muted">Dernières opérations natives</span></div>${nativeState.actions.length?table(['Date','Opération','État','Destination'],nativeState.actions.map(a=>`<tr><td>${date(a.ts)}</td><td>${({clone:'Nouvelle restauration',snapshot:'Capture',provision:'Création de volume',repair:'Reconstruction RAID1'})[a.action]||esc(a.action)} · ${esc(a.volume)}</td><td><span class="badge ${a.status==='done'?'':'warn'}">${({done:'Terminée',running:'En cours',queued:'En attente',cancelled:'Annulée',failed:'Échec',uncertain:'À vérifier'})[a.status]||esc(a.status)}</span></td><td class="native-location">${esc(a.location||a.object)}</td></tr>`)):empty('Les destinations créées et les résultats seront conservés ici.','activity')}</section><br>
+  <section class="card"><div class="cardhead"><h2>Opérations et restaurations</h2><span class="muted">Dernières opérations natives</span></div>${nativeState.actions.length?table(['Date','Opération','État','Destination'],nativeState.actions.map(a=>`<tr><td>${date(a.ts)}</td><td>${({clone:'Nouvelle restauration',snapshot:'Capture',delete:'Suppression de point',provision:'Création de volume',repair:'Reconstruction RAID1'})[a.action]||esc(a.action)} · ${esc(a.volume)}</td><td><span class="badge ${a.status==='done'?'':'warn'}">${({done:'Terminée',running:'En cours',queued:'En attente',cancelled:'Annulée',failed:'Échec',uncertain:'À vérifier'})[a.status]||esc(a.status)}</span></td><td class="native-location">${esc(a.location||a.object)}</td></tr>`)):empty('Les destinations créées et les résultats seront conservés ici.','activity')}</section><br>
   <section class="card"><div class="cardhead"><h2>Parcourir les volumes et restaurations</h2><span class="muted">Gestion des volumes · restaurations en lecture seule</span></div>${nativeState.resources?.length?table(['Espace','Destination',''],nativeState.resources.map(r=>`<tr><td>${esc(r.name)}</td><td class="native-location">${esc(r.path)}</td><td>${r.kind==='volume'?button('native-files','Gérer les fichiers','folder','small',`data-resource="${esc(r.id)}"`):button('native-browse','Parcourir','folder','small',`data-resource="${esc(r.id)}"`)}</td></tr>`)):empty('Les volumes montés et les restaurations terminées seront accessibles ici.','folder')}</section><br>
   <section class="card"><div class="cardhead"><h2>Compatibilité des opérations</h2><span class="muted">Fonctions distinctes selon le stockage</span></div>${table(['Famille','Capture','Restauration','À savoir'],[
     '<tr><td>Btrfs</td><td>Sous-volume en lecture seule</td><td>Nouveau sous-volume inscriptible</td><td>Enfants exclus ; mêmes supports</td></tr>',
@@ -74,11 +76,12 @@ function nativeKeepText(p){
 }
 function nativeKeepCard(){
   if(!nativeState.volumes.length)return '';
-  return `<section class="card" id="native-keep"><div class="cardhead"><h2>Conservation des points natifs</h2><span class="muted">Simulation seulement · aucun point n’est supprimé</span></div>${table(['Volume','Règle',''],nativeState.volumes.map(v=>{const p=nativeKeepPolicy(v.id);return `<tr><td>${esc(v.name)}<br><small class="muted">${esc(v.id)}</small></td><td>${esc(nativeKeepText(p))}<br><small class="muted">${p.saved?'Règle enregistrée':'Règle proposée, non enregistrée'}</small></td><td>${button('native-keep-open','Régler et simuler',null,'small',`data-volume="${esc(v.id)}" aria-expanded="${v.id===nativeKeepOpen}"`)}</td></tr>`;}))}<div id="native-keep-panel">${nativeKeepPanel()}</div></section><br>`;
+  return `<section class="card" id="native-keep"><div class="cardhead"><h2>Conservation des points natifs</h2><span class="muted">${nativeKeep?.deletion===true?'La suppression demande toujours une confirmation':'Simulation seulement · aucun point n’est supprimé'}</span></div>${table(['Volume','Règle',''],nativeState.volumes.map(v=>{const p=nativeKeepPolicy(v.id);return `<tr><td>${esc(v.name)}<br><small class="muted">${esc(v.id)}</small></td><td>${esc(nativeKeepText(p))}<br><small class="muted">${p.saved?'Règle enregistrée':'Règle proposée, non enregistrée'}</small></td><td>${button('native-keep-open','Régler et simuler',null,'small',`data-volume="${esc(v.id)}" aria-expanded="${v.id===nativeKeepOpen}"`)}</td></tr>`;}))}<div id="native-keep-panel">${nativeKeepPanel()}</div></section><br>`;
 }
 function nativeKeepPanel(){
   const volume=nativeState.volumes.find(v=>v.id===nativeKeepOpen);if(!volume)return '';
-  const p=nativeKeepPolicy(volume.id),c=p.calendar||{};
+  // Après une suppression, le formulaire garde la règle qui vient d'être simulée, même non enregistrée.
+  const p=nativeKeepDraft?.volume===volume.id?nativeKeepDraft:nativeKeepPolicy(volume.id),c=p.calendar||{};
   const number=(name,label,value,min,max)=>`<div class="field"><label for="native-keep-${name}">${label}</label><input id="native-keep-${name}" name="${name}" type="number" min="${min}" max="${max}" step="1" value="${esc(value)}" required></div>`;
   return `<form id="native-keep-form" class="cardpad" method="post"><h3>Règle de « ${esc(volume.name)} »</h3><p>Garder les derniers points, plus le dernier point de chaque jour, semaine ou mois ayant une capture ; 0 désactive une période. Un point peut être gardé pour plusieurs motifs.</p><div class="formgrid">${number('keep_last','Derniers points à garder',p.keep_last,1,1000)}${number('daily','Jours avec capture',c.daily||0,0,1000000)}${number('weekly','Semaines avec capture',c.weekly||0,0,1000000)}${number('monthly','Mois avec capture',c.monthly||0,0,1000000)}</div><label class="native-keep-check" for="native-keep-manual"><input type="checkbox" id="native-keep-manual" name="manual" ${p.manual?'checked':''}> Appliquer aussi la règle aux captures manuelles</label><input type="hidden" name="timezone" value="${esc(c.timezone||'UTC')}"><p class="capacity-note">Jours, semaines (du lundi au dimanche) et mois sont comptés dans le fuseau ${esc(c.timezone||'UTC')}. Sans la case, une capture faite à la main n’est jamais proposée à la suppression.</p><div class="row"><button type="submit" class="primary">Simuler</button>${button('native-keep-save','Enregistrer la règle')}${button('native-keep-close','Fermer',null,'small')}</div><p class="error" id="native-keep-error" role="alert"></p></form><div id="native-keep-result">${nativeKeepResult?nativeKeepSummary(nativeKeepResult):''}</div>`;
 }
@@ -86,8 +89,42 @@ function nativeKeepSummary(r){
   const list=value=>(Array.isArray(value)?value:[]).filter(x=>x&&typeof x.id==='string');
   const keep=list(r.keep),remove=list(r.remove),guarded=list(r.protected);
   const points=(values,reason)=>values.length?table(['Création','Point','Origine',...(reason?['Motif']:[])],values.map(x=>`<tr><td>${Number.isFinite(x.created)?date(x.created):'—'}</td><td><code>${esc(x.id.slice(0,8))}</code></td><td>${x.manual?'Manuelle':'Programmée'}</td>${reason?`<td>${esc(x.reason||(Array.isArray(x.reasons)?x.reasons:[]).join(' · '))}</td>`:''}</tr>`)):empty('Aucun point dans cette catégorie.','backup');
-  return `<div class="cardpad"><p class="eyebrow">SIMULATION · ${esc(r.name||r.volume)}</p><h3>Voici ce que la règle ferait des points actuels.</h3><div class="retention-counts"><div><strong>${keep.length}</strong><span>Gardés par la règle</span></div><div><strong>${guarded.length}</strong><span>Protégés hors règle</span></div><div><strong>${remove.length}</strong><span>Sortiraient</span></div></div><p class="capacity-note">${r.busy?'Une restauration est en cours ou à vérifier sur ce volume : tous ses points sont protégés. ':''}Rien n’a été supprimé et rien ne le sera : cette version ne sait pas supprimer un point natif. La simulation porte sur les points présents à ${date(r.at)}.</p><h3>Points qui sortiraient</h3>${points(remove,false)}<details><summary>Voir les points gardés et protégés</summary><h3>Gardés par la règle</h3>${points(keep,true)}<h3>Protégés hors règle</h3>${points(guarded,true)}</details></div>`;
+  const note=nativePruneNote&&nativePruneNote.volume===r.volume?`<div class="native-prune-note ${nativePruneNote.ok?'':'warn'}" role="status"><strong>${esc(nativePruneNote.title)}</strong> ${esc(nativePruneNote.text)}</div>`:'';
+  return `<div class="cardpad">${note}<p class="eyebrow">SIMULATION · ${esc(r.name||r.volume)}</p><h3>Voici ce que la règle ferait des points actuels.</h3><div class="retention-counts"><div><strong>${keep.length}</strong><span>Gardés par la règle</span></div><div><strong>${guarded.length}</strong><span>Protégés hors règle</span></div><div><strong>${remove.length}</strong><span>Sortiraient</span></div></div><p class="capacity-note">${r.busy?'Une restauration est en cours ou à vérifier sur ce volume : tous ses points sont protégés. ':''}Rien n’est supprimé par la simulation. Elle porte sur les points présents à ${date(r.at)}.</p><h3>${remove.length?'Points qui sortiraient':'Aucun point ne sortirait'}</h3>${remove.length?points(remove,false):''}${nativePruneAction(r,remove.length)}<details><summary>Voir les points gardés et protégés</summary><h3>Gardés par la règle</h3>${points(keep,true)}<h3>Protégés hors règle</h3>${points(guarded,true)}</details></div>`;
 }
+// Sous les points sortants : le bouton de suppression si le matériel l'accorde, sinon la raison de son absence.
+function nativePruneAction(r,count){
+  if(!count)return '';
+  if(r.deletion!==true)return `<div class="native-prune-note info"><strong>La suppression n’est pas accordée sur ce matériel.</strong> Le service natif ne supprime un point que si l’administrateur du système l’a permis dans sa politique. La règle et la simulation restent utilisables.</div>`;
+  const label=count>50?'Supprimer les 50 plus anciens…':count>1?`Supprimer ces ${count} points…`:'Supprimer ce point…';
+  return `<div class="row native-prune-row">${button('native-prune',label,null,'danger')}<span class="muted">${count>50?`${count} points sortiraient ; une opération en supprime 50 au plus.`:'Une fenêtre demandera confirmation.'}</span></div><p class="error" id="native-prune-error" role="alert"></p>`;
+}
+// Demander un plan pour la liste exacte affichée, le montrer point par point, puis attendre la phrase du service.
+async function nativePrune(){
+  const form=$('#native-keep-form'),shown=nativeKeepResult,error=$('#native-prune-error');if(!form||!shown||!nativeKeepOpen)return;
+  if(error)error.textContent='';
+  let rule,plan;
+  try{rule=nativeKeepBody(form);plan=await api('storage/native-prune-prepare',{...rule,expected:(Array.isArray(shown.remove)?shown.remove:[]).map(x=>x.id)});}
+  catch(problem){const text=problem.message+' Rien n’a été supprimé.';if(error)error.textContent=text;else toast(text,true);return;}
+  const points=(Array.isArray(plan.points)?plan.points:[]).filter(x=>x&&typeof x.id==='string'),count=points.length,name=plan.name||plan.volume;
+  nativePrunePlan=plan;
+  modal(count>1?`Supprimer ${count} points de « ${name} »`:`Supprimer un point de « ${name} »`,
+    `<p>${count>1?'Ces points, et eux seuls, seront supprimés du stockage, du plus ancien au plus récent.':'Ce point, et lui seul, sera supprimé du stockage.'}</p><div class="native-prune-list">${table(['Création','Point','Origine'],points.map(x=>`<tr><td>${Number.isFinite(x.created)?date(x.created):'—'}</td><td><code>${esc(x.id.slice(0,8))}</code></td><td>${x.manual?'Manuelle':'Programmée'}</td></tr>`))}</div><div class="native-plan">${(Array.isArray(plan.notes)?plan.notes:[]).map(n=>`<p class="muted">${esc(n)}</p>`).join('')}<div class="legendrow"><span>Validité</span><b>2 minutes</b></div></div>`+
+    field('Recopiez « '+esc(plan.confirmation)+' »','prune_confirmation'),'Supprimer définitivement',async data=>{
+      const result=await api('storage/native-prune',{volume:plan.volume,plan:plan.id,confirmation:String(data.get('prune_confirmation')||'').trim()});
+      const done=(Array.isArray(result.deleted)?result.deleted:[]).length,plural=n=>n>1?'s':'';
+      nativePrunePlan=null;nativeKeepDraft=rule;nativeKeepResult=null;nativeKeepRequest++;
+      try{nativeKeepResult=await api('storage/native-retention-preview',rule);}catch{}
+      const left=Array.isArray(nativeKeepResult?.remove)?nativeKeepResult.remove.length:0;
+      nativePruneNote=result.ok
+        ?{volume:plan.volume,ok:true,title:`${done} point${plural(done)} supprimé${plural(done)} de « ${name} ».`,text:'Le volume, ses fichiers et les autres points n’ont pas été modifiés.'+(left?` ${left} point${plural(left)} sortirai${left>1?'en':''}t encore : relancer l’opération pour continuer.`:'')}
+        :{volume:plan.volume,ok:false,title:`${done} point${plural(done)} supprimé${plural(done)} sur ${count}. L’opération s’est arrêtée.`,text:(result.reason||'Vérifier le stockage.')+' Rien n’est retenté automatiquement.'};
+      return {message:nativePruneNote.title};
+    });
+  // Le bouton ne s'active qu'une fois la phrase recopiée à l'identique.
+  const submit=$('#modal-form button[type=submit]');if(submit){submit.disabled=true;submit.className='primary danger';}
+}
+document.addEventListener('input',event=>{if(event.target?.id!=='field-prune_confirmation'||!nativePrunePlan)return;const submit=$('#modal-form button[type=submit]');if(submit)submit.disabled=event.target.value.trim()!==nativePrunePlan.confirmation;});
 function nativeKeepRedraw(){const panel=$('#native-keep-panel');if(panel)panel.innerHTML=nativeKeepPanel();}
 function nativeKeepBody(form){
   const fields=new FormData(form),whole=name=>{const value=Number(fields.get(name));if(!Number.isInteger(value))throw new Error('Saisir des nombres entiers.');return value;};
@@ -99,6 +136,7 @@ async function nativeKeepSend(save){
   const session=sessionGeneration,request=++nativeKeepRequest,volume=nativeKeepOpen,error=$('#native-keep-error');
   const current=()=>session===sessionGeneration&&request===nativeKeepRequest&&volume===nativeKeepOpen&&page==='native';
   if(error)error.textContent='';
+  if(!save)nativePruneNote=null;
   try{
     const body=nativeKeepBody(form),result=await api(save?'storage/native-retention':'storage/native-retention-preview',body);
     if(!current())return;
@@ -138,8 +176,9 @@ document.addEventListener('click',async event=>{
     case 'mirror-repair':return repairMirror(element.dataset.volume);
     case 'native-refresh':return renderNative();
     case 'native-schedule-edit':return nativeScheduleModal(element.dataset.volume);
-    case 'native-keep-open':nativeKeepOpen=nativeKeepOpen===element.dataset.volume?'':element.dataset.volume;nativeKeepResult=null;nativeKeepRequest++;return renderNative();
-    case 'native-keep-close':nativeKeepOpen='';nativeKeepResult=null;nativeKeepRequest++;return nativeKeepRedraw();
+    case 'native-keep-open':nativeKeepOpen=nativeKeepOpen===element.dataset.volume?'':element.dataset.volume;nativeKeepResult=nativeKeepDraft=nativePruneNote=null;nativeKeepRequest++;return renderNative();
+    case 'native-keep-close':nativeKeepOpen='';nativeKeepResult=nativeKeepDraft=nativePruneNote=null;nativeKeepRequest++;return nativeKeepRedraw();
+    case 'native-prune':return nativePrune();
     case 'native-keep-save':return nativeKeepSend(true);
     case 'storage-profile-create':return storageProfileModal();
     case 'storage-profile-delete':return confirmAction('Supprimer ce profil ?','Seul le profil de préparation sera supprimé.','Supprimer',async()=>api('storage/profile-delete',{id:element.dataset.id}));

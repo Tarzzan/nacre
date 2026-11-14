@@ -14,7 +14,7 @@ Les versions futures sont des objectifs sans date promise. Chaque étape demande
 
 ## Conservation des points natifs 0.8.0-alpha.39
 
-Premier des quatre lots de l’issue 4 : règle par volume et simulation, sans suppression. La [programmation des captures](NATIVE-SNAPSHOT-POLICY.md#lot-2--programmation-des-captures) a suivi en alpha.40. [Lots suivants](NATIVE-SNAPSHOT-POLICY.md) : suppression explicite sur banc VM, conservation automatique.
+Premier des quatre lots de l’issue 4 : règle par volume et simulation, sans suppression. La [programmation des captures](NATIVE-SNAPSHOT-POLICY.md#lot-2--programmation-des-captures) a suivi en alpha.40. La [suppression explicite](NATIVE-SNAPSHOT-POLICY.md#lot-3--suppression-explicite) a suivi en alpha.41, prouvée sur banc VM. Reste la conservation automatique.
 
 ## Bureau 0.8.0-alpha.26
 
