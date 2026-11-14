@@ -101,7 +101,7 @@ Quatre états :
 
 - **Espace suffisant** : l’espace libre couvre la durée de conservation réglée.
 - **Conservation hors de portée** : la durée réglée demande plus de place que le volume n’en offre. La carte dit jusqu’où les enregistrements remontent réellement au débit actuel.
-- **Volume plein** : il reste moins d’une heure d’enregistrement.
+- **Volume plein** : il reste moins de trois heures d’enregistrement.
 - **Débit non mesuré** : Frigate n’a pas encore de mesure ; l’autonomie n’est pas estimée.
 
 **Ce qui se passe quand le volume est plein.** L’enregistrement ne s’arrête pas. Lu dans Frigate 0.18.2 : dès qu’il reste moins d’une heure d’enregistrement d’espace libre, il efface les enregistrements les plus anciens, environ une heure à la fois. Les passages conservés ne sont pas concernés.
@@ -110,7 +110,21 @@ Limites :
 
 - **C’est une estimation.** Le débit varie avec l’activité, et le calcul porte sur l’enregistrement continu ; les passages que Frigate garde plus longtemps autour des événements ne sont pas prévus.
 - **Volume partagé.** Si le volume reçoit d’autres fichiers, ils réduisent l’autonomie sans que cette carte sache lesquels.
-- **Pas d’alerte dédiée.** L’alerte d’espace existante porte sur le volume de Nacre, à 90 % puis 97 %.
+
+### L’alerte du volume vidéo
+
+Depuis **0.8.0-alpha.51**, ces deux états ouvrent un [incident](LOCAL-ALERTS.md) dans le centre de notifications, relayé par les notifications externes si elles sont configurées. Il n’y a rien à régler.
+
+- **Le volume vidéo est plein** (critique) : il reste moins de trois heures d’enregistrement. L’enregistrement continue, les plus anciens sont effacés.
+- **La conservation vidéo ne tient pas sur le volume** (avertissement) : la durée réglée demande au moins 10 % de place de plus que le volume n’en offre. Vous croyez garder trente jours, le volume en tient dix.
+
+L’incident se referme de lui-même quand la place suffit de nouveau : durée réduite, place libérée ou volume agrandi. Trois précautions évitent qu’il clignote :
+
+- **Trois heures et non une.** Frigate efface sous une heure d’espace libre et en libère une à la fois : un volume saturé oscille entre zéro et un peu plus de deux heures. Le seuil couvre toute cette plage.
+- **Une marge à l’ouverture, aucune à la fermeture.** L’avertissement s’ouvre à 10 % de manque et ne se referme qu’une fois le manque entièrement comblé.
+- **Une mesure manquante ne dit rien.** Frigate arrêté, mesures périmées ou débit pas encore connu : l’incident ouvert reste ouvert, et la page des alertes indique que le stockage vidéo n’est pas vérifié.
+
+Limite : le débit varie avec l’activité. Un volume tout juste suffisant peut passer en avertissement pendant une période agitée.
 
 ## Ce que montrent les indications
 

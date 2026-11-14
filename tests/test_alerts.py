@@ -102,6 +102,33 @@ class AlertTests(unittest.TestCase):
             scopes,_=alerts.collect(server)
         self.assertIsNone(scopes['cameras']);self.assertNotIn('private-url',json.dumps(scopes))
 
+    def test_video_volume_incident_follows_measures_and_survives_their_absence(self):
+        services='{"Service":"video","State":"running","Health":"healthy"}'
+        config={'cameras':{'atelier':{'enabled':True,'record':{'continuous':{'days':10}}}}}
+        import kept
+        def collect(free,usage=None,stale=False):
+            stats={'service':{'last_updated':time.time()-(3600 if stale else 0),'storage':{kept.RECORDINGS:{'total':1000000.0,'free':float(free)}}},'cameras':{'atelier':{'camera_fps':5}}}
+            answers=lambda path:stats if path=='/api/stats' else ({'atelier':{'usage':40000.0,'bandwidth':1000.0}} if usage is None else usage)
+            with patch.object(server,'compose',return_value=services),patch('cameras.config',return_value=config),patch.object(server,'video_json',side_effect=answers),patch('alerts.shutil.disk_usage',return_value=SimpleNamespace(total=100,used=10)):
+                return alerts.collect(server)
+        mine=lambda kind='active':[a for a in alerts.listing(server)[kind] if a['scope']=='video_storage']
+        scopes,seen=collect(600000);self.assertEqual((scopes['video_storage'],scopes['cameras']),([],[]))
+        scopes,seen=collect(2500);self.assertEqual([(c['key'],c['severity'],c['revision'],c['page']) for c in scopes['video_storage']],[('video:storage','critical','full','camera')])
+        alerts.record(server,scopes,seen,100);alerts.record(server,scopes,seen,130)
+        incident=mine()[0];self.assertEqual((incident['scope'],incident['title']),('video_storage','Le volume vidéo est plein'))
+        # Mesures absentes, périmées ou débit inconnu : l'incident reste, sans rien dire des caméras.
+        for scopes,seen in (collect(600000,usage={}),collect(600000,stale=True)):
+            self.assertIsNone(scopes['video_storage'])
+            alerts.record(server,scopes,seen,160);alerts.record(server,scopes,seen,190)
+            self.assertEqual([a['id'] for a in mine()],[incident['id']])
+        self.assertIn('video_storage',alerts.listing(server)['unavailable'])
+        # De la place est rendue sans combler le manque : l'incident ouvert devient un avertissement, et ne se referme pas.
+        scopes,seen=collect(188000);self.assertEqual([(c['severity'],c['revision']) for c in scopes['video_storage']],[('warning','short')])
+        alerts.record(server,scopes,seen,220)
+        updated=mine()[0];self.assertEqual((updated['id'],updated['version'],updated['title']),(incident['id'],2,'La conservation vidéo ne tient pas sur le volume'))
+        scopes,seen=collect(600000);alerts.record(server,scopes,seen,250);alerts.record(server,scopes,seen,280)
+        self.assertEqual(mine(),[]);self.assertEqual([a['id'] for a in mine('history')],[incident['id']])
+
     def test_stale_positive_stats_do_not_resolve_camera_incident(self):
         services='{"Service":"video","State":"running","Health":"healthy"}'
         config={'cameras':{'atelier':{'enabled':True}}}

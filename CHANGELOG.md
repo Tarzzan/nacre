@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.51 — Alerte du volume vidéo
+
+Le centre de notifications signale désormais de lui-même deux situations du volume vidéo, sans avoir à ouvrir les réglages. **Le volume vidéo est plein** (critique) : il reste moins de trois heures d’enregistrement, les plus anciens sont effacés pour continuer. **La conservation vidéo ne tient pas sur le volume** (avertissement) : la durée réglée demande plus de place que le volume n’en offre. L’incident se referme seul quand la place suffit, et passe par les notifications externes déjà configurées. Il ne clignote pas : le seuil « plein » couvre l’oscillation d’un volume saturé (la carte Stockage vidéo adopte le même seuil de trois heures), l’avertissement s’ouvre avec une marge et ne se referme qu’une fois le manque comblé, et une mesure manquante ne conclut rien. Aucun changement de schéma ni de module figé. 367 tests Python, 141 JavaScript. [Guide](docs/RECORDING-PLAYBACK.md#lalerte-du-volume-vidéo).
+
 ## 0.8.0-alpha.50 — Passages conservés : liste à jour aussitôt
 
 Correctif d’alpha.49, trouvé en l’essayant sur une installation réelle. Le service vidéo garde ses réponses cinq secondes : juste après **Conserver** ou **Retirer**, la liste des passages pouvait montrer l’état d’avant, sans le passage tout juste conservé ou avec celui qu’on venait de retirer. La liste est désormais lue sans ce cache, et relue deux fois après une demande de conservation, le temps que la copie apparaisse. Rien n’était perdu ni gardé à tort : seul l’affichage retardait. Aucun changement de schéma ni de module figé. 365 tests Python, 141 JavaScript. [Guide](docs/RECORDING-PLAYBACK.md#conserver-un-extrait).
