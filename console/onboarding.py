@@ -100,6 +100,16 @@ def finish(app, body, session):
     return state
 
 
+ACCESS = {
+    'direct': {True: 'Docker et Compose accessibles. Démarrez les services lorsque vous êtes prêt.',
+               False: 'Installer Docker Engine et Compose v2, puis autoriser le compte de console.'},
+    'agent': {True: 'Docker est piloté par l’agent de services ; le compte de la console n’y a plus d’accès direct.',
+              False: 'L’agent de services ne joint pas Docker. Consulter son journal système.'},
+    'mixed': {True: 'L’agent de services est actif, mais le compte de la console garde un accès direct à Docker : la réduction de privilèges reste à terminer.',
+              False: 'L’agent de services ne joint pas Docker. Consulter son journal système.'},
+}
+
+
 def probe(args):
     try:
         return subprocess.run(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=3).returncode == 0
@@ -112,6 +122,10 @@ def status(app):
     capacity = shutil.disk_usage(app.ROOT)
     found = app.service_op('engine')
     docker, engine, compose = found['docker'], found['engine'], found['compose']
+    # Qui pilote Docker : l'agent de services seul, l'agent alors que le compte de la console y accède encore, ou ce compte seul.
+    from service_agent import agent_present
+    direct = os.access('/var/run/docker.sock', os.W_OK)
+    access = ('mixed' if direct else 'agent') if agent_present() else 'direct'
     protection = app.protection().capabilities()
     from native_storage import SOCKET
     native_socket = os.path.exists(SOCKET)
@@ -125,8 +139,8 @@ def status(app):
         'capabilities': [
             {'id': 'files', 'title': 'Fichiers', 'ready': os.access(app.ROOT/'data/fichiers', os.W_OK),
              'detail': 'Espace local de fichiers de cette installation.', 'page': 'files'},
-            {'id': 'docker', 'title': 'Partages et vidéo', 'ready': bool(engine and compose),
-             'detail': 'Docker et Compose accessibles. Démarrez les services lorsque vous êtes prêt.' if engine and compose else 'Installer Docker Engine et Compose v2, puis autoriser le compte de console.', 'page': 'services'},
+            {'id': 'docker', 'title': 'Partages et vidéo', 'ready': bool(engine and compose), 'access': access,
+             'detail': ACCESS[access][bool(engine and compose)], 'page': 'services'},
             {'id': 'restic', 'title': 'Sauvegardes', 'ready': protection['available'],
              'detail': f'{repositories} dépôt(s), {plans} plan(s) actif(s).' if protection['available'] else 'Installer le moteur restic sur le serveur pour créer des sauvegardes.', 'page': 'backups'},
             {'id': 'native', 'title': 'Pools et snapshots natifs', 'ready': False,

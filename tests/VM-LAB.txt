@@ -275,3 +275,19 @@ sur Btrfs, ZFS, LVM classique et LVM thin, plafond libéré, maximum dépassé.
 Il retire ensuite l'accord et vérifie la suspension. Chaque étape est
 confrontée au stockage. Résultat dans /home/ubuntu/native-auto-results.json.
 Arrêter la VM avec poweroff. Le banc ne se rejoue pas sur la même VM.
+
+
+AGENT DE SERVICES
+VM QEMU jetable avec Docker et l'image Samba du banc (overlay neuf sur la VM
+des partages), compte ubuntu membre du groupe docker, UID 1000. Aucun disque
+de données n'est nécessaire. Copier les sources dans /home/ubuntu/nas-autonome.
+
+Dans la VM uniquement :
+sudo env NACRE_VM_LAB=1 python3 /home/ubuntu/nas-autonome/tests/integration_service_agent_vm.py
+
+Ce banc crée une installation d'essai dans /home/ubuntu/nacre-agent-lab,
+installe l'agent de services et l'active, puis RETIRE ubuntu du groupe docker
+de l'invité. Il rejoue les opérations par l'agent, tente de détourner la
+description des services, les variables et les montages, et vérifie chaque
+effet par docker inspect. Résultat dans /home/ubuntu/service-agent-results.json.
+Ne se rejoue pas sur la même VM : repartir d'un overlay neuf.

@@ -1,5 +1,15 @@
 # Déploiements de la console sur Spark
 
+## 14 novembre 2026 — alpha.43, liste fermée des opérations Docker
+
+L’installation alpha.42 a reçu le paquet `nacre-0.8.0-alpha.43.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.43), construit depuis le commit [`7069e9d`](https://github.com/Tarzzan/nacre/commit/7069e9d0b909f854aa424505905878d8c213ee31) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
+
+Avant l’import : neuf modules figés identiques, aucune tâche active, répétition isolée alpha.42 → alpha.43 réussie. Fichier importé identique à celui de la release, empreinte contrôlée ; session administrateur temporaire refermée ; installation confirmée depuis la fenêtre Réglages du bureau et suivie jusqu’à **Mise à jour réussie**.
+
+Validation enregistrée à 3 h 14 min 21 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Ici, la [liste fermée](SERVICE-AGENT.md) s’exerce sur un vrai Docker. Constaté en lecture seule après la mise à jour : l’état des services rend les deux conteneurs en marche (opération `status`) ; l’accueil trouve Docker et Compose (opération `engine`) ; une image de la caméra est servie, 200 et 157 Kio, sans être conservée (opération `video_address`). Aucune opération qui modifie les partages, les comptes ou les conteneurs n’a été lancée. Cette installation n’a pas d’agent de services : son compte pilote toujours Docker directement.
+
 ## 14 novembre 2026 — alpha.42, conservation automatique des points natifs
 
 L’installation alpha.41 a reçu le paquet `nacre-0.8.0-alpha.42.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.42), construit depuis le commit [`4f2f873`](https://github.com/Tarzzan/nacre/commit/4f2f873a11970f3ff66a8448de3df4b7c3cc2b29) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).

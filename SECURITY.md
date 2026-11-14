@@ -16,6 +16,6 @@ Avant un push, lancer les contrôles du dépôt. Si un secret est commité, le r
 
 ## Modèle de confiance
 
-Le helper root ne reçoit que des opérations fermées et vérifie ses ressources. Le compte de console conserve néanmoins des droits Docker élevés, équivalents à root sur l’hôte. Les sessions et CSRF ne compensent pas une compromission de ce compte. Le processus web ne demande à Docker qu’une liste fermée d’opérations, mais cette liste ne retire pas l’accès : le [plan de réduction](docs/SERVICE-AGENT.md) dit ce qui reste à faire. Les détails sont dans [Architecture](docs/ARCHITECTURE.md).
+Le helper root ne reçoit que des opérations fermées et vérifie ses ressources. Le compte de console conserve néanmoins des droits Docker élevés, équivalents à root sur l’hôte. Les sessions et CSRF ne compensent pas une compromission de ce compte. Le processus web ne demande à Docker qu’une liste fermée d’opérations. Un agent de services, installé par root, peut la tenir à sa place et permet de retirer cet accès au compte de la console ; un chemin plus étroit reste alors ouvert par les conteneurs. Le [plan de réduction](docs/SERVICE-AGENT.md) dit ce qui est fait et ce qui reste. Les détails sont dans [Architecture](docs/ARCHITECTURE.md).
 
 Snapshots locaux, RAID et chiffrement répondent à des risques différents. Une copie sur un support distinct et un essai de restauration restent nécessaires pour qualifier un dispositif de protection.

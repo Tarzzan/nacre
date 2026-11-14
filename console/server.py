@@ -112,13 +112,19 @@ def command(args, data=None, timeout=20):
 
 
 def compose(*args, data=None, timeout=25):
-    from compose_support import arguments
-    return command(arguments(ROOT,*args),data,timeout)
+    return command(arguments(*args),data,timeout)
 
 
 def service_op(operation, **parameters):
     """Toute demande de la console à Docker : une opération de la liste fermée de service_agent, rien d'autre."""
+    if service_agent.agent_present():
+        return service_agent.AgentClient().request(sys.modules[__name__], operation, parameters)
     return service_agent.request(sys.modules[__name__], operation, **parameters)
+
+
+def arguments(*args, override=None):
+    from compose_support import arguments as described
+    return described(ROOT, *args, override=override)
 
 
 def audit(user, action, detail=''):

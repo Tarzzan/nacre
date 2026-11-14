@@ -47,6 +47,10 @@ ssh -N -L 8766:127.0.0.1:8766 votre-serveur
 
 L’interface permet la gestion des partages, des plans et des réglages d’une caméra configurée. Pour ajouter une caméra, créer son compte local dans l’application constructeur puis utiliser **Surveillance → Ajouter une caméra**. La commande `python3 lab.py camera --ip ADRESSE_LOCALE` reste une alternative pour la caméra historique `tapo`. Les plans sont désactivés par défaut. Choisir une destination distincte des données pour se protéger d’une panne de leur support et conserver la clé de récupération hors du serveur.
 
+## Réduire les privilèges de la console sur Docker
+
+Par défaut, le compte de la console pilote Docker lui-même, ce qui vaut les droits de root sur la machine. Un agent de services, installé par l’administrateur du système, peut tenir ce rôle à sa place : voir [la marche à suivre](SERVICE-AGENT.md#installer-lagent) et ce qu’elle ne couvre pas encore.
+
 ## Activer les fonctions natives
 
 Lire la section native du [guide détaillé](../LIRE-MOI.txt). Le service root est optionnel : générer d’abord son installation avec `console/install_native.py --stage`, puis faire revoir la politique par l’administrateur. Une politique vide n’autorise aucune initialisation. La suppression de points natifs demande en plus un accord explicite dans cette politique : voir [la marche à suivre](NATIVE-SNAPSHOT-POLICY.md#activer-la-suppression-sur-un-matériel). Les exemples ne doivent jamais être copiés avec des identités de disques approximatives.

@@ -8,7 +8,7 @@
 | `console/static/` | Interface navigateur | Aucune donnée métier embarquée |
 | `console/protection.py` | Dépôts restic, plans et orchestration | SQLite, clés privées et dépôts |
 | `console/smb_storage.py` | Configuration SMB, montages contrôlés et surveillance | `state/samba/`, configuration privée |
-| `console/service_agent.py` | Liste fermée des opérations Docker du processus web | Aucun : s’exécute encore dans le processus web ([cible](SERVICE-AGENT.md)) |
+| `console/service_agent.py` | Liste fermée des opérations Docker ; exécutée dans le processus web, ou par l’agent de services quand root l’a installé | Sans agent : aucun. Avec : daemon root, politique root, identité de l’appelant ([détails](SERVICE-AGENT.md)) |
 | `console/native_storage.py` | Daemon root à méthodes fermées | Politique root et catalogue système |
 | `console/native_service.py` | Point d’entrée du daemon : le moteur ci-dessus, étendu de la suppression explicite de points | Accord `deletion` de la politique root |
 | `console/provisioning.py` | Création de FS et miroir sur disques autorisés | Catalogue natif |
@@ -21,7 +21,7 @@ Le serveur web utilise sessions HttpOnly/SameSite Strict, rôles côté serveur 
 
 Le helper natif contrôle l’UID via socket Unix, sa politique root et les identités des ressources. Il ne fournit pas de terminal ou de commande arbitraire. Les plans sont temporaires, consommables une fois et revérifiés à l’exécution.
 
-**Limite importante :** le compte de console peut piloter Docker. Cette capacité donne des pouvoirs élevés sur l’hôte, même si le processus HTTP n’est pas root. Depuis alpha.43, ce que le processus web demande à Docker est une liste fermée d’opérations ; l’accès lui-même reste entier tant que l’agent séparé n’existe pas. Menaces, inventaire et lots : [SERVICE-AGENT.md](SERVICE-AGENT.md). `NoNewPrivileges` ne neutralise pas les droits du socket Docker.
+**Limite importante :** le compte de console peut piloter Docker. Cette capacité donne des pouvoirs élevés sur l’hôte, même si le processus HTTP n’est pas root. Ce que le processus web demande à Docker est une liste fermée d’opérations. Depuis alpha.44, un agent de services installé par root peut la tenir à sa place, ce qui permet de sortir le compte de la console du groupe `docker` ; sans lui, l’accès reste entier. Menaces, inventaire et lots : [SERVICE-AGENT.md](SERVICE-AGENT.md). `NoNewPrivileges` ne neutralise pas les droits du socket Docker.
 
 ## Stockage et disparition des volumes
 
