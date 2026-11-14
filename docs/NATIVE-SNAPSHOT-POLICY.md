@@ -1,10 +1,10 @@
 # Conservation et programmation des points natifs
 
-Ce document répond à l’[issue 4](https://github.com/Tarzzan/nacre/issues/4) : il dit ce qui existe, ce que chaque lot apporte, et les règles que les lots suivants devront respecter. Le premier lot est livré en 0.8.0-alpha.39 ; les autres sont spécifiés ici et ne sont pas codés.
+Ce document répond à l’[issue 4](https://github.com/Tarzzan/nacre/issues/4) : il dit ce qui existe, ce que chaque lot apporte, et les règles que les lots suivants devront respecter. Les deux premiers lots sont livrés, en 0.8.0-alpha.39 et 0.8.0-alpha.40 ; les deux suivants sont spécifiés ici et ne sont pas codés.
 
 ## Point de départ
 
-Le service natif sait **créer** un point (Btrfs, ZFS, LVM) et le **restaurer** dans une nouvelle destination. Il ne sait **pas supprimer** un point, et rien ne crée de point sans qu’un administrateur recopie une confirmation. Les points s’accumulent donc jusqu’à une intervention manuelle sur le stockage.
+Le service natif sait **créer** un point (Btrfs, ZFS, LVM) et le **restaurer** dans une nouvelle destination. Il ne sait **pas supprimer** un point. Les points s’accumulent donc jusqu’à une intervention manuelle sur le stockage.
 
 Deux conséquences guident le découpage :
 
@@ -14,7 +14,7 @@ Deux conséquences guident le découpage :
 | Lot | Contenu | Distribution | État |
 | --- | --- | --- | --- |
 | 1 | Règle de conservation par volume et simulation | Paquet signé | Livré en alpha.39 |
-| 2 | Programmation des captures, avec plafond | Paquet signé | Spécifié |
+| 2 | Programmation des captures, avec plafond | Paquet signé | Livré en alpha.40 |
 | 3 | Suppression explicite des points sortants | Installation accompagnée, banc VM | Spécifié |
 | 4 | Conservation appliquée automatiquement | Après le lot 3 | Spécifié |
 
@@ -47,7 +47,7 @@ Ce qu’il faut savoir :
 - **Rien n’est supprimé.** La simulation lit l’état du service natif et calcule ; aucune commande n’est envoyée au stockage. Enregistrer une règle est inscrit au journal, avec la mention « aucune suppression ».
 - **La simulation ne s’enregistre pas** et ne vaut que pour les points présents à l’instant indiqué.
 - **Les périodes se comptent dans le fuseau de la console** au moment où la règle est enregistrée ; les semaines vont du lundi au dimanche.
-- **Tant que la programmation n’existe pas, tous les points sont des captures manuelles** : la simulation ne propose de sortie que si la case est cochée.
+- **Seuls les points créés par la [programmation](#lot-2--programmation-des-captures) sont « programmés »** ; tous les autres sont des captures manuelles, que la simulation ne propose de sortir que si la case est cochée.
 - **Réservé aux administrateurs**, comme toute la page.
 - **Sans service natif, la carte n’apparaît pas.**
 
@@ -55,21 +55,44 @@ La règle vit dans la table de réglages existante, une clé par volume : aucun 
 
 ## Lot 2 — Programmation des captures
 
-**Une programmation par volume**, désactivée par défaut : une heure, des jours de la semaine, et un fuseau, comme un plan de sauvegarde. L’activer demande de recopier une confirmation, qui vaut consentement durable pour les captures de ce volume.
+Dans la même page, la carte **Programmation des captures** liste les volumes inscrits. **Programmer…** ouvre le réglage d’un volume.
 
-**Fuseau et changement d’heure.** L’heure s’entend dans le fuseau de la programmation. Une heure locale qui n’existe pas le jour du passage à l’heure d’été est sautée ; une heure qui existe deux fois ne déclenche qu’une capture.
+![Programmation des captures sur le banc de démonstration](images/native-schedule.jpg)
 
-**Chevauchements.**
+| Réglage | Effet |
+| --- | --- |
+| **Heure** et **Jours** | Une capture par jour choisi, à cette heure, dans le fuseau de la console. |
+| **Plafond de points programmés** | De 1 à 500, 30 par défaut. Atteint, la programmation s’arrête et le signale. |
+| **Activer la programmation** | Demande de recopier « PROGRAMMER » suivi du nom du volume. Cette phrase vaut accord durable pour les captures de ce volume. |
 
-- Une seule opération native à la fois par volume. Si une capture, une restauration ou une reconstruction est en cours à l’heure prévue, l’occurrence est **sautée**, pas mise en attente.
-- **Aucun rattrapage** après un arrêt : les occurrences manquées ne sont pas rejouées. La suivante a lieu à son heure.
-- Une occurrence sautée ou refusée par le service natif est inscrite au journal et signalée par une alerte ; elle n’est pas réessayée.
+Chaque ligne montre la programmation, le nombre de points programmés présents, la prochaine occurrence, et la dernière avec son résultat.
 
-**Plafond.** Tant que la suppression n’existe pas, la programmation s’arrête d’elle-même quand le volume atteint un nombre de points programmés fixé à l’activation, et le signale. Elle ne supprime jamais pour faire de la place.
+**Ce que fait une occurrence.** À l’heure dite, la console demande la capture au service natif par ses deux étapes habituelles, préparation puis validation, sous le compte « programmation ». Le service revérifie identité, politique et capacité, comme pour une capture faite à la main. Le point créé est noté comme programmé : la [règle de conservation](#lot-1--règle-et-simulation) le traite, sans toucher aux captures manuelles.
 
-**Origine des points.** La console note les points qu’elle a programmés ; ce sont les seuls que la règle traite comme « programmés ». Si cette note est perdue, les points redeviennent des captures manuelles, donc protégées.
+**Quand une occurrence ne crée pas de point :**
 
-La console appelle le service natif par les deux étapes existantes, préparation puis validation : le service revérifie identité, politique et capacité à chaque capture, et aucun module figé n’est modifié.
+| Résultat | Cause | Suite |
+| --- | --- | --- |
+| **Occurrence sautée** | Une capture, une restauration ou une copie est en cours sur le volume ; le volume ou le service natif est indisponible. | Rien n’est mis en attente. Alerte. |
+| **Capture refusée** | Le service natif a refusé la préparation ou la validation, par exemple faute de capacité. | Rien n’est réessayé. Alerte. |
+| **Plafond atteint** | Le volume porte déjà autant de points programmés que le plafond. | Aucune capture tant qu’un point n’est pas retiré ou le plafond relevé. Alerte. |
+| **Occurrence manquée** | La console était arrêtée à l’heure dite, depuis plus de quinze minutes. | Aucun rattrapage. Pas d’alerte : la suivante a lieu à son heure. |
+
+L’alerte apparaît dans le centre de notifications et se clôt à la prochaine capture réussie, ou quand la programmation est réglée de nouveau ou désactivée. Chaque occurrence est inscrite au journal.
+
+Ce qu’il faut savoir :
+
+- **Jamais de suppression.** La programmation ne retire aucun point, même au plafond. Tant que le lot 3 n’existe pas, retirer un point reste une intervention manuelle sur le stockage.
+- **Une occurrence n’a lieu qu’une fois.** Elle est consommée avant d’être tentée : une réponse perdue ou un redémarrage ne la rejouent pas.
+- **Changement d’heure.** Une heure locale qui n’existe pas le jour du passage à l’heure d’été est sautée ; une heure qui existe deux fois ne déclenche qu’une capture.
+- **Une capture par jour au plus par volume** : pas encore d’intervalle en heures.
+- **LVM classique** : chaque point réserve de la place dans le groupe de volumes. Choisir un plafond que le groupe peut porter ; sinon le service refuse la capture et l’alerte le dit.
+- **Si la note des points programmés est perdue**, par exemple après une restauration de la base de la console, ces points redeviennent des captures manuelles, donc protégées.
+- **Désactiver** arrête les captures et conserve tous les points.
+
+La programmation vit dans la table de réglages existante, une clé par volume : aucun changement de schéma ni de module figé.
+
+**Prouvé sur banc VM**, avec de vrais volumes Btrfs, ZFS, LVM classique et LVM thin et le vrai service natif : une capture programmée par famille, présente sur le stockage et en lecture seule ; plafond atteint, occurrence manquée et programmation désactivée sans aucune capture ; plan déjà validé refusé. Voir [la validation](VALIDATION.md).
 
 ## Lot 3 — Suppression explicite
 
@@ -91,6 +114,6 @@ Après le lot 3 seulement, et sur demande explicite par volume : la règle enreg
 
 ## Ce qui ne change pas
 
-- **Aucune suppression implicite** : ni la règle, ni la simulation, ni la programmation ne suppriment un point.
+- **Aucune suppression implicite** : ni la règle, ni la simulation, ni la programmation ne suppriment un point. La suppression n’existe pas encore.
 - **Un point natif n’est pas une sauvegarde** : il vit sur le même support que les données.
 - **Les opérations natives ne se valident que sur banc VM** ; aucune donnée ni clé d’une installation en service n’y entre.

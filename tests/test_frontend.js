@@ -179,6 +179,7 @@ test('native point retention shows one rule per volume and simulates it without 
   if(url.endsWith('/storage/native'))return response(200,state);
   if(url.endsWith('/storage/profiles'))return response(200,[]);
   if(url.endsWith('/storage/native-retention')&&!body)return response(200,keep);
+  if(url.endsWith('/storage/native-schedule')&&!body)return response(200,{connected:true,schedules:[],defaults:null,confirmation:'PROGRAMMER '});
   if(hold)await hold;
   if(refuse)return response(refuse,{error:'Volume natif inconnu.'});
   return response(200,url.endsWith('-preview')?preview:{...body,saved:true});
@@ -226,6 +227,55 @@ test('native point retention shows one rule per volume and simulates it without 
  // Sans volume inscrit, la carte n'apparaît pas ; un compte en lecture seule ne demande rien.
  state.volumes=[];await f.run('renderNative()');assert.doesNotMatch(content(),/Conservation des points natifs/);assert.equal(f.run('nativeKeepOpen'),'');
  const before=calls.length;f.run('user={name:"lecteur",role:"viewer"};');await f.run('renderNative()');assert.equal(calls.length,before);assert.match(content(),/réservée aux administrateurs/);
+});
+
+test('native capture schedules show per volume and are set in a dialog that asks for a typed confirmation',async()=>{
+ const calls=[];let refuse=0;
+ const state={connected:true,volumes:[{id:'documents',name:'Docs <b>',family:'btrfs',ready:true},{id:'photos',name:'Photos',family:'zfs',ready:true},{id:'films',name:'Films',family:'lvm',ready:true}],points:[],actions:[],jobs:[],resources:[],provisioning:{enabled:false,devices:[],deployments:[]}};
+ const plans={connected:true,confirmation:'PROGRAMMER ',defaults:{enabled:false,time:'02:00',weekdays:[0,1,2,3,4,5,6],timezone:'America/Cayenne',cap:30,next_run:null,last:null},schedules:[
+  {volume:'documents',enabled:true,time:'03:30',weekdays:[0,2,4],timezone:'America/Cayenne',cap:12,points:1,next_run:1794182400,last:{ts:1794096000,outcome:'skipped',detail:'Une opération <native> était en cours.'}},
+  {volume:'photos',enabled:true,time:'23:00',weekdays:[0,1,2,3,4,5,6],timezone:'UTC',cap:30,points:7,next_run:1794182400,last:{ts:1794096000,outcome:'done',detail:'Capture créée.'}},
+  {volume:'films',enabled:false,time:'02:00',weekdays:[0,1,2,3,4,5,6],timezone:'UTC',cap:30,points:0,next_run:null,last:{ts:1,outcome:'inconnu',detail:'x'}}]};
+ const f=fixture(async(url,options)=>{
+  const body=options?.body?JSON.parse(options.body):null;calls.push([url,body]);
+  if(url.endsWith('/storage/native'))return response(200,state);
+  if(url.endsWith('/storage/profiles'))return response(200,[]);
+  if(url.endsWith('/storage/native-retention'))return response(200,{connected:true,policies:[],defaults:null});
+  if(url.endsWith('/storage/native-schedule')&&!body)return response(200,plans);
+  if(refuse)return response(refuse,{error:'Recopier exactement la confirmation pour activer la programmation.'});
+  return response(200,{...body,next_run:1,last:null});
+ });
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/native.js'),'utf8'),f.context);
+ f.run('user={name:"admin",role:"admin"};page="native";shell();');await f.run('renderNative()');
+ const content=()=>String(f.elements.get('#content').innerHTML),posts=()=>calls.filter(c=>c[1]);
+ const click=dataset=>f.listeners.get('click').at(-1)({target:{closest:s=>s==='[data-action]'?{dataset}:null}});
+ // Une ligne par volume : heure, jours, fuseau, points sur plafond, prochaine occurrence, et la dernière avec son résultat.
+ assert.match(content(),/<h2>Programmation des captures<\/h2><span class="muted">Arrêt au plafond · aucun point n’est supprimé<\/span>/);
+ assert.match(content(),/Docs &lt;b&gt;<br><small class="muted">documents<\/small><\/td><td>03:30, lun\. mer\. ven\. · fuseau America\/Cayenne<br><small class="muted">1 point programmé sur 12 au plus · prochaine le /);
+ assert.match(content(),/<span class="badge warn">Occurrence sautée<\/span><br><small>[^<]* · Une opération &lt;native&gt; était en cours\.<\/small>/);
+ assert.match(content(),/23:00, tous les jours · fuseau UTC<br><small class="muted">7 points programmés sur 30 au plus/);assert.match(content(),/<span class="badge ">Capture créée<\/span><br><small>[^<·]*<\/small>/);
+ assert.match(content(),/<td>Désactivée<br><small class="muted">Aucune capture automatique<\/small><\/td><td><small class="muted">Aucune<\/small><\/td>/);assert.doesNotMatch(content(),/style=|inconnu/);
+ assert.ok(content().indexOf('Programmation des captures')<content().indexOf('Conservation des points natifs'));
+ // « Programmer… » ouvre le réglage du volume : heure, jours, plafond, activation, et la phrase à recopier.
+ const modal=f.elements.get('#modal');let shown=0;modal.showModal=()=>shown++;modal.innerHTML='';
+ await click({action:'native-schedule-edit',volume:'documents'});
+ assert.equal(shown,1);assert.match(modal.innerHTML,/Programmer les captures de « Docs &lt;b&gt; »/);assert.match(modal.innerHTML,/name="time" type="time" value="03:30"/);
+ assert.match(modal.innerHTML,/name="weekdays" value="0" checked>Lun<\/label><label><input type="checkbox" name="weekdays" value="1" >Mar/);assert.match(modal.innerHTML,/name="cap" type="number" min="1" max="500" step="1" value="12" required/);
+ assert.match(modal.innerHTML,/name="enabled" checked>Activer la programmation/);assert.match(modal.innerHTML,/Pour activer, recopiez « PROGRAMMER documents »<\/label><input id="native-schedule-confirmation" name="confirmation" autocomplete="off">/);
+ assert.match(modal.innerHTML,/fuseau America\/Cayenne de la console/);assert.match(modal.innerHTML,/elle ne supprime jamais pour faire de la place/);
+ // Enregistrer envoie le réglage et la phrase saisie ; le message dit ce qui a été fait.
+ const form=values=>{const map=new Map(Object.entries(values));map.getAll=name=>values[name]||[];return map;};
+ f.context.sent=form({time:'04:15',weekdays:['1','3'],cap:'8',enabled:'on',confirmation:' PROGRAMMER documents '});
+ let result=await f.run('modalSubmit(sent)');
+ assert.deepEqual(posts().at(-1),['/api/storage/native-schedule',{volume:'documents',enabled:true,time:'04:15',weekdays:[1,3],cap:8,confirmation:'PROGRAMMER documents'}]);assert.equal(result.message,'Programmation activée. Aucun point ne sera supprimé.');
+ f.context.sent=form({time:'04:15',weekdays:['1'],cap:'8'});result=await f.run('modalSubmit(sent)');
+ assert.deepEqual(posts().at(-1)[1],{volume:'documents',enabled:false,time:'04:15',weekdays:[1],cap:8,confirmation:''});assert.equal(result.message,'Programmation désactivée.');
+ // Un plafond non entier ne part pas ; un refus du serveur remonte à la fenêtre.
+ const count=posts().length;f.context.sent=form({time:'04:15',weekdays:['1'],cap:'2.5',enabled:'on'});await assert.rejects(f.run('modalSubmit(sent)'),/plafond entier/);assert.equal(posts().length,count);
+ refuse=400;f.context.sent=form({time:'04:15',weekdays:['1'],cap:'8',enabled:'on',confirmation:'non'});await assert.rejects(f.run('modalSubmit(sent)'),/Recopier exactement la confirmation/);refuse=0;
+ // Un volume inconnu n'ouvre rien ; sans volume inscrit, la carte n'apparaît pas.
+ await click({action:'native-schedule-edit',volume:'ailleurs'});assert.equal(shown,1);
+ state.volumes=[];await f.run('renderNative()');assert.doesNotMatch(content(),/Programmation des captures/);
 });
 
 test('retention preview returning after navigation cannot paint another page',async()=>{

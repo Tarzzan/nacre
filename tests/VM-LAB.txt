@@ -219,3 +219,21 @@ Après les trois coupures : integration_fresh_linux_vm.py --after-reboot.
 Collecter uniquement result.json et le résultat du contrôleur pour les preuves.
 Arrêter les VM et supprimer la clé temporaire de l’hôte de laboratoire.
 La fixture vidéo ne valide pas une caméra, un accélérateur ou un flux réel.
+
+
+PROGRAMMATION DES CAPTURES NATIVES 0.8.0-alpha.40
+Repartir de la VM 0.3 arrêtée après integration_native_vm.py, par des overlays
+qcow2 privés de son système et de ses trois images A/B/C : les images de
+référence ne sont pas modifiées. Mêmes séries NACRE-LAB-A/B/C, même ordre.
+Copier les sources mises à jour dans /home/ubuntu/nas-autonome.
+
+Dans la VM uniquement :
+sudo env NACRE_VM_LAB=1 python3 /home/ubuntu/nas-autonome/tests/integration_native_schedule_vm.py
+
+Ce banc ne formate rien. Il refait les deux montages manuels du banc natif,
+réinstalle le service natif depuis les sources, puis relance sa partie console
+sous le compte ubuntu : programmation de vraies captures Btrfs, ZFS, LVM
+classique et LVM thin par le socket du vrai service, plafond, occurrence
+manquée, désactivation. Il vérifie ensuite sur le stockage que seuls les points
+annoncés existent et qu'ils sont en lecture seule. Résultat dans
+/home/ubuntu/native-schedule-results.json. Arrêter la VM avec poweroff.

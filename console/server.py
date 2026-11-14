@@ -715,10 +715,13 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == '/api/storage/health':
                 import disks
                 return self.reply(200, disks.health(ROOT, query['id']))
-            if url.path == '/api/storage/native-retention':
+            if url.path in ('/api/storage/native-retention', '/api/storage/native-schedule'):
                 if session['role'] != 'admin':
                     raise Problem('Accès réservé aux administrateurs.', 403)
-                from native_retention import listing
+                if url.path.endswith('-schedule'):
+                    from native_schedule import listing
+                else:
+                    from native_retention import listing
                 return self.reply(200, listing(sys.modules[__name__], session['name']))
             if url.path in ('/api/storage/native', '/api/storage/profiles'):
                 if session['role'] != 'admin':
@@ -959,6 +962,9 @@ class Handler(BaseHTTPRequestHandler):
             elif route == '/api/storage/native-retention':
                 from native_retention import save
                 return save(sys.modules[__name__], body, user)
+            elif route == '/api/storage/native-schedule':
+                from native_schedule import configure
+                return configure(sys.modules[__name__], body, user)
             elif route == '/api/storage/native-retention-preview':
                 from native_retention import simulate
                 return simulate(sys.modules[__name__], body, user)
@@ -1287,6 +1293,8 @@ if __name__ == '__main__':
         tidy(sys.modules[__name__])
         protection().start_scheduler()
         shares().start_watch()
+        from native_schedule import start as start_native_schedule
+        start_native_schedule(sys.modules[__name__])
         from alerts import start as start_alerts
         start_alerts(sys.modules[__name__])
         from notifications import start as start_notifications
