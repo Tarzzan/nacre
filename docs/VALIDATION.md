@@ -1,5 +1,9 @@
 # Validation
 
+## Alerte du volume vidéo — 0.8.0-alpha.51
+
+367 tests Python et 141 JavaScript. Deux essais Python. Le premier, sur la règle : pas d’incident à 5 % de manque, incident déjà ouvert maintenu à 5 % et refermé une fois le manque comblé, avertissement au-delà de 10 %, critique sous trois heures, rien de déduit sans mesure ou sans débit, mesures déjà lues non redemandées et passages conservés non pesés. Le second, sur la surveillance complète : incident critique ouvert après confirmation, conservé quand les mesures manquent ou sont périmées (domaine « stockage vidéo » déclaré non vérifié), ramené à un avertissement quand de la place revient sans combler le manque, résolu et versé à l’historique quand elle suffit. Non prouvé : un volume réellement plein ; l’incident n’a été ouvert que sur des mesures simulées.
+
 ## Passages conservés : liste à jour aussitôt — 0.8.0-alpha.50
 
 365 tests Python et 141 JavaScript. Le Frigate simulé des essais ressert désormais, comme le vrai, une liste périmée à qui ne contourne pas son cache : sans le correctif, cinq des huit essais des passages conservés échouent. Côté navigateur : relecture due après une demande de conservation, même sans copie visible. Défaut trouvé sur l’installation de développement en alpha.49, par un extrait de dix secondes conservé puis retiré à travers Nacre : le retrait était fait, la liste le montrait encore.

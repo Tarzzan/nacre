@@ -229,12 +229,46 @@ class KeptTests(unittest.TestCase):
         self.frigate.disk = {'total': 1000000.0, 'used': 999000.0, 'free': 1000.0}
         data = self.get('/api/cameras/storage')[1]
         self.assertEqual((data['state'], data['hours']), ('full', 0.7))
+        # Un volume saturé oscille sous deux heures et quelques : il reste « plein » sur toute cette plage.
+        self.frigate.disk = {'total': 1000000.0, 'used': 996000.0, 'free': 4000.0}
+        self.assertEqual(self.get('/api/cameras/storage')[1]['state'], 'full')
+        self.frigate.disk = {'total': 1000000.0, 'used': 995000.0, 'free': 5000.0}
+        self.assertEqual(self.get('/api/cameras/storage')[1]['state'], 'short')
         self.frigate.usage = {}
         data = self.get('/api/cameras/storage')[1]
         self.assertEqual((data['state'], data['rate'], data['hours'], data['needed']), ('unknown', None, None, None))
         for disk in ({'total': 0, 'free': 0}, {'total': 10.0, 'free': 20.0}, {'total': 'x', 'free': 1.0}, {'total': float('inf'), 'free': 1.0}, None):
             self.frigate.disk = disk
             self.assertEqual(self.get('/api/cameras/storage')[1], {'available': False}, disk)
+
+    def test_storage_incident_opens_with_margin_and_closes_only_when_filled(self):
+        self.configure({'entry': {'record': {'continuous': {'days': 10}}}})
+        # 1 000 Mio/h pendant 10 jours : 240 000 Mio à terme, dont 40 000 déjà pris.
+        self.frigate.usage = {'entry': {'usage': 40000.0, 'bandwidth': 1000.0}}
+        def measured(free, active=False):
+            self.frigate.disk = {'total': 1000000.0, 'free': float(free)}
+            return kept.conditions(app, active=active)
+        self.assertEqual(measured(600000), [])
+        # Manque de 5 % : pas d'incident ouvert pour si peu, mais un incident ouvert ne se referme pas encore.
+        self.assertEqual(measured(188000), [])
+        self.assertEqual([c[0::4] for c in measured(188000, active=True)], [('video:storage', 'warning')])
+        self.assertEqual(measured(200000, active=True), [])
+        found = measured(150000)
+        self.assertEqual([(c[0], c[3], c[4], c[5]) for c in found], [('video:storage', 'camera', 'warning', 'short')])
+        self.assertIn('ne tient pas', found[0][1]); self.assertIn('Stockage vidéo', found[0][2])
+        found = measured(2500)
+        self.assertEqual([(c[0], c[4], c[5]) for c in found], [('video:storage', 'critical', 'full')])
+        self.assertIn('passages conservés ne sont pas touchés', found[0][2])
+        # Mesure absente ou débit inconnu : rien n'est déduit, ni incident ni retour à la normale.
+        self.frigate.usage = {}
+        self.assertIsNone(measured(2500))
+        self.frigate.disk = None
+        self.assertIsNone(kept.conditions(app))
+        # Des mesures déjà lues ne sont pas redemandées, et les passages conservés ne sont pas pesés pour une alerte.
+        self.frigate.usage = {'entry': {'usage': 40000.0, 'bandwidth': 1000.0}}; self.frigate.gets.clear()
+        stats = {'service': {'storage': {kept.RECORDINGS: {'total': 1000000.0, 'free': 600000.0}}}}
+        self.assertEqual(kept.conditions(app, stats), [])
+        self.assertEqual(self.frigate.gets, ['/api/recordings/storage'])
 
 
 if __name__ == '__main__':

@@ -25,6 +25,7 @@ Une aggravation vers le niveau critique ou une nouvelle sauvegarde échouée dan
 | Configuration / statistiques vidéo | Frigate tourne, mais la configuration ou les statistiques ne sont pas lisibles | Configuration et statistiques de nouveau accessibles |
 | Sauvegarde | Dernier résultat terminé `failed` ou `partial`, regroupé par type et par plan, sinon dépôt | Résultat terminé `done` dans le même groupe |
 | Volume de Nacre | Occupation d’au moins 90 %, critique à partir de 97 % | Occupation inférieure à 90 % |
+| Volume vidéo (depuis 0.8.0-alpha.51) | Critique : moins de trois heures d’enregistrement d’espace libre. Avertissement : la durée de conservation réglée demande au moins 10 % de place de plus que le volume n’en offre | Espace de nouveau suffisant pour la durée réglée ; un incident ouvert ne se referme qu’une fois le manque entièrement comblé. [Détail](RECORDING-PLAYBACK.md#lalerte-du-volume-vidéo) |
 
 Les tâches en cours et annulées ne remplacent pas le dernier résultat terminé d’une sauvegarde. Les archives locales historiques forment leur propre groupe. Les échecs de restauration, de mise à jour ou d’installation ne sont pas assimilés à des échecs de sauvegarde dans ce jalon ; ils restent visibles dans leurs tâches.
 

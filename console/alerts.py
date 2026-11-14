@@ -10,7 +10,7 @@ from notifications import enqueue
 KEY = 'alerts_v1'
 INTERVAL = 30
 HISTORY = 100
-SCOPES = ('services', 'cameras', 'backups', 'storage', 'docker', 'video_api')
+SCOPES = ('services', 'cameras', 'backups', 'storage', 'docker', 'video_api', 'video_storage')
 
 
 def read(app, db=None):
@@ -75,14 +75,14 @@ def collect(app):
                 'storage','critical' if ratio>=.97 else 'warning'))
     except (OSError,ZeroDivisionError):scopes['storage']=None
     if busy:
-        scopes['services']=scopes['cameras']=scopes['docker']=scopes['video_api']=None
+        scopes['services']=scopes['cameras']=scopes['docker']=scopes['video_api']=scopes['video_storage']=None
         return scopes, seen
     try:
         lines = app.service_op('status').splitlines()
         services = {item['Service']:item for item in (json.loads(line) for line in lines if line.strip())}
     except Exception:
         scopes['services']=scopes['cameras']=None if seen else []
-        scopes['video_api']=None if 'video' in seen else []
+        scopes['video_api']=scopes['video_storage']=None if 'video' in seen else []
         if seen:scopes['docker'].append(condition('monitor:docker','Les services ne peuvent pas être contrôlés',
             'Docker ne répond pas au contrôle local. Les incidents précédents sont conservés ; vérifiez Services.', 'services'))
         return scopes, seen
@@ -95,8 +95,9 @@ def collect(app):
                 'Le service précédemment démarré est arrêté, en démarrage ou déclaré non sain. Consultez son état.', 'services'))
     video = services.get('video',{})
     if video.get('State')!='running' or video.get('Health') in ('unhealthy','starting'):
-        scopes['cameras']=scopes['video_api']=None if 'video' in seen else []
+        scopes['cameras']=scopes['video_api']=scopes['video_storage']=None if 'video' in seen else []
     else:
+        payload=None
         try:
             from cameras import config, IDENTIFIER, fresh_stats
             values = config(app).get('cameras',{})
@@ -112,6 +113,14 @@ def collect(app):
             scopes['cameras']=None
             scopes['video_api'].append(condition('monitor:camera','La surveillance ne peut pas être vérifiée',
                 'La configuration ou les statistiques vidéo sont indisponibles ou périmées. Aucun retour à la normale des caméras n’est déduit.', 'camera'))
+        # Volume vidéo : mesuré à part, pour qu’une mesure manquante ne dise rien des caméras, et inversement.
+        try:
+            from cameras import fresh_stats as fresh
+            from kept import conditions as video_storage, ALERT
+            found = video_storage(app, payload, ALERT in state['active']) if payload is not None and fresh(payload) else None
+            scopes['video_storage'] = None if found is None else [condition(*values) for values in found]
+        except Exception:
+            scopes['video_storage']=None
     return scopes, seen
 
 

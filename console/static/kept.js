@@ -112,7 +112,7 @@ function keptStorageCard(raw){
  if(!d)return head+'<p class="muted">Mesures indisponibles : le service vidéo ne fournit pas l’état de son volume. Utilisez Actualiser.</p></section>';
  const used=Math.min(100,Math.round((d.total-d.free)/d.total*100));
  const verdict={
-  full:['alert','Volume plein','Il reste moins d’une heure d’enregistrement. Le service vidéo efface les enregistrements les plus anciens pour continuer ; les passages conservés ne sont pas touchés.'],
+  full:['alert','Volume plein','Il reste moins de 3 heures d’enregistrement. Sous une heure, le service vidéo efface les enregistrements les plus anciens pour continuer ; les passages conservés ne sont pas touchés.'],
   short:['warn','Conservation hors de portée',`La durée de conservation réglée demande plus de place que le volume n’en offre. Au débit actuel, les enregistrements remontent à ${d.reach_days===null?'moins loin que prévu':'environ '+keptDays(d.reach_days)} ; au-delà, les plus anciens sont effacés pour continuer.`],
   ample:['','Espace suffisant','L’espace libre couvre la durée de conservation réglée.'],
   unknown:['dim','Débit non mesuré','Le service vidéo n’a pas encore mesuré le débit d’enregistrement : l’autonomie ne peut pas être estimée.']}[d.state];

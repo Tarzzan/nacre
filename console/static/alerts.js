@@ -16,7 +16,7 @@ async function renderAlerts(){
  const generation=sessionGeneration;
  const d=await api('alerts');
  if(generation!==sessionGeneration||page!=='alerts'||!user)return;
- const labels={services:'services',cameras:'caméras',backups:'sauvegardes',storage:'volume de Nacre',docker:'accès Docker',video_api:'état vidéo'};
+ const labels={services:'services',cameras:'caméras',backups:'sauvegardes',storage:'volume de Nacre',docker:'accès Docker',video_api:'état vidéo',video_storage:'stockage vidéo'};
  $('#content').innerHTML=heading('Gardez le contrôle.','Incidents locaux, prise en compte et retours à la normale.',button('notification-settings','Notifications','activity','small')+' '+button('alerts-refresh','Actualiser','activity','small'))+
  (d.stale?'<div class="notice neutral"><strong>Le contrôle n’est pas à jour.</strong> Le dernier état connu est conservé. Vérifiez que la console fonctionne en continu ; cette page ne peut pas signaler une panne totale de son propre hôte.</div>':'')+
  (d.unavailable.length?`<div class="notice neutral">Contrôle partiel : ${d.unavailable.map(x=>esc(labels[x]||x)).join(', ')} non vérifiés pendant le dernier passage. Les incidents correspondants ne sont pas clôturés automatiquement.</div>`:'')+

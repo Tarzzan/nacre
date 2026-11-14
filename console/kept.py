@@ -20,6 +20,12 @@ NAME_MAX = 60
 KEPT_MAX = 500
 RECORDINGS = '/media/frigate/recordings'
 MIB = 1024 ** 2
+# Volume plein : Frigate efface les plus anciens sous une heure d'espace libre et en libère une à la fois ; un volume
+# saturé oscille donc entre zéro et un peu plus de deux heures. Trois heures couvrent ce régime sans clignoter.
+FULL_HOURS = 3
+# Une alerte « conservation hors de portée » s'ouvre au-delà de ce manque, et ne se referme qu'une fois le manque comblé.
+SHORT_MARGIN = .1
+ALERT = 'video:storage'
 UNAVAILABLE = 'Passages conservés indisponibles : le service vidéo ne les fournit pas.'
 
 
@@ -165,21 +171,24 @@ def measure(value):
     return round(value * MIB) if playback.number(value) and not isinstance(value, bool) and value >= 0 else None
 
 
-def storage(app):
+def storage(app, stats=None, weigh=True):
     """Autonomie du volume vidéo : espace libre rapporté au débit d'enregistrement mesuré par Frigate.
 
     Lecture seule. L'estimation porte sur l'enregistrement continu ; elle ne prédit pas les événements à venir.
+    `stats` évite de redemander des mesures déjà lues ; `weigh` compte aussi les passages conservés.
     """
     from cameras import config
     cameras = config(app).get('cameras', {})
     try:
-        stats = app.video_json('/api/stats')
+        stats = app.video_json('/api/stats') if stats is None else stats
         disk = stats['service']['storage'][RECORDINGS]
         total, free = measure(disk.get('total')), measure(disk.get('free'))
-        usage = playback.fetch(app, '/api/recordings/storage')
+        if not total or free is None or free > total:
+            return {'available': False}
+        usage = app.video_json('/api/recordings/storage')
     except (app.Problem, OSError, ValueError, KeyError, TypeError, AttributeError):
         return {'available': False}
-    if not total or free is None or free > total or not isinstance(usage, dict):
+    if not isinstance(usage, dict):
         return {'available': False}
     rows, rate, recorded, needed = [], 0, 0, 0
     for ident, settings in cameras.items():
@@ -195,14 +204,14 @@ def storage(app):
         if active and flow:
             rate += flow
             needed += flow * 24 * days
-    weights = sizes(app)
+    weights = sizes(app) if weigh else {}
     kept = {'count': len(weights), 'size': sum(weights.values())}
     result = {'available': True, 'total': total, 'free': free, 'recorded': recorded, 'kept': kept, 'cameras': rows,
               'rate': rate or None, 'hours': None, 'needed': None, 'reach_days': None, 'state': 'unknown'}
     if rate:
         hours = free / rate
         result.update(hours=round(hours, 1), needed=needed)
-        if hours < 1:
+        if hours < FULL_HOURS:
             result['state'] = 'full'
         elif needed - recorded > free:
             # La durée réglée ne tient pas : voici jusqu'où le volume permet de remonter au débit actuel.
@@ -210,3 +219,24 @@ def storage(app):
         else:
             result['state'] = 'ample'
     return result
+
+
+def conditions(app, stats=None, active=False):
+    """Incident du volume vidéo, s'il y en a un. None quand la mesure manque : aucun retour à la normale n'en est déduit.
+
+    `active` indique qu'un incident est déjà ouvert : il ne se referme alors qu'une fois le manque entièrement comblé.
+    """
+    found = storage(app, stats, weigh=False)
+    if not found.get('available') or found['state'] == 'unknown':
+        return None
+    where = ' Détail dans Surveillance, onglet Réglages, carte Stockage vidéo.'
+    if found['state'] == 'full':
+        return [(ALERT, 'Le volume vidéo est plein',
+                 f'Il reste moins de {FULL_HOURS} heures d’enregistrement sur le volume vidéo. L’enregistrement continue, mais le service vidéo efface '
+                 'les enregistrements les plus anciens pour faire de la place ; les passages conservés ne sont pas touchés.' + where, 'camera', 'critical', 'full')]
+    lacking = found['needed'] - found['recorded'] - found['free']
+    if found['state'] == 'short' and (active or lacking > SHORT_MARGIN * found['needed']):
+        return [(ALERT, 'La conservation vidéo ne tient pas sur le volume',
+                 'La durée de conservation réglée demande plus de place que le volume vidéo n’en offre : les enregistrements les plus anciens seront '
+                 'effacés avant ce délai. Réduisez la durée, libérez de la place ou agrandissez le volume.' + where, 'camera', 'warning', 'short')]
+    return []
