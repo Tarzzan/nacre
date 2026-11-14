@@ -1,5 +1,15 @@
 # Déploiements de la console sur Spark
 
+## 14 novembre 2026 — alpha.44, agent de services
+
+L’installation alpha.43 a reçu le paquet `nacre-0.8.0-alpha.44.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.44), construit depuis le commit [`5681768`](https://github.com/Tarzzan/nacre/commit/5681768c01e3ac5edf24dde685ca4bbe70b8dff2) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
+
+Avant l’import : neuf modules figés identiques, aucune tâche active, répétition isolée alpha.43 → alpha.44 réussie. Fichier importé identique à celui de la release, empreinte contrôlée ; session administrateur temporaire refermée ; installation confirmée depuis la fenêtre Réglages du bureau et suivie jusqu’à **Mise à jour réussie**, session conservée.
+
+Validation enregistrée à 3 h 31 min, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+**L’agent de services n’est pas installé sur cette machine**, et rien n’y a été fait en root : son compte pilote toujours Docker directement, ce que l’accueil rapporte (« accès direct »). Constaté en lecture seule après la mise à jour : les deux services en marche, Docker et Compose détectés, une image de la caméra servie sans être conservée. L’[installation de l’agent](SERVICE-AGENT.md#installer-lagent) ici relève de la migration, dernier lot de l’issue 2.
+
 ## 14 novembre 2026 — alpha.43, liste fermée des opérations Docker
 
 L’installation alpha.42 a reçu le paquet `nacre-0.8.0-alpha.43.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.43), construit depuis le commit [`7069e9d`](https://github.com/Tarzzan/nacre/commit/7069e9d0b909f854aa424505905878d8c213ee31) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).

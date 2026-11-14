@@ -104,6 +104,13 @@ def engine(app, lookup=True):
     return {'docker': ready, 'engine': ready, 'compose': bool(ready and probe(version))}
 
 
+def protection(app):
+    """Les dossiers de l'hôte où les conteneurs écrivent sont-ils à l'abri des programmes privilégiés et des périphériques ?"""
+    if not hasattr(app, 'protection'):
+        return {'agent': False, 'sources': [], 'protected': False, 'required': False}
+    return app.protection()
+
+
 def build(app, component):
     """Construire l'image d'un service depuis les sources de l'installation."""
     return app.compose('build', _component(app, component), timeout=1800 if component == 'video' else 1200)
@@ -187,7 +194,7 @@ def samba_enable(app, name, enabled):
 
 
 OPERATIONS = {handler.__name__: handler for handler in (
-    status, video_address, control, recreate_files, engine, build, start_component, video_validate, samba_group, samba_access, samba_identity,
+    status, video_address, control, recreate_files, engine, protection, build, start_component, video_validate, samba_group, samba_access, samba_identity,
     samba_mounts_check, samba_config_check, samba_reload, samba_close, samba_ping, samba_account, samba_password, samba_enable)}
 
 
@@ -229,6 +236,9 @@ def read_policy(path=POLICY):
     except (NativeError, OSError, ValueError) as error:
         raise AgentError(str(error) if isinstance(error, (NativeError, AgentError)) else 'Politique des services illisible.') from None
     roots = policy.get('mount_roots', [])
+    if type(policy.get('require_protected_mounts', False)) is not bool or not isinstance(policy.get('frigate_image', ''), str) \
+            or (policy.get('frigate_image') and not Host.IMAGE.fullmatch(policy['frigate_image'])):
+        raise AgentError('Politique des services invalide.')
     if (policy.get('version') != 1 or type(policy.get('allowed_uid')) is not int or policy['allowed_uid'] <= 0
             or not isinstance(policy.get('root'), str) or not Path(policy['root']).is_absolute() or '..' in Path(policy['root']).parts
             or not isinstance(roots, list) or not all(isinstance(root, str) and Path(root).is_absolute() and root != '/' and '..' not in Path(root).parts for root in roots)):
@@ -301,7 +311,7 @@ class Host:
         """Montages de partages demandés par la console, réduits à ce que root a approuvé. Refus au moindre écart."""
         text = self.readable(path)
         if text is None:
-            return None
+            return None, []
         refusal = AgentError('Montage de partage non approuvé par la politique système.')
         try:
             document = json.loads(text)
@@ -322,7 +332,7 @@ class Host:
                 checked.append({'type': 'bind', 'source': real, 'target': '/shares/' + area, 'read_only': item['read_only'], 'bind': {'create_host_path': False}})
         except (ValueError, KeyError, TypeError, AttributeError):
             raise refusal from None
-        return self.private('mounts', {'services': {'fichiers': {'volumes': checked}}})
+        return self.private('mounts', {'services': {'fichiers': {'volumes': checked}}}), checked
 
     def recovered(self):
         """Installation reprise : projet et volume Samba repris, relus et réduits à leur forme attendue."""
@@ -356,7 +366,8 @@ class Host:
             key, _, value = line.partition('=')
             value = value.strip().strip('"\'')
             if key.strip() == 'NACRE_FRIGATE_IMAGE' and self.IMAGE.fullmatch(value):
-                values['NACRE_FRIGATE_IMAGE'] = value
+                # Une image fixée par root dans la politique l'emporte sur celle que la console a écrite.
+                values['NACRE_FRIGATE_IMAGE'] = self.policy.get('frigate_image') or value
             elif key.strip() in ('NACRE_UID', 'NACRE_GID') and value.isdecimal() and 0 < int(value) < 2**31:
                 values[key.strip()] = value
         path = self.runtime / ('env-' + hashlib.sha256(json.dumps(values, sort_keys=True).encode()).hexdigest()[:16])
@@ -368,6 +379,34 @@ class Host:
             os.replace(temporary, path)
         return path
 
+    WRITABLE = re.compile(r'^\s*-\s*\./([^:\s]+):/[^:\s]+\s*$', re.M)
+
+    def exposure(self, approved=()):
+        """Dossiers de l'hôte où un conteneur peut écrire, et les protections du montage qui les porte.
+
+        Un conteneur tourne en root : sans « nosuid » et « nodev » sur ces dossiers, ce qu'il y dépose peut donner les
+        droits de root à qui l'exécute ou l'ouvre depuis l'hôte.
+        """
+        paths = [str(self.ROOT / name) for name in self.WRITABLE.findall(self.description.read_text())]
+        paths += [item['source'] for item in approved if not item['read_only']]
+        found = []
+        for path in dict.fromkeys(paths):
+            try:
+                flags = os.statvfs(path).f_flag
+                found.append({'path': path, 'nosuid': bool(flags & os.ST_NOSUID), 'nodev': bool(flags & os.ST_NODEV)})
+            except OSError:
+                found.append({'path': path, 'nosuid': False, 'nodev': False, 'missing': True})
+        return found
+
+    def protection(self):
+        try:
+            _, approved = self.mounts(self.ROOT / 'state/samba/volumes.compose.json')
+        except AgentError:
+            approved = []
+        sources = self.exposure(approved)
+        return {'agent': True, 'sources': sources, 'protected': bool(sources) and all(item['nosuid'] and item['nodev'] for item in sources),
+                'required': self.policy.get('require_protected_mounts') is True}
+
     def arguments(self, *args, override=None):
         """Ligne Compose de l'agent : sa description, le dossier de l'installation, et rien que la console puisse détourner."""
         self.project = re.search(r'^name:\s*(\S+)\s*$', self.description.read_text(), re.M)[1]
@@ -375,7 +414,11 @@ class Host:
         if any(arg in ('up', 'start', 'restart') for arg in args) and (self.ROOT / 'state/console/system-recovery-status.json').exists() \
                 and not (self.ROOT / 'state/samba/recovery.compose.json').exists():
             raise AgentError('Préparer l’état Samba récupéré avant de démarrer les services.')
-        mounts = self.mounts(override if override is not None else self.ROOT / 'state/samba/volumes.compose.json')
+        mounts, approved = self.mounts(override if override is not None else self.ROOT / 'state/samba/volumes.compose.json')
+        if any(arg in ('up', 'start', 'restart') for arg in args) and self.policy.get('require_protected_mounts') is True:
+            exposed = [item['path'] for item in self.exposure(approved) if not (item['nosuid'] and item['nodev'])]
+            if exposed:
+                raise AgentError('Dossier de données non protégé contre les programmes privilégiés et les périphériques : ' + ', '.join(exposed) + '. Démarrage refusé par la politique système.')
         return ['docker', 'compose', '--project-directory', str(self.ROOT), '--project-name', self.project, '--env-file', str(self.settings()),
                 '-f', str(self.description), *extra, *(['-f', str(mounts)] if mounts else []), *args]
 
