@@ -80,7 +80,8 @@ class SearchTests(unittest.TestCase):
 
     def test_pages_follow_each_other_without_gap_or_repeat(self):
         self.configure()
-        events = [self.event(i % 5, 3600 + i * 37, 'car' if i % 3 == 0 else 'person') for i in range(23)]
+        # Jours passés seulement : un événement placé aujourd'hui après l'heure courante serait écarté, et l'essai dépendrait de l'heure.
+        events = [self.event(i % 5 + 1, 3600 + i * 37, 'car' if i % 3 == 0 else 'person') for i in range(23)]
         context, calls = self.frigate(events, [])
         for label, expected in (('', 23), ('car', 8)):
             seen, cursor, facets = [], None, None
