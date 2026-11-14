@@ -945,11 +945,11 @@ test('desktop shell replaces the sidebar, keeps the anchors pages rely on and es
  assert.match(f.html,/^<div class="dk dk-bg-nacre" id="dk-root">/);assert.doesNotMatch(f.html,/class="sidebar"|<b>Atelier|style=|<iframe/);assert.match(f.html,/&lt;b&gt;Atelier/);
  for(const id of ['content','crumb','topclock','side-host','side-version','alert-summary','zone-prompt','dk-stage','dk-wins','dk-widgets'])assert.match(f.html,new RegExp(`id="${id}"`),id);
  assert.match(f.html,/<main class="content dk-solo" id="content" hidden>/);assert.match(f.html,/class="dk-brand" data-action="desk-home"/);
- assert.equal((f.html.match(/class="dk-dockapp"/g)||[]).length,7);assert.equal((f.html.match(/class="dk-app"/g)||[]).length,7);
+ assert.equal((f.html.match(/class="dk-dockapp"/g)||[]).length,8);assert.equal((f.html.match(/class="dk-app"/g)||[]).length,8);
  assert.match(f.html,/data-action="shell-classic"/);assert.match(f.html,/data-action="logout"/);
  // Lecture seule : ni alertes ni onglets d'administration, et les applications gardent leurs pages ouvertes à tous.
  const g=deskFixture(undefined,'viewer');assert.doesNotMatch(g.html,/alert-summary/);
- assert.deepEqual(JSON.parse(JSON.stringify(g.run('deskApps().map(a=>[a.id,deskPages(a).map(p=>p[0])])'))),[['files',['files','trash']],['cam',['camera']],['storage',['storage','native']],['protect',['backups','snapshots']],['share',['shares','users']],['settings',['services']],['activity',['events']]]);
+ assert.deepEqual(JSON.parse(JSON.stringify(g.run('deskApps().map(a=>[a.id,deskPages(a).map(p=>p[0])])'))),[['files',['files','trash']],['cam',['camera']],['storage',['storage','native']],['protect',['backups','snapshots']],['share',['shares','users']],['settings',['services']],['activity',['events']],['me',['account']]]);
  // Chaque page de la console appartient à une application et une seule.
  const pages=f.run('DESK_APPS.flatMap(a=>a.pages.map(p=>p[0]))');assert.equal(new Set(pages).size,pages.length);
  for(const name of pages)assert.ok(f.run('titles')[name],name);
@@ -1161,7 +1161,7 @@ test('search sits in the desktop bar and only indexes what the account can open'
  const pages=f.run('DESK_APPS.flatMap(a=>a.pages.map(p=>p[0]))');
  for(const [label,target] of f.run('PALETTE_TOPICS'))assert.ok(pages.includes(target),label);
  const admin=f.run('paletteIndex()'),hints=new Set(admin.map(e=>e.hint));
- assert.ok(hints.has('Réglages · Général'));assert.ok(hints.has('Application'));assert.equal(admin.filter(e=>e.hint==='Application').length,7);
+ assert.ok(hints.has('Réglages · Général'));assert.ok(hints.has('Application'));assert.equal(admin.filter(e=>e.hint==='Application').length,8);
  const viewer=paletteFixture(paletteReply,'viewer').run('paletteIndex()');
  for(const entry of viewer)assert.ok(!['settings','updates','notifications','alerts','retention'].includes(entry.page),entry.label);
  assert.ok(viewer.some(e=>e.label==='Nouveau partage'));assert.ok(!viewer.some(e=>e.label==='Fuseau horaire'));
@@ -1169,7 +1169,7 @@ test('search sits in the desktop bar and only indexes what the account can open'
 });
 test('typed words match the start of words, ignore accents and put the closest label first',async()=>{
  const f=paletteFixture();const q=text=>JSON.parse(JSON.stringify(f.run('paletteSearch')(text).map(e=>e.label)));
- assert.deepEqual(q(''),['Fichiers','Surveillance','Stockage','Protection','Partages et comptes','Réglages','Activité']);
+ assert.deepEqual(q(''),['Fichiers','Surveillance','Stockage','Protection','Personnes et partages','Réglages','Activité','Mon compte']);
  assert.deepEqual(q('fuseau'),['Fuseau horaire']);assert.deepEqual(q('HEURE'),['Fuseau horaire']);assert.deepEqual(q('mot de passe'),['Changer un mot de passe']);
  assert.deepEqual(q('reglages').slice(0,5),['Réglages','Réglages','Général','Services','Mises à jour']);assert.equal(q('reglages').length,8);
  assert.deepEqual(JSON.parse(JSON.stringify(f.run('paletteSearch')('mur').map(e=>[e.label,e.hint,e.view])))[0],['Mur','Surveillance',['cam','wall']]);assert.deepEqual(JSON.parse(JSON.stringify(f.run('paletteSearch')('relecture').map(e=>e.view))),[['cam','replay'],['cam','replay']]);assert.equal(q('sauv')[0],'Sauvegardes');
@@ -1187,7 +1187,7 @@ test('keyboard opens, moves, runs and closes the search without acting behind a 
  f.elements.get('#modal').open=true;f.key('k',{ctrlKey:true});assert.equal(panel.hidden,true);f.elements.get('#modal').open=false;
  f.key('k',{ctrlKey:true,altKey:true});assert.equal(panel.hidden,true);
  f.key('K',{metaKey:true});assert.deepEqual([panel.hidden,f.focused.at(-1),f.elements.get('#palette-open').attrs['aria-expanded']],[false,'palette-q','true']);
- assert.equal(f.labels().length,7);f.key('ArrowUp');assert.equal(f.run('palettePick'),6);f.key('ArrowDown');assert.equal(f.run('palettePick'),0);f.key('ArrowDown');assert.equal(f.run('palettePick'),1);
+ assert.equal(f.labels().length,8);f.key('ArrowUp');assert.equal(f.run('palettePick'),7);f.key('ArrowDown');assert.equal(f.run('palettePick'),0);f.key('ArrowDown');assert.equal(f.run('palettePick'),1);
  f.key('Enter');await new Promise(resolve=>setImmediate(resolve));assert.deepEqual([f.run('page'),panel.hidden],['camera',true]);
  f.key('k',{ctrlKey:true});f.type('fuseau');f.key('Enter');await new Promise(resolve=>setImmediate(resolve));assert.equal(f.run('page'),'settings');
  f.key('k',{ctrlKey:true});f.key('Escape');assert.deepEqual([panel.hidden,f.focused.at(-1)],[true,'palette-open']);
@@ -1772,7 +1772,7 @@ const fmSample=[{name:'Docs & co',directory:true,link:false,size:4096,modified:1
  {name:'notes.txt',directory:false,link:false,size:10,modified:1794182600},{name:'clip.mp4',directory:false,link:false,size:900000,modified:1794182700},
  {name:'<img src=x>.pdf',directory:false,link:false,size:5,modified:1794182800},{name:'raccourci',directory:true,link:true,size:9,modified:1794182900},null,{name:''}];
 function fmFixture(fetch,role='admin'){
- const calls=[],mode={clean:false},reply=fetch||(async(url,options)=>{calls.push([url,options?.body]);return response(200,url.startsWith('/api/areas')?fmAreas:url.startsWith('/api/files')?{items:mode.clean?fmSample.filter(i=>i&&i.name):fmSample}:{ok:true});});
+ const calls=[],mode={clean:false},reply=fetch||(async(url,options)=>{calls.push([url,options?.body]);return response(200,url.startsWith('/api/areas')?(role==='admin'?fmAreas:fmAreas.map(a=>({...a,writable:false}))):url.startsWith('/api/files')?{items:mode.clean?fmSample.filter(i=>i&&i.name):fmSample}:{ok:true});});
  const f=deskFixture(reply,role);vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/files.js'),'utf8'),f.context);
  f.calls=calls;f.mode=mode;f.run('shell();page="files";area="fichiers";currentPath="";');
  f.mount=()=>{for(const id of ['fm','fm-list','fm-side','fm-tools'])f.elements.set('#'+id,{innerHTML:'',classList:{toggle(name,on){this[name]=on;}}});};
@@ -2300,3 +2300,95 @@ test('video storage states its autonomy, and says so when it cannot be measured'
   html=f.run(`keptStorageCard(${bad})`);assert.match(html,/Mesures indisponibles/);assert.doesNotMatch(html,/<b>|vs-bar/);
  }
 });
+
+// Personnes, groupes et espaces : un membre ne voit que ses fichiers et son compte ; l’administration décide qui ouvre quoi.
+const peopleSample={people:[{name:'admin',role:'admin',active:true,camera:false,groups:[],personal:true},{name:'camille',role:'member',active:true,camera:false,groups:['a1a1a1a1a1a1'],personal:true},
+  {name:'bruno',role:'member',active:true,camera:true,groups:[],personal:false},{name:'lecteur',role:'viewer',active:true,camera:false,groups:[],personal:false},{name:'ancien',role:'member',active:false,camera:false,groups:[],personal:true}],
+ groups:[{id:'a1a1a1a1a1a1',name:'Compta <b>',members:['camille']}],
+ spaces:[{id:'espace_c0c0c0c0c0c0',name:'Bilans <i>',members:{bruno:'read'},groups:{a1a1a1a1a1a1:'write'},former:null},{id:'espace_d0d0d0d0d0d0',name:'Espace de ancien',members:{},groups:{},former:'ancien'}],
+ common:{everyone:'read',members:{},groups:{}},orphans:['ancien'],levels:['read','write'],name_max:60};
+function peopleFixture(reply,role='admin'){
+ const calls=[],f=deskFixture(async(url,options)=>{const body=options?.body?JSON.parse(options.body):null;calls.push([url,body]);return reply?reply(url,body):response(200,url==='/api/spaces'?peopleSample:{ok:true});},role);
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/people.js'),'utf8'),f.context);
+ const modal=f.elements.get('#modal');modal.showModal=()=>{modal.open=true;};modal.close=()=>{modal.open=false;};
+ f.calls=calls;f.run('page="people";');f.content=()=>String(f.elements.get('#content').innerHTML);
+ f.act=(action,data={})=>f.listeners.get('click').find(fn=>fn.toString().includes('people-adopt'))({target:{closest:()=>({dataset:{action,...data}})}});
+ f.form=(values,all={})=>{const m=new Map(Object.entries(values));m.getAll=key=>all[key]||[];return m;};return f;
+}
+test('a member opens only files and account in the desktop, plus surveillance when it is opened to them',()=>{
+ const f=deskFixture(undefined,'member');
+ assert.deepEqual(JSON.parse(f.run('JSON.stringify(deskApps().map(a=>a.id))')),['files','me']);
+ assert.equal((f.html.match(/class="dk-dockapp"/g)||[]).length,2);
+ let html=f.run('deskWidgets({})');assert.match(html,/Mes fichiers/);assert.match(html,/data-page="account"/);assert.doesNotMatch(html,/Stockage libre|Services|Activité récente|data-page="camera"/);
+ f.run('user.camera=true');assert.deepEqual(JSON.parse(f.run('JSON.stringify(deskApps().map(a=>a.id))')),['files','cam','me']);assert.match(f.run('deskWidgets({})'),/data-page="camera"/);
+ // Un compte en lecture seule garde ses applications, sans la page d’administration des personnes.
+ const g=deskFixture(undefined,'viewer');
+ assert.deepEqual(JSON.parse(g.run('JSON.stringify(deskPages(DESK_APPS.find(a=>a.id==="share")).map(p=>p[0]))')),['shares','users']);
+ const h=deskFixture();assert.deepEqual(JSON.parse(h.run('JSON.stringify(deskPages(DESK_APPS.find(a=>a.id==="share")).map(p=>p[0]))')),['people','shares','users']);
+ assert.equal(h.run('roleName("member")'),'Membre');assert.equal(h.run('roleName("x")'),'Lecture seule');
+});
+test('files tree groups personal, team and NAS spaces, and a member starts in their own space with tools only where they may write',async()=>{
+ const areas=[{id:'espace_e0e0e0e0e0e0',name:'Mon espace',writable:true,kind:'personal'},{id:'espace_c0c0c0c0c0c0',name:'Compta <b>',writable:true,kind:'team'},{id:'espace_d0d0d0d0d0d0',name:'Direction',writable:false,kind:'team'},{id:'fichiers',name:'Fichiers partagés',writable:false,kind:'local'}];
+ const f=fmFixture(async url=>response(200,url.startsWith('/api/areas')?areas:{items:[]}),'member');
+ await f.run('renderFiles()');
+ assert.equal(f.run('area'),'espace_e0e0e0e0e0e0');assert.equal(f.run('fmWritable()'),true);
+ const tree=f.run('fmTree()');
+ assert.match(tree,/>Mon espace<\/button>[^]*<p class="fm-group">Équipes<\/p>[^]*Compta &lt;b&gt;<\/button>[^]*Direction<small>lecture seule<\/small>[^]*<p class="fm-group">NAS<\/p>[^]*Fichiers partagés<small>lecture seule<\/small>/);
+ assert.equal((tree.match(/class="fm-group"/g)||[]).length,2);assert.doesNotMatch(tree,/<b>/);
+ assert.match(String(f.elements.get('#content').innerHTML),/data-action="mkdir"/);
+ f.run('area="espace_d0d0d0d0d0d0"');await f.run('renderFiles()');assert.equal(f.run('fmWritable()'),false);assert.doesNotMatch(String(f.elements.get('#content').innerHTML),/data-action="mkdir"|fm-send/);
+ // Un espace retiré entre-temps : retour au premier espace ouvert, sans rester sur un identifiant mort.
+ f.run('area="espace_000000000000"');await f.run('renderFiles()');assert.equal(f.run('area'),'fichiers');
+ // Sans espace personnel ni d’équipe, l’arbre reste celui d’avant, sans titres de section.
+ const g=fmFixture();await g.run('renderFiles()');assert.doesNotMatch(g.run('fmTree()'),/fm-group/);assert.equal(g.run('area'),'fichiers');
+});
+test('people page lists who opens what and sends exactly the chosen accesses',async()=>{
+ const f=peopleFixture();await f.run('renderPeople()');
+ let html=f.content();
+ assert.deepEqual(f.calls,[['/api/spaces',null]]);
+ assert.match(html,/id="people-persons"/);assert.match(html,/<strong>camille<\/strong><\/td><td><span class="badge dim">Membre<\/span><\/td><td><span class="badge dim">Compta &lt;b&gt;<\/span>/);
+ assert.match(html,/<strong>ancien<\/strong> <span class="badge warn">Désactivé<\/span>/);assert.doesNotMatch(html,/<b>|<i>/);
+ // Surveillance : bouton pour un membre, mention fixe pour les autres rôles.
+ assert.equal((html.match(/data-action="people-camera"/g)||[]).length,3);assert.match(html,/data-name="bruno" data-on="1" aria-pressed="true"/);assert.match(html,/<td>Complète<\/td>/);
+ assert.match(html,/Fichiers partagés<\/strong><br><small class="muted">Espace commun<\/small><\/td><td>Tous les membres · lecture/);
+ assert.match(html,/Bilans &lt;i&gt;<\/strong><\/td><td>Compta &lt;b&gt; \(groupe\) · écriture<br>bruno · lecture/);
+ assert.match(html,/Ancien espace personnel de ancien[^]*Administrateurs seulement/);
+ assert.match(html,/L’espace personnel de <strong>ancien<\/strong>, compte désactivé[^]*data-action="people-adopt"[^]*data-name="ancien"/);
+ assert.match(html,/ne protègent pas d’une personne qui a la main sur la machine/);
+ // Nouvel espace : un niveau par groupe et par personne, les administrateurs n’y figurent pas.
+ await f.act('people-space');let modal=f.elements.get('#modal').innerHTML;
+ assert.match(modal,/Nouvel espace d’équipe/);assert.match(modal,/name="g:a1a1a1a1a1a1"/);assert.match(modal,/name="m:camille"/);assert.doesNotMatch(modal,/name="m:admin"/);
+ let result=await f.run('modalSubmit(sent)',f.context.sent=f.form({name:'Direction','g:a1a1a1a1a1a1':'read','m:camille':'write','m:bruno':'','m:lecteur':'manage'}));
+ assert.deepEqual(f.calls.at(-1),['/api/spaces/space',{name:'Direction',members:{camille:'write'},groups:{a1a1a1a1a1a1:'read'}}]);assert.match(result.message,/Espace créé/);
+ // Modifier : l’identifiant accompagne, les niveaux actuels sont présélectionnés.
+ await f.act('people-space',{id:'espace_c0c0c0c0c0c0'});modal=f.elements.get('#modal').innerHTML;
+ assert.match(modal,/value="Bilans &lt;i&gt;"/);assert.match(modal,/name="m:bruno"><option value="">Aucun accès<\/option><option value="read" selected>/);assert.match(modal,/name="g:a1a1a1a1a1a1">[^]*?<option value="write" selected>/);
+ f.context.sent=f.form({name:'Bilans'});await f.run('modalSubmit(sent)');assert.deepEqual(f.calls.at(-1),['/api/spaces/space',{id:'espace_c0c0c0c0c0c0',name:'Bilans',members:{},groups:{}}]);
+ await f.act('people-space',{id:'espace_inconnu'});
+ // Espace commun, groupe, surveillance, reprise.
+ await f.act('people-common');f.context.sent=f.form({everyone:'','m:camille':'write'});await f.run('modalSubmit(sent)');assert.deepEqual(f.calls.at(-1),['/api/spaces/common',{everyone:null,members:{camille:'write'},groups:{}}]);
+ await f.act('people-group',{id:'a1a1a1a1a1a1'});assert.match(f.elements.get('#modal').innerHTML,/value="camille" checked/);
+ f.context.sent=f.form({name:'Compta'},{member:['camille','bruno']});await f.run('modalSubmit(sent)');assert.deepEqual(f.calls.at(-1),['/api/spaces/group',{id:'a1a1a1a1a1a1',name:'Compta',members:['camille','bruno']}]);
+ await f.act('people-camera',{name:'bruno',on:'1'});assert.deepEqual(f.calls.at(-2),['/api/spaces/person',{name:'bruno',camera:false}]);
+ await f.act('people-camera',{name:'camille',on:''});assert.deepEqual(f.calls.at(-2),['/api/spaces/person',{name:'camille',camera:true}]);
+ await f.act('people-adopt',{name:'camille'});const count=f.calls.length;await f.act('people-adopt',{name:'ancien'});assert.match(f.elements.get('#modal').innerHTML,/Aucun fichier n’est déplacé/);assert.equal(f.calls.length,count);
+ await f.run('modalSubmit(new Map())');assert.deepEqual(f.calls.at(-1),['/api/spaces/adopt',{name:'ancien'}]);
+ await f.act('people-space-delete',{id:'espace_c0c0c0c0c0c0'});assert.match(f.elements.get('#modal').innerHTML,/que vide, corbeille comprise/);await f.run('modalSubmit(new Map())');assert.deepEqual(f.calls.at(-1),['/api/spaces/space-delete',{id:'espace_c0c0c0c0c0c0'}]);
+ await f.act('people-group-delete',{id:'a1a1a1a1a1a1'});await f.run('modalSubmit(new Map())');assert.deepEqual(f.calls.at(-1),['/api/spaces/group-delete',{id:'a1a1a1a1a1a1'}]);
+});
+test('people page refuses a non administrator and an unreadable answer, and anyone changes their own password',async()=>{
+ const f=peopleFixture(null,'viewer');await f.run('renderPeople()');assert.match(f.content(),/réservée aux administrateurs/);assert.deepEqual(f.calls,[]);
+ const g=peopleFixture(url=>response(200,url==='/api/spaces'?{people:'x'}:{ok:true}));await g.run('renderPeople()');assert.match(g.content(),/Réponse illisible/);
+ for(const bad of ['null','{}','{"people":[],"groups":[],"spaces":[{"id":"e","name":"n","members":{"a":"manage"},"groups":{}}],"common":{"members":{},"groups":{}},"orphans":[]}'])assert.equal(g.run(`peopleValid(${bad})`),null);
+ // Mon compte : les deux saisies doivent concorder avant tout envoi.
+ let refuse='';const h=peopleFixture((url,body)=>url==='/api/account'?response(200,{name:'cam <b>',role:'member'}):refuse?response(403,{error:refuse}):response(200,{ok:true}),'member');
+ h.run('page="account"');await h.run('renderAccount()');
+ assert.match(h.content(),/<h2>cam &lt;b&gt;<\/h2><p><span class="badge dim">Membre<\/span>/);assert.match(h.content(),/id="account-form"/);assert.match(h.content(),/autocomplete="new-password" minlength="12"/);
+ const error={textContent:''},send={disabled:false};h.elements.set('#account-error',error);
+ const submit=values=>h.listeners.get('submit').find(fn=>fn.toString().includes('account-form'))({target:{getAttribute:()=> 'account-form',values,querySelector:()=>send},preventDefault(){}});
+ await submit({current:'ancien',password:'nouveau-mot-de-passe',again:'autre-mot-de-passe'});assert.match(error.textContent,/diffèrent/);assert.equal(h.calls.filter(c=>c[0].endsWith('/password')).length,0);
+ refuse='Mot de passe actuel refusé.';await submit({current:'faux',password:'nouveau-mot-de-passe',again:'nouveau-mot-de-passe'});assert.equal(error.textContent,refuse);assert.equal(send.disabled,false);
+ refuse='';await submit({current:'ancien',password:'nouveau-mot-de-passe',again:'nouveau-mot-de-passe'});
+ assert.deepEqual(h.calls.filter(c=>c[0].endsWith('/password')).at(-1),['/api/account/password',{current:'ancien',password:'nouveau-mot-de-passe'}]);assert.match(h.elements.get('#toast').textContent,/Mot de passe modifié/);
+});
+

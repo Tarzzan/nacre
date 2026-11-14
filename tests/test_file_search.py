@@ -228,12 +228,14 @@ class FileSearchTests(unittest.TestCase):
         self.tree()
         (self.files / 'gros.bin').write_bytes(b'x' * 4000)
 
-        def listed(token=None):
+        def listed(token=None, own=False):
             status, _, data = self.call('GET', '/api/files/usage-spaces', token=token)
             self.assertEqual(status, 200)
-            return {item['id']: item for item in json.loads(data)['spaces']}
+            return {item['id']: item for item in json.loads(data)['spaces'] if own or not item['id'].startswith('espace_')}
         # Rien n'est gardé avant une pesée ; l'administrateur voit aussi les restaurations privées.
-        before = listed()
+        before = listed(own=True)
+        mine = next(name for name in before if name.startswith('espace_'))
+        self.assertEqual(before.pop(mine)['name'], 'Mon espace')
         self.assertEqual({name: item['kept'] for name, item in before.items()}, dict.fromkeys(('fichiers', 'video', 'sauvegardes', 'restaurations'), None))
         self.assertEqual(before['fichiers']['name'], 'Fichiers partagés')
         # Peser un sous-dossier ne garde rien ; peser un espace entier garde son total, son décompte et l'heure.

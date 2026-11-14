@@ -11,12 +11,12 @@ Depuis la version 0.8.0-alpha.26, Nacre s’ouvre sur un bureau, à la manière 
 | Élément | Rôle |
 | --- | --- |
 | **Barre supérieure** | Le nom du NAS, les alertes, l’heure, le compte. Un clic sur « nacre » affiche le bureau. |
-| **Icônes et dock** | Les sept applications. Un trait sous une icône du dock signale une application ouverte ; il est plus long et vert pour celle de devant. |
+| **Icônes et dock** | Les huit applications. Un trait sous une icône du dock signale une application ouverte ; il est plus long et vert pour celle de devant. |
 | **Widgets** | Stockage libre, services, surveillance, activité récente, mémoire. Un clic ouvre l’application concernée. |
 | **Fenêtres** | Une par application, plusieurs à la fois. Chacune se déplace par sa barre de titre, se redimensionne par son coin, s’agrandit (bouton ou double-clic), se réduit ou se ferme. |
 | **Onglets** | Les pages de l’application. Rouvrir une application réduite ramène au dernier onglet consulté. |
 
-## Les sept applications
+## Les huit applications
 
 | Application | Onglets | Rubriques d’origine |
 | --- | --- | --- |
@@ -24,11 +24,12 @@ Depuis la version 0.8.0-alpha.26, Nacre s’ouvre sur un bureau, à la manière 
 | **Surveillance** | Caméras | Surveillance |
 | **Stockage** | Disques, Volumes et snapshots | Stockage, Volumes natifs |
 | **Protection** | Sauvegardes, Points de restauration, Conservation | Sauvegardes, Snapshots, Rétention |
-| **Partages et comptes** | Partages, Utilisateurs | Partages SMB, Utilisateurs |
+| **Personnes et partages** | Personnes et espaces, Partages SMB, Comptes | Partages SMB, Utilisateurs ; [personnes, groupes et espaces](SPACES.md) depuis la version 0.8.0-alpha.52 |
 | **Réglages** | Général, Services, Mises à jour, Notifications | Panneau de configuration, Services |
 | **Activité** | Alertes, Journal | Alertes, Journal d’activité |
+| **Mon compte** | Mon compte | Changer son mot de passe (depuis la version 0.8.0-alpha.52) |
 
-La vue d’ensemble est devenue le bureau lui-même. Un compte en lecture seule ne voit pas les onglets réservés aux administrateurs.
+La vue d’ensemble est devenue le bureau lui-même. Un compte en lecture seule ne voit pas les onglets réservés aux administrateurs. Un [membre](SPACES.md) n’a que Fichiers et Mon compte, plus Surveillance si elle lui est ouverte.
 
 ## Plusieurs fenêtres
 
@@ -116,7 +117,7 @@ Depuis la version 0.8.0-alpha.28, la barre supérieure porte une recherche. Ctrl
 
 | On tape | On obtient |
 | --- | --- |
-| Rien | Les sept applications. |
+| Rien | Les huit applications. |
 | Le nom d’une application ou d’un onglet | L’application, ses onglets et les réglages qui s’y trouvent. |
 | Un besoin : « fuseau », « mot de passe », « restaurer » | Le réglage nommé, avec l’endroit où il se trouve. |
 | Le nom d’une caméra | La fiche de cette caméra. |

@@ -33,7 +33,7 @@ function bellPanel(now=Date.now()/1000){
  return (admin?`<h3>À traiter</h3>${alerts?.stale?'<p class="dk-notehint">Le contrôle des alertes n’est pas à jour : le dernier état connu est affiché.</p>':''}${active.length?active.map(bellAlert).join(''):`<p class="dk-notehint">${alerts?'Aucun incident en cours.':'Alertes indisponibles pour le moment.'}</p>`}`:'')+
   `<h3>En cours</h3>${running.length?running.map(bellTask).join(''):'<p class="dk-notehint">Aucune tâche en cours.</p>'}`+
   `<h3>Dernières 24 heures</h3>${recent.length?recent.map(r=>`<button type="button" class="dk-note" data-page="${r.page}">${r.bad?'<span class="badge warn">À vérifier</span> ':''}${esc(r.text)}<small>${date(r.ts)}</small></button>`).join(''):'<p class="dk-notehint">Rien à signaler.</p>'}`+
-  `<div class="dk-notefoot">${admin?'<button type="button" class="small" data-page="alerts">Toutes les alertes</button>':''}<button type="button" class="small" data-page="events">Journal</button></div>`;
+  `<div class="dk-notefoot">${admin?'<button type="button" class="small" data-page="alerts">Toutes les alertes</button>':''}${user.role==='member'?'':'<button type="button" class="small" data-page="events">Journal</button>'}</div>`;
 }
 function drawBell(){
  const bell=$('#bell'),count=$('#bell-count'),tasks=$('#bell-tasks'),panel=$('#bell-panel');if(!bell||!count||!tasks||!panel)return;
@@ -49,7 +49,8 @@ async function refreshBell(){
  const generation=sessionGeneration,request=++bellRequest;
  // Une panne passagère d’une des deux lectures garde le dernier état connu ; une session expirée remonte.
  const soft=promise=>promise.catch(error=>{if(error.name==='AbortError'||error.status===401)throw error;return undefined;});
- const [alerts,jobs]=await Promise.all([user.role==='admin'?soft(api('alerts')):null,soft(api('jobs'))]);
+ // Un membre n’a ni alertes ni tâches à suivre : rien n’est demandé pour lui.
+ const [alerts,jobs]=await Promise.all([user.role==='admin'?soft(api('alerts')):null,user.role==='member'?null:soft(api('jobs'))]);
  if(generation!==sessionGeneration||!user||request!==bellRequest)return;
  if(alerts&&typeof alerts==='object')bellData.alerts=alerts;else if(alerts===null)bellData.alerts=null;
  if(Array.isArray(jobs)){

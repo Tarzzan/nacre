@@ -145,7 +145,7 @@ def search(app, query, session):
         if path:
             raise app.Problem('Un dossier de départ demande son espace.')
         # Partout : les espaces que le compte peut ouvrir, sauf les restaurations, qui répéteraient chaque fichier.
-        spaces = [a['id'] for a in app.file_areas(admin) if a.get('kind') != 'restore']
+        spaces = [a['id'] for a in app.file_areas(session) if a.get('kind') != 'restore']
         spaces.sort(key=lambda space: (space != 'fichiers', not space.startswith('native_')))
     else:
         if (area == 'restaurations' or area.startswith('native_')) and not admin:
@@ -308,7 +308,7 @@ def spaces(app, session):
     found = []
     with app.database() as db:
         kept = {row['key'][len(KEPT):]: row['value'] for row in db.execute('SELECT key,value FROM settings WHERE key LIKE ?', (KEPT + '%',))}
-    for item in app.file_areas(session['role'] == 'admin'):
+    for item in app.file_areas(session):
         try:
             value = json.loads(kept[item['id']])
             last = {'at': float(value['at']), 'size': int(value['size']), 'count': int(value['count']), 'state': 'whole' if value['state'] == 'whole' else 'partial'}
