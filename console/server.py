@@ -612,7 +612,10 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('X-Frame-Options', 'SAMEORIGIN')
         self.send_header('Referrer-Policy', 'no-referrer')
-        self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'self'; base-uri 'none'; form-action 'self'")
+        # Une suite bureautique raccordée reçoit le document par un formulaire : son origine, et elle seule, s'ajoute aux cibles permises.
+        import office
+        suite = office.origin(sys.modules[__name__])
+        self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'self'; base-uri 'none'; form-action 'self'" + (' ' + suite if suite else ''))
         for key, value in (extra or {}).items():
             self.send_header(key, value)
         self.end_headers()
@@ -681,7 +684,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise Problem('Ce lien de connexion a expiré ou a déjà été utilisé.', 401)
                 session_token, _ = make_session('admin')
                 return self.reply(303, b'', extra={'Location': '/', 'Set-Cookie': f'nas_session={session_token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800'})
-            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/timezone.js', '/desktop.js', '/desk-prefs.js', '/bell.js', '/palette.js', '/updates.js', '/components.js', '/playback.js', '/detection.js', '/surveillance.js', '/kept.js', '/people.js', '/links.js', '/public.js', '/qr.js', '/network.js', '/editor.js', '/files.js', '/search.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
+            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/timezone.js', '/desktop.js', '/desk-prefs.js', '/bell.js', '/palette.js', '/updates.js', '/components.js', '/playback.js', '/detection.js', '/surveillance.js', '/kept.js', '/people.js', '/links.js', '/public.js', '/qr.js', '/network.js', '/editor.js', '/office.js', '/files.js', '/search.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
                 path = STATIC / ('index.html' if url.path == '/' else url.path[1:])
                 return self.reply(200, path.read_bytes(), mimetypes.guess_type(path)[0] or 'text/plain')
             if not post:
@@ -693,6 +696,10 @@ class Handler(BaseHTTPRequestHandler):
             if not post and url.path.startswith('/p/'):
                 # Page d'un lien de partage : la même pour tout jeton, le contenu vient ensuite par l'API publique.
                 return self.reply(200, (STATIC / 'public.html').read_bytes(), 'text/html; charset=utf-8')
+            if url.path.startswith('/wopi/'):
+                # Appels de la suite bureautique : pas de session, un jeton limité à un fichier et à une personne.
+                import office
+                return office.wopi(sys.modules[__name__], self, url.path, query, post)
             if url.path.startswith('/api/public/'):
                 from links import public
                 return public(sys.modules[__name__], self, url.path, query, post)
@@ -742,7 +749,7 @@ class Handler(BaseHTTPRequestHandler):
             if maintenance(sys.modules[__name__]) and (post or url.path not in ('/api/me','/api/updates')):
                 raise Problem('Mise à jour en cours. La console sera bientôt disponible.',503)
             if post:
-                self.authorize_write(session, require_admin=url.path not in ('/api/logout', '/api/desk', '/api/account/password', '/api/account/totp/start', '/api/account/totp/confirm', '/api/account/totp/disable') and not (session['role'] in ('member', 'admin') and url.path in spaces.MEMBER_WRITES))
+                self.authorize_write(session, require_admin=url.path not in ('/api/logout', '/api/desk', '/api/account/password', '/api/account/totp/start', '/api/account/totp/confirm', '/api/account/totp/disable', '/api/office/open') and not (session['role'] in ('member', 'admin') and url.path in spaces.MEMBER_WRITES))
                 if url.path == '/api/updates/upload':
                     from updates import upload
                     return self.reply(200,upload(sys.modules[__name__],self))
@@ -754,7 +761,7 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == '/api/me':
                 from onboarding import read, unset
                 setup = read(sys.modules[__name__])
-                return self.reply(200, {**{key: session[key] for key in ('name', 'csrf', 'role')}, 'setup_required': session['role'] == 'admin' and setup['phase'] != 'complete', 'timezone': setup['timezone'], 'timezone_unset': session['role'] == 'admin' and unset(setup), 'nas_name': setup['name'], 'app_version': release_version(), **spaces.me(sys.modules[__name__], session)})
+                return self.reply(200, {**{key: session[key] for key in ('name', 'csrf', 'role')}, 'setup_required': session['role'] == 'admin' and setup['phase'] != 'complete', 'timezone': setup['timezone'], 'timezone_unset': session['role'] == 'admin' and unset(setup), 'nas_name': setup['name'], 'app_version': release_version(), **spaces.me(sys.modules[__name__], session), 'office': __import__('office').available(sys.modules[__name__], session)})
             if url.path == '/api/desk':
                 from desk_prefs import read
                 return self.reply(200, read(sys.modules[__name__], session))
@@ -794,6 +801,10 @@ class Handler(BaseHTTPRequestHandler):
                     from onboarding import read as setup_read
                     return self.reply(200, {'services_available': False, 'host': setup_read(sys.modules[__name__])['name'], 'time': time.time(), 'services': [], 'camera': {}, 'events': []})
                 return self.reply(200, overview())
+            if url.path == '/api/office':
+                if session['role'] != 'admin':raise Problem('Accès réservé aux administrateurs.',403)
+                import office
+                return self.reply(200, office.status(sys.modules[__name__], session, None if self.networked() else self.server.server_port))
             if url.path == '/api/network':
                 if session['role'] != 'admin':raise Problem('Accès réservé aux administrateurs.',403)
                 import network
@@ -1012,6 +1023,10 @@ class Handler(BaseHTTPRequestHandler):
                         'common':spaces.save_common,'person':spaces.save_person,'adopt':spaces.adopt,'totp-reset':__import__('totp').reset}.get(route[len('/api/spaces/'):])
                 if not action:raise Problem('Ressource inconnue.',404)
                 return action(sys.modules[__name__],body,user)
+            if route in ('/api/office/configure','/api/office/open','/api/office/new'):
+                import office
+                if route.endswith('/configure') and session['role'] != 'admin':raise Problem('Un compte administrateur est nécessaire.',403)
+                return {'configure':office.configure,'open':office.open_document,'new':office.create}[route.rsplit('/',1)[1]](sys.modules[__name__],body,session)
             if route in ('/api/network/configure','/api/network/certificate'):
                 import network
                 return (network.configure if route.endswith('/configure') else network.certificate)(sys.modules[__name__],body,session)

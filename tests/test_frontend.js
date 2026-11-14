@@ -2710,3 +2710,92 @@ test('editor opens a text file in the files window, saves with its tag and guard
  g.type('tentative');await g.ed('ed-save');assert.ok(!g.calls.some(c=>c[0].endsWith('/text-save')));
 });
 
+function officeFixture(reply,role='admin',formats=['odt','ods','docx']){
+ const f=editorFixture((url,body)=>reply?.(url,body)||(url==='/api/office/open'?response(200,{action:'http://suite.test:9980/browser/abc/cool.html?WOPISrc=http%3A%2F%2F127.0.0.1%3A8766%2Fwopi%2Ffiles%2Fid&x="<b>',token:'jeton"<b>',ttl:1794700000000,write:true,name:body.path.split('/').pop()}):url==='/api/office/new'?response(200,{ok:true,path:(body.path?body.path+'/':'')+body.name}):null),role);
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/office.js'),'utf8'),f.context);
+ f.context.formats=formats;f.run('user.office=formats');
+ f.tabs=[];f.forms=[];f.block=false;
+ f.context.window.open=(url,name)=>{if(f.block)return null;const tab={url,name,opener:{},closed:0,close(){this.closed++;}};f.tabs.push(tab);return tab;};
+ f.context.document.body={append(){}};
+ f.context.document.createElement=()=>{const form={innerHTML:'',submitted:0,removed:0,submit(){this.submitted++;},remove(){this.removed++;}};f.forms.push(form);return form;};
+ f.toast=()=>f.elements.get('#toast').textContent;return f;
+}
+test('an office document opens in the suite in a tab opened at the click, or through a direct second click when the browser blocks it',async()=>{
+ const f=officeFixture(),modal=f.elements.get('#modal');
+ // Seuls les formats annoncés par la suite sont proposés ; jamais un dossier, un lien, ni rien sans suite raccordée.
+ for(const yes of ['{name:"Devis.ODT"}','{name:"a.b.docx"}'])assert.equal(f.run(`officeCan(${yes})`),true,yes);
+ for(const no of ['{name:"notes.txt"}','{name:"odt"}','{name:"d.odt",directory:true}','{name:"l.odt",link:true}','{name:"x.xlsx"}','null'])assert.equal(f.run(`officeCan(${no})`),false,no);
+ await f.run('officeOpen("espace_c0c0c0c0c0c0","Factures/devis.odt")');
+ assert.deepEqual(f.calls.at(-1),['/api/office/open',{area:'espace_c0c0c0c0c0c0',path:'Factures/devis.odt'}]);
+ const tab=f.tabs[0],form=f.forms[0];
+ assert.equal(tab.url,'about:blank');assert.equal(tab.opener,null);assert.equal(tab.closed,0);
+ assert.equal(form.method,'post');assert.equal(form.target,tab.name);assert.equal(form.submitted,1);assert.equal(form.removed,1);
+ assert.equal(form.action,'http://suite.test:9980/browser/abc/cool.html?WOPISrc=http%3A%2F%2F127.0.0.1%3A8766%2Fwopi%2Ffiles%2Fid&x="<b>');
+ assert.match(form.innerHTML,/name="access_token" value="jeton&quot;&lt;b&gt;"/);assert.match(form.innerHTML,/name="access_token_ttl" value="1794700000000"/);
+ assert.match(f.toast(),/garde l’ancien contenu comme version/);
+ // Refus du serveur : l’onglet ouvert d’avance est refermé, rien n’est envoyé.
+ const g=officeFixture(url=>url==='/api/office/open'?response(403,{error:'Accès refusé à cet espace.'}):null);
+ await assert.rejects(g.run('officeOpen("fichiers","a.odt")'),/Accès refusé/);assert.equal(g.tabs[0].closed,1);assert.equal(g.forms.length,0);
+ // Onglet bloqué : le document est préparé, un formulaire direct l’ouvre ; adresse et jeton y sont échappés.
+ f.block=true;modal.innerHTML='';await f.run('officeOpen("fichiers","Budget <b>.ods")');
+ assert.equal(f.forms.length,1);assert.equal(modal.open,true);
+ assert.match(modal.innerHTML,/^<form id="office-go" method="post" action="http:\/\/suite\.test:9980\/browser\/abc\/cool\.html\?WOPISrc=[^"]*&amp;x=&quot;&lt;b&gt;" target="_blank" rel="noopener">/);
+ assert.match(modal.innerHTML,/« Budget &lt;b&gt;\.ods » est prêt/);assert.match(modal.innerHTML,/value="jeton&quot;&lt;b&gt;"/);assert.doesNotMatch(modal.innerHTML,/<b>/);
+ const go=f.listeners.get('submit').find(fn=>fn.toString().includes('office-go'));let prevented=0;
+ await go({target:{getAttribute:()=>'office-go'},preventDefault(){prevented++;}});assert.equal(prevented,0);
+ // Lecture seule : le message le dit.
+ const r=officeFixture((url,body)=>url==='/api/office/open'?response(200,{action:'http://suite.test:9980/x?WOPISrc=y',token:'t',ttl:1,write:false,name:'a.odt'}):null,'viewer');
+ await r.run('officeOpen("fichiers","a.odt")');assert.match(r.toast(),/ouvert en lecture/);
+});
+test('one new-document window offers office types only when a suite is connected, creates the file and opens it',async()=>{
+ const f=officeFixture(),modal=f.elements.get('#modal');
+ f.run('editorNew()');
+ assert.deepEqual([...modal.innerHTML.matchAll(/<option value="([a-z]+)">/g)].map(m=>m[1]),['md','txt','odt','ods']);assert.match(modal.innerHTML,/dans un nouvel onglet/);
+ let result=await f.run('modalSubmit(new Map([["kind","ods"],["name"," Budget 2026 "]]))');
+ assert.deepEqual(f.calls.slice(-2),[['/api/office/new',{area:'fichiers',path:'',name:'Budget 2026.ods'}],['/api/office/open',{area:'fichiers',path:'Budget 2026.ods'}]]);
+ assert.equal(result.message,'Document créé et ouvert dans la suite bureautique.');assert.equal(f.forms.at(-1).submitted,1);
+ // Une extension tapée l’emporte sur le type ; le texte reste à l’éditeur intégré.
+ await f.run('modalSubmit(new Map([["kind","md"],["name","Lettre.ODT"]]))');assert.deepEqual(f.calls.at(-2),['/api/office/new',{area:'fichiers',path:'',name:'Lettre.ODT'}]);
+ await f.run('modalSubmit(new Map([["kind","txt"],["name","liste"]]))');assert.deepEqual(f.calls.find(c=>c[0]==='/api/files/text-new'),['/api/files/text-new',{area:'fichiers',path:'',name:'liste.txt'}]);
+ await f.run('modalSubmit(new Map([["kind","inconnu"],["name","note.v2"]]))');assert.deepEqual(f.calls.filter(c=>c[0]==='/api/files/text-new').at(-1)[1].name,'note.v2.md');
+ // Créé mais non ouvert : on le dit, sans faire croire à un échec complet.
+ const g=officeFixture((url,body)=>url==='/api/office/open'?response(503,{error:'La suite bureautique ne répond pas.'}):null);
+ g.run('editorNew()');result=await g.run('modalSubmit(new Map([["kind","odt"],["name","Note"]]))');
+ assert.equal(result.message,'Document créé, mais non ouvert : La suite bureautique ne répond pas.');assert.equal(g.tabs[0].closed,1);
+ await assert.rejects((async()=>{const h=officeFixture(url=>url==='/api/office/new'?response(409,{error:'Ce nom existe déjà.'}):null);h.run('editorNew()');await h.run('modalSubmit(new Map([["kind","odt"],["name","Note"]]))');})(),/Ce nom existe déjà/);
+ // Onglet bloqué : le document est créé, la fenêtre « Document prêt » attend la fermeture de la première.
+ f.block=true;let closed=null;modal.addEventListener=(name,fn,options)=>{closed=[name,fn,options];};
+ f.run('editorNew()');result=await f.run('modalSubmit(new Map([["kind","odt"],["name","Compte rendu"]]))');
+ assert.equal(result.message,'Document créé.');assert.equal(closed[0],'close');assert.deepEqual({...closed[2]},{once:true});
+ // Sans suite raccordée : deux types seulement, aucune promesse d’onglet, aucune création bureautique.
+ const n=officeFixture(null,'member',[]);n.run('editorNew()');const nm=n.elements.get('#modal');
+ assert.deepEqual([...nm.innerHTML.matchAll(/<option value="([a-z]+)">/g)].map(m=>m[1]),['md','txt']);assert.doesNotMatch(nm.innerHTML,/nouvel onglet/);
+ await n.run('modalSubmit(new Map([["kind","odt"],["name","Note.odt"]]))');assert.ok(!n.calls.some(c=>c[0].startsWith('/api/office/')));assert.equal(n.calls.find(c=>c[0]==='/api/files/text-new')[1].name,'Note.odt.md');
+});
+test('office settings connect a suite, say when it does not answer, and disconnect only after confirmation',async()=>{
+ let state={enabled:false,url:'',internal:'',wopi:'',formats:[],reachable:null,default_wopi:'http://127.0.0.1:8766'},refuse=false;
+ const f=officeFixture((url,body)=>url==='/api/office'?response(200,state):url==='/api/office/configure'?(refuse?response(503,{error:'La suite ne répond pas à cette adresse.'}):response(200,{ok:true,formats:['odt']})):url==='/api/me'?response(200,{name:'admin',role:'admin',csrf:'synthetic',office:['odt']}):null,'admin',[]);
+ f.run('page="office"');await f.run('renderOffice()');let html=f.content();
+ assert.match(html,/Non raccordée/);assert.match(html,/les documents bureautiques se téléchargent/);assert.match(html,/id="office-wopi" name="wopi" type="text" value="http:\/\/127\.0\.0\.1:8766"/);assert.match(html,/>Raccorder la suite</);assert.doesNotMatch(html,/office-off/);
+ const fields={'#office-url':{value:' http://suite.test:9980 '},'#office-wopi':{value:'http://127.0.0.1:8766'},'#office-internal':{value:''},'#office-error':{textContent:'ancien'}};
+ for(const [key,value] of Object.entries(fields))f.elements.set(key,value);
+ const send={disabled:false},submit=f.listeners.get('submit').find(fn=>fn.toString().includes('office-form')),event=()=>({target:{getAttribute:()=>'office-form',querySelector:()=>send},preventDefault(){}});
+ refuse=true;await submit(event());assert.equal(fields['#office-error'].textContent,'La suite ne répond pas à cette adresse.');assert.equal(send.disabled,false);assert.deepEqual(JSON.parse(JSON.stringify(f.run('user.office'))),[]);
+ refuse=false;state={...state,enabled:true,url:'http://suite.test:9980',wopi:'http://127.0.0.1:8766',formats:['odt','<b>'],reachable:true};
+ await submit(event());assert.deepEqual(f.calls.find(c=>c[0]==='/api/office/configure'&&c[1].enabled)[1],{enabled:true,url:' http://suite.test:9980 ',wopi:'http://127.0.0.1:8766',internal:''});
+ assert.deepEqual(JSON.parse(JSON.stringify(f.run('user.office'))),['odt']);assert.equal(f.toast(),'Suite bureautique raccordée.');
+ html=f.content();assert.match(html,/<span class="badge ">Raccordée<\/span> La suite répond et ouvre 2 formats : odt, &lt;b&gt;\./);assert.match(html,/>Enregistrer</);assert.match(html,/data-action="office-off"/);
+ // Débrancher : confirmation d’abord, puis le réglage repart avec les adresses connues.
+ const modal=f.elements.get('#modal');modal.innerHTML='';
+ await f.listeners.get('click').find(fn=>fn.toString().includes('office-off'))({target:{closest:()=>({dataset:{action:'office-off'}})}});
+ assert.match(modal.innerHTML,/Débrancher la suite bureautique \?/);assert.ok(!f.calls.some(c=>c[0]==='/api/office/configure'&&c[1].enabled===false));
+ const done=await f.run('modalSubmit(new Map())');assert.deepEqual(f.calls.at(-1),['/api/office/configure',{enabled:false,url:'http://suite.test:9980',wopi:'http://127.0.0.1:8766',internal:''}]);
+ assert.equal(done.message,'Suite bureautique débranchée.');assert.deepEqual(JSON.parse(JSON.stringify(f.run('user.office'))),[]);
+ // Raccordée mais injoignable : l’erreur du serveur est montrée, échappée.
+ state={...state,reachable:false,error:'Refus <i>réseau</i>'};await f.run('renderOffice()');html=f.content();
+ assert.match(html,/Raccordée, mais injoignable/);assert.match(html,/Refus &lt;i&gt;réseau&lt;\/i&gt;/);
+ state={enabled:'oui'};await f.run('renderOffice()');assert.match(f.content(),/Réponse illisible du serveur/);
+ // Un membre n’a pas cette page et rien n’est demandé au serveur.
+ const m=officeFixture(null,'member');m.run('page="office"');const before=m.calls.length;await m.run('renderOffice()');
+ assert.match(m.content(),/réservée aux administrateurs/);assert.equal(m.calls.length,before);
+});

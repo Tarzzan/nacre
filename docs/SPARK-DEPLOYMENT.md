@@ -1,5 +1,13 @@
 # Déploiements de la console sur Spark
 
+## 14 novembre 2026 — alpha.60, éditeur de texte et Markdown
+
+L’installation alpha.59 a reçu le paquet `nacre-0.8.0-alpha.60.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.60), par le même [parcours de mise à jour](BROWSER-UPDATES.md) : neuf modules figés identiques, répétition isolée alpha.59 → alpha.60 réussie, fichier importé identique à celui de la release, installation confirmée depuis la fenêtre Réglages et suivie jusqu’à **Mise à jour réussie**.
+
+Validation enregistrée à 19 h 13 min 02 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Constaté en lecture seule : la lecture d’un fichier absent répond 404 ; le script de l’éditeur et le bouton **Nouveau document** sont servis. **Aucun document n’a été créé ni modifié ici** : l’écriture, les versions et le conflit sont prouvés sur le banc et par les essais.
+
 ## 14 novembre 2026 — alpha.59, versions d’un fichier
 
 L’installation alpha.58 a reçu le paquet `nacre-0.8.0-alpha.59.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.59), par le même [parcours de mise à jour](BROWSER-UPDATES.md) : neuf modules figés identiques, répétition isolée alpha.58 → alpha.59 réussie, fichier importé identique à celui de la release, installation confirmée depuis la fenêtre Réglages et suivie jusqu’à **Mise à jour réussie**.

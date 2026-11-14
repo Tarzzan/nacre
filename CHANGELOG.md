@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.61 — Suite bureautique
+
+Quatrième brique de l’espace collaboratif, second temps. Nacre se raccorde à une **suite bureautique en conteneur** (Collabora Online, protocole WOPI) : traitement de texte, tableur et présentations s’ouvrent depuis **Fichiers**, dans un nouvel onglet. **Nacre garde les fichiers, les droits et les versions ; la suite les édite.** Chaque enregistrement garde l’ancien contenu comme version, un fichier modifié ailleurs n’est pas écrasé sans qu’on le demande, et **Nouveau document** propose désormais, dans une seule fenêtre, texte, Markdown, texte bureautique et classeur. La suite ne reçoit ni mot de passe ni session : un jeton limité à un fichier, à une personne et à huit heures, les droits étant revérifiés à chaque appel. Un administrateur lance la suite et la déclare dans **Réglages → Suite bureautique** ; Nacre ne l’installe pas. Sans suite raccordée, rien ne change. Guide : [`docs/EDITOR.md`](docs/EDITOR.md).
+
 ## 0.8.0-alpha.60 — Éditeur de texte et Markdown
 
 Quatrième brique de l’espace collaboratif, premier temps. Dans **Fichiers**, **Nouveau document** crée un fichier texte ou Markdown et l’ouvre ; **Modifier**, dans l’aperçu d’un fichier texte, l’ouvre dans la fenêtre. Un document Markdown s’affiche en deux colonnes, le rendu suivant la frappe. **Chaque enregistrement garde l’ancien contenu comme version**, les enregistrements rapprochés d’une même personne n’en faisant qu’une. Un fichier modifié ailleurs depuis son ouverture n’est jamais écrasé en silence, et une bannière nomme les autres personnes qui ont le document ouvert. Le texte n’est jamais interprété : une page HTML s’ouvre comme du texte, l’aperçu échappe tout ce qu’il affiche. Un PDF s’ouvre désormais dans un nouvel onglet. Pas de coédition en temps réel, pas encore de documents bureautiques. Aucun changement de schéma ni de module figé. 402 tests Python, 158 JavaScript. [Guide](docs/EDITOR.md).
