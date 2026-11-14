@@ -27,7 +27,8 @@ function paletteIndex(){
  }
  for(const [label,target,words,view] of PALETTE_TOPICS){const app=deskApp(target);if(!app)continue;const name=view?app.views?.find(v=>v[0]===view)?.[1]:null;entries.push({label,hint:`${app.name} · ${name||deskPages(app).find(p=>p[0]===target)[1]}`,page:target,words,...(name?{view:[app.id,view]}:{})});}
  if(deskApp('files')&&typeof fmQueue==='function')entries.push({label:'Les plus gros fichiers',hint:'Fichiers · dans tout le NAS',big:true,words:'place espace taille lourd volumineux encombrement occupe'},
-  {label:'Poids des dossiers',hint:'Fichiers · le dossier ouvert, avec tout son contenu',weigh:true,words:'place espace taille lourd volumineux encombrement occupe occupation peser'});
+  {label:'Poids des dossiers',hint:'Fichiers · le dossier ouvert, avec tout son contenu',weigh:true,words:'place espace taille lourd volumineux encombrement occupe occupation peser'},
+  {label:'Poids des espaces',hint:'Fichiers · la dernière pesée de chaque espace, côte à côte',spaces:true,words:'place espace taille comparer occupation disque volume répartition peser'});
  entries.push({label:'Affichage classique',hint:'Revenir au menu à gauche',shell:'classic',words:'ancien menu barre latérale'});
  return [...entries,...paletteExtra];
 }
@@ -84,6 +85,7 @@ async function runPalette(entry){
   if(entry.find)return void deskOpenPage('files',{find:entry.find});
   if(entry.big)return void deskOpenPage('files',{big:true});
   if(entry.weigh)return void deskOpenPage('files',{weigh:true});
+  if(entry.spaces)return void deskOpenPage('files',{spaces:true});
   if(entry.camera)return void deskOpenPage('camera',{view:'wall',camera:entry.camera});
   if(entry.area)return void deskOpenPage('files',{area:entry.area});
   if(entry.page&&deskApp(entry.page))return void deskOpenPage(entry.page,entry.view?{view:entry.view[1]}:{});
@@ -93,6 +95,7 @@ async function runPalette(entry){
  if(entry.find){fmQueue(entry.find);return go('files');}
  if(entry.big){fmQueue('',true);return go('files');}
  if(entry.weigh){fmQueue('',false,true);return go('files');}
+ if(entry.spaces){fmQueue('',false,false,true);return go('files');}
  if(entry.area){area=entry.area;currentPath='';return go('files');}
  if(entry.page&&deskApp(entry.page)){if(entry.view)deskSetView(...entry.view);return go(entry.page);}
 }

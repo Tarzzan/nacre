@@ -1874,7 +1874,7 @@ const fmHits=[{area:'fichiers',path:'',name:'été.md',directory:false,link:fals
  {area:'restaurations',path:'',name:'été.md'},null,{area:'fichiers',path:3,name:'x'},{area:'fichiers',path:'',name:''}];
 function findFixture(role='admin'){
  const state={urls:[],answer:{items:fmHits,partial:null,visited:42,skipped:[],limit:200},hold:null,usage:null};
- const f=fmFixture(async url=>{state.urls.push(url);if(url.startsWith('/api/files/search')){if(state.hold)await state.hold;return state.status?response(state.status,{error:'Deux recherches sont déjà en cours.'}):response(200,state.answer);}if(url.startsWith('/api/files/usage')){if(state.hold)await state.hold;return state.status?response(state.status,{error:'Deux recherches sont déjà en cours.'}):response(200,state.usage);}return response(200,url.startsWith('/api/areas')?fmAreas:{items:fmSample});},role);
+ const f=fmFixture(async url=>{state.urls.push(url);if(url.startsWith('/api/files/search')){if(state.hold)await state.hold;return state.status?response(state.status,{error:'Deux recherches sont déjà en cours.'}):response(200,state.answer);}if(url.startsWith('/api/files/usage-spaces'))return response(200,state.spaces);if(url.startsWith('/api/files/usage')){if(state.fail&&url.includes(state.fail))return response(429,{error:'Deux recherches sont déjà en cours.'});if(state.hold)await state.hold;return state.status?response(state.status,{error:'Deux recherches sont déjà en cours.'}):response(200,state.usage);}return response(200,url.startsWith('/api/areas')?fmAreas:{items:fmSample});},role);
  f.state=state;f.list=()=>String(f.elements.get('#fm-list').innerHTML);f.side=()=>String(f.elements.get('#fm-side').innerHTML);
  f.type=text=>f.listeners.get('input').at(-1)({target:{id:'fm-filter',value:text}});
  f.at=(selector,dataset)=>f.listeners.get('click').at(-1)({target:{closest:s=>s===selector?{dataset}:null}});
@@ -2017,6 +2017,42 @@ test('a search by criteria alone needs no name: it ranks the biggest or the late
  const once=f.searches().length;await f.run('renderFiles()');f.mount();await f.settle();assert.equal(f.searches().length,once);
  f.run('fmQueue(" bilan ",true);');assert.deepEqual([f.run('fmPending'),f.run('fmPendingBig')],['bilan',false]);
 });
+test('space weights put the kept weighing of every space side by side and weigh a space on demand',async()=>{
+ const f=findFixture();await f.run('renderFiles()');f.mount();
+ const usages=()=>f.state.urls.filter(url=>url.startsWith('/api/files/usage'));
+ f.state.usage={area:'fichiers',path:'',items:[],total:{size:10,count:1,state:'whole'},hidden:{size:0,count:0,state:'whole'},others:{count:0,size:0},partial:null,visited:1,limit:200};
+ f.state.spaces={spaces:[{id:'fichiers',name:'Fichiers <b>partagés</b>',kept:{at:1794182400,size:3221225472,count:1204,state:'whole'}},{id:'video',name:'Vidéos',kept:null},
+  {id:'ailleurs',name:'Espace inconnu',kept:{at:1,size:9,count:1,state:'whole'}},null,{id:'video'}]};
+ // Depuis une pesée : « Comparer les espaces ». Aucune pesée n'est lancée par l'affichage.
+ await f.at('[data-action]',{action:'fm-weigh'});await f.settle();assert.match(f.list(),/data-action="fm-spaces" title="[^"]*"><span>Comparer les espaces/);
+ const before=usages().length;
+ await f.at('[data-action]',{action:'fm-spaces'});await f.settle();
+ assert.deepEqual(usages().slice(before),['/api/files/usage-spaces']);
+ assert.match(f.list(),/<strong>1 espace pesé sur 2<\/strong> · 3 Gio en tout/);assert.match(f.list(),/Chaque poids est celui de la dernière pesée de l’espace entier/);
+ assert.match(f.list(),/Fichiers &lt;b&gt;partagés&lt;\/b&gt;<\/td><td>1[\s ]204 éléments<\/td><td>3 Gio<\/td><td>100 %<\/td><td>[^<—]+<\/td><td><button type="button" class="small" data-action="fm-space-weigh" data-area="fichiers"><span>Repeser<\/span><\/button><button type="button" class="small" data-action="fm-space-open" data-area="fichiers"/);
+ assert.match(f.list(),/Vidéos<\/td><td>—<\/td><td>non pesé<\/td><td>—<\/td><td>—<\/td><td><button type="button" class="small" data-action="fm-space-weigh" data-area="video"><span>Peser<\/span><\/button><\/td>/);
+ assert.doesNotMatch(f.list(),/Espace inconnu|style=|<b>|data-hit=/);assert.doesNotMatch(f.side(),/fm-weigh|fm-open|Espace/);
+ // Peser un espace : sa racine est pesée, puis les pesées gardées sont relues ; une pesée arrêtée s'affiche comme un minimum.
+ f.state.spaces.spaces[1].kept={at:1794182500,size:1073741824,count:40,state:'partial'};
+ await f.at('[data-action]',{action:'fm-space-weigh',area:'video'});await f.settle();
+ assert.deepEqual(usages().slice(-2),['/api/files/usage?area=video&path=','/api/files/usage-spaces']);
+ assert.match(f.list(),/<strong>2 espaces pesés sur 2<\/strong> · au moins 4 Gio en tout/);assert.match(f.list(),/Vidéos<\/td><td>40 éléments<\/td><td>au moins 1 Gio<\/td><td>25 %<\/td>/);assert.match(f.list(),/<td>75 %<\/td>/);
+ // Un espace inconnu n'est jamais pesé ; un refus est dit et la suite continue ; « tous » pèse chaque espace à la suite.
+ let count=usages().length;await f.at('[data-action]',{action:'fm-space-weigh',area:'ailleurs'});await f.settle();assert.equal(usages().length,count);
+ f.state.fail='area=fichiers';count=usages().length;
+ await f.at('[data-action]',{action:'fm-spaces-all'});await f.settle();await f.settle();
+ assert.deepEqual(usages().slice(count),['/api/files/usage?area=fichiers&path=','/api/files/usage-spaces','/api/files/usage?area=video&path=','/api/files/usage-spaces']);
+ assert.match(String(f.elements.get('#toast').textContent+' '+JSON.stringify(f.context.toasts||[])),/partagés|déjà en cours/);f.state.fail='';
+ // « Détail » ouvre l'espace et pèse ses dossiers ; fermer revient à la liste.
+ await f.at('[data-action]',{action:'fm-space-open',area:'video'});f.mount();await f.settle();
+ assert.deepEqual([f.run('area'),f.run('currentPath'),usages().at(-1)],['video','','/api/files/usage?area=video&path=']);assert.match(f.list(),/pèse/);
+ await f.at('[data-action]',{action:'fm-spaces'});await f.settle();await f.at('[data-action]',{action:'fm-find-close'});assert.doesNotMatch(f.list(),/fm-spaces"|espaces pesés/);
+ // Depuis la recherche globale, la vue s'ouvre directement.
+ f.run('fmQueue("",false,false,true)');count=usages().length;await f.run('renderFiles()');f.mount();await f.settle();
+ assert.deepEqual(usages().slice(count),['/api/files/usage-spaces']);assert.match(f.list(),/espaces pesés sur 2/);
+ f.run('fmQueue("",false,true,true)');assert.deepEqual(JSON.parse(f.run('JSON.stringify([fmPendingWeigh,fmPendingSpaces])')),[true,false]);
+});
+
 test('folder weights rank what the open folder holds, drill down into a folder, and say what could not be weighed',async()=>{
  const f=findFixture();await f.run('renderFiles()');f.mount();
  const usages=()=>f.state.urls.filter(url=>url.startsWith('/api/files/usage'));
@@ -2075,7 +2111,7 @@ test('global search offers to look a name up in the files from two characters, a
  f.type('f');assert.doesNotMatch(f.labels().join('|'),/Chercher/);
  f.type('  facture <b>2026</b> ');assert.deepEqual(f.labels(),['Chercher « facture <b>2026</b> » dans les fichiers']);
  assert.match(f.elements.get('#palette-results').innerHTML,/Chercher « facture &lt;b&gt;2026&lt;\/b&gt; » dans les fichiers<small>Fichiers · par nom, dans tout le NAS<\/small>/);
- f.type('place');assert.deepEqual(f.labels(),['Les plus gros fichiers','Poids des dossiers','Chercher « place » dans les fichiers']);
+ f.type('place');assert.deepEqual(f.labels(),['Les plus gros fichiers','Poids des dossiers','Poids des espaces','Chercher « place » dans les fichiers']);
  // Elle vient après les résultats habituels et ne lance rien tant qu'elle n'est pas choisie.
  f.type('sauv');assert.deepEqual([f.labels()[0],f.labels().at(-1)],['Sauvegardes','Chercher « sauv » dans les fichiers']);assert.deepEqual(f.context.asked,[]);
  await f.run('runPalette(paletteFound.at(-1))');assert.deepEqual([f.context.asked,f.run('page'),f.elements.get('#palette').hidden],[['sauv'],'files',true]);

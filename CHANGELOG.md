@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.48 — Poids des espaces
+
+Dans **Fichiers**, une vue met côte à côte le poids de chaque espace : contenu, poids, part parmi les espaces pesés, et date de la pesée. La dernière pesée d’un espace entier est désormais **gardée** : on la retrouve sans relire le disque, et **Peser**, **Repeser** ou **Peser tous les espaces** la met à jour à la demande. On y arrive par **Comparer les espaces**, dans le titre d’une pesée, ou par **Poids des espaces** dans la recherche globale. Un poids gardé est une photographie datée, il ne suit pas ce qui change ensuite, et seule la pesée d’un espace entier est gardée. Au passage, une pesée arrêtée avant la fin annonce toujours son total comme un minimum. Les pesées gardées vivent dans la table de réglages existante : aucun changement de schéma ni de module figé. 357 tests Python, 136 JavaScript. [Guide](docs/DESKTOP.md#comparer-les-espaces).
+
 ## 0.8.0-alpha.47 — Suite des événements
 
 Dans **Surveillance → Événements**, la liste ne s’arrête plus aux soixante événements les plus récents de chaque caméra : **Afficher la suite** remonte plus loin dans la période, jusqu’à tout lister. La suite est demandée à la caméra qui borne la liste, sur la période exacte de la première réponse, et la liste ne grandit que par la fin : tant qu’une caméra a des événements non chargés, rien de plus ancien que son dernier événement chargé n’est montré, pour qu’aucun ne vienne s’intercaler après coup. Un refus du serveur est dit sans rien perdre de ce qui est affiché. Côté navigateur seulement : aucun changement du serveur, du schéma ni de module figé. 356 tests Python, 135 JavaScript. [Guide](docs/DESKTOP.md).

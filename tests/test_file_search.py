@@ -1,5 +1,6 @@
 """Recherche de fichiers par nom ou par critères, et poids des dossiers : portée, droits, liens jamais suivis et bornes, sur un espace temporaire et un serveur HTTP local."""
 import json
+import time
 import unittest
 from unittest.mock import patch
 from urllib.parse import quote
@@ -221,6 +222,42 @@ class FileSearchTests(unittest.TestCase):
         finally:
             file_search._slots.release(); file_search._slots.release()
         self.assertEqual(self.weigh(area='fichiers')[0], 200)
+
+    def test_weighing_a_whole_space_is_kept_so_spaces_can_be_compared_without_reading_the_disk(self):
+        import file_search
+        self.tree()
+        (self.files / 'gros.bin').write_bytes(b'x' * 4000)
+
+        def listed(token=None):
+            status, _, data = self.call('GET', '/api/files/usage-spaces', token=token)
+            self.assertEqual(status, 200)
+            return {item['id']: item for item in json.loads(data)['spaces']}
+        # Rien n'est gardé avant une pesée ; l'administrateur voit aussi les restaurations privées.
+        before = listed()
+        self.assertEqual({name: item['kept'] for name, item in before.items()}, dict.fromkeys(('fichiers', 'video', 'sauvegardes', 'restaurations'), None))
+        self.assertEqual(before['fichiers']['name'], 'Fichiers partagés')
+        # Peser un sous-dossier ne garde rien ; peser un espace entier garde son total, son décompte et l'heure.
+        self.assertEqual(self.weigh(area='fichiers', path='Photos')[0], 200)
+        self.assertIsNone(listed()['fichiers']['kept'])
+        status, value = self.weigh(area='fichiers')
+        kept = listed()['fichiers']['kept']
+        self.assertEqual((status, kept['size'], kept['count'], kept['state']), (200, value['total']['size'], value['total']['count'], 'whole'))
+        self.assertLess(abs(kept['at'] - time.time()), 30)
+        self.assertEqual(self.weigh(area='video')[0], 200)
+        self.assertEqual({name: item['kept'] is not None for name, item in listed().items()}, {'fichiers': True, 'video': True, 'sauvegardes': False, 'restaurations': False})
+        # Une nouvelle pesée remplace l'ancienne ; arrêtée avant la fin, elle est gardée comme un minimum.
+        (self.files / 'gros.bin').write_bytes(b'x' * 9000)
+        self.assertEqual(self.weigh(area='fichiers')[0], 200)
+        self.assertEqual(listed()['fichiers']['kept']['size'], kept['size'] + 5000)
+        with patch.object(file_search, 'VISITED', 3):
+            self.assertEqual(self.weigh(area='fichiers')[0], 200)
+        self.assertEqual(listed()['fichiers']['kept']['state'], 'partial')
+        # Un compte en lecture seule ne voit que ses espaces ; une valeur gardée illisible est ignorée.
+        token, _ = self.reader()
+        self.assertEqual(sorted(listed(token)), ['fichiers', 'sauvegardes', 'video'])
+        with server.database() as db:
+            db.execute("UPDATE settings SET value='{cassé' WHERE key='usage-kept:video'")
+        self.assertIsNone(listed()['video']['kept'])
 
     def test_search_stops_at_its_bounds_and_says_so(self):
         import file_search

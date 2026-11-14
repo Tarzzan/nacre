@@ -708,6 +708,9 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == '/api/files/search':
                 from file_search import search
                 return self.reply(200, search(sys.modules[__name__], query, session))
+            if url.path == '/api/files/usage-spaces':
+                from file_search import spaces
+                return self.reply(200, spaces(sys.modules[__name__], session))
             if url.path == '/api/files/usage':
                 from file_search import usage
                 return self.reply(200, usage(sys.modules[__name__], query, session))
