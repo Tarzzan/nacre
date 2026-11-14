@@ -78,7 +78,7 @@ function deskApply(intent){
  if(intent.camera&&typeof survOpenCamera==='function'){selectedCamera=String(intent.camera);survFocus=true;deskViews.cam='wall';}
  if(intent.area){area=String(intent.area);currentPath=typeof intent.path==='string'?intent.path:'';
   if(typeof intent.select==='string'&&typeof fmSel!=='undefined'){fmSel=new Set([intent.select]);fmLast=intent.select;}}
- if(intent.find&&typeof fmQueue==='function')fmQueue(intent.find);
+ if(intent.find&&typeof fmQueue==='function')fmQueue(intent.find,false,false,false,!!intent.content);
  else if((intent.big||intent.weigh||intent.spaces)&&typeof fmQueue==='function')fmQueue('',!!intent.big,!!intent.weigh,!!intent.spaces);
 }
 // Depuis une autre fenêtre : montrer un fichier dans Fichiers, sélectionné dans son dossier.

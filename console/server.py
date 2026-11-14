@@ -831,6 +831,9 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == '/api/photos/thumb':
                 import photos
                 return photos.thumb(sys.modules[__name__], self, query, session)
+            if url.path == '/api/files/content':
+                import fulltext
+                return self.reply(200, fulltext.search(sys.modules[__name__], query, session))
             if url.path == '/api/files/search':
                 from file_search import search
                 return self.reply(200, search(sys.modules[__name__], query, session))
