@@ -48,7 +48,7 @@ function paletteSearch(text){
 // Après les résultats, dès deux caractères : chercher ce nom parmi les fichiers. Rien n’est parcouru avant ce choix.
 function paletteResults(text){
  const found=paletteSearch(text),name=String(text??'').trim().slice(0,80);
- if(name.replace(/\s/g,'').length>=2&&deskApp('files')&&typeof fmQueue==='function')found.push({label:`Chercher « ${name} » dans les fichiers`,hint:'Fichiers · par nom, dans tout le NAS',find:name});
+ if(name.replace(/\s/g,'').length>=2&&deskApp('files')&&typeof fmQueue==='function')found.push({label:`Chercher « ${name} » dans les fichiers`,hint:'Fichiers · par nom, dans tout le NAS',find:name},{label:`Chercher « ${name} » dans le contenu des documents`,hint:'Fichiers · dans le texte, dans vos espaces',find:name,content:true});
  return found;
 }
 function drawPalette(){
@@ -82,7 +82,7 @@ async function runPalette(entry){
  if(entry.shell)return deskSwitch(entry.shell);
  // Dans le bureau, le résultat s’ouvre dans la fenêtre de son application, avec ce qu’il faut y montrer.
  if($('#dk-wins')){
-  if(entry.find)return void deskOpenPage('files',{find:entry.find});
+  if(entry.find)return void deskOpenPage('files',{find:entry.find,content:!!entry.content});
   if(entry.big)return void deskOpenPage('files',{big:true});
   if(entry.weigh)return void deskOpenPage('files',{weigh:true});
   if(entry.spaces)return void deskOpenPage('files',{spaces:true});
@@ -92,7 +92,7 @@ async function runPalette(entry){
   return;
  }
  if(entry.camera){if(typeof survOpenCamera==='function')survOpenCamera(entry.camera);else if(typeof cameraCatalog!=='undefined'){selectedCamera=entry.camera;cameraDetail=true;}return go('camera');}
- if(entry.find){fmQueue(entry.find);return go('files');}
+ if(entry.find){fmQueue(entry.find,false,false,false,!!entry.content);return go('files');}
  if(entry.big){fmQueue('',true);return go('files');}
  if(entry.weigh){fmQueue('',false,true);return go('files');}
  if(entry.spaces){fmQueue('',false,false,true);return go('files');}

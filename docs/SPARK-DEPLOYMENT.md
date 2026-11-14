@@ -1,5 +1,13 @@
 # Déploiements de la console sur Spark
 
+## 14 novembre 2026 — alpha.62, photos
+
+L’installation alpha.61 a reçu le paquet `nacre-0.8.0-alpha.62.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.62), par le même [parcours de mise à jour](BROWSER-UPDATES.md) : neuf modules figés identiques, répétition isolée alpha.61 → alpha.62 réussie, fichier importé identique à celui de la release, installation confirmée depuis la fenêtre Réglages et suivie jusqu’à **Mise à jour réussie**.
+
+Validation enregistrée à 20 h 39 min 46 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Constaté en lecture seule, en ne relevant que des nombres : l’ouverture de la galerie a lancé la lecture des deux espaces du compte, terminée sans erreur ni arrêt ; **aucune image** ne s’y trouve, la galerie est vide. L’index `photos.db` a été créé à côté de la base de Nacre, qui n’a pas changé. **Aucune photo n’a été déposée ici** : la galerie, les vignettes et l’envoi sont prouvés sur le banc et par les essais.
+
 ## 14 novembre 2026 — alpha.61, suite bureautique
 
 L’installation alpha.60 a reçu le paquet `nacre-0.8.0-alpha.61.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.61), par le même [parcours de mise à jour](BROWSER-UPDATES.md) : neuf modules figés identiques, répétition isolée alpha.60 → alpha.61 réussie, fichier importé identique à celui de la release, installation confirmée depuis la fenêtre Réglages et suivie jusqu’à **Mise à jour réussie**.

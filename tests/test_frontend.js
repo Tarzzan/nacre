@@ -2107,17 +2107,21 @@ test('global search offers to look a name up in the files from two characters, a
  const f=paletteFixture();f.key('k',{ctrlKey:true});await new Promise(resolve=>setImmediate(resolve));
  // Sans le gestionnaire de fichiers chargé, rien n'est proposé.
  f.type('facture 2026');assert.deepEqual(f.labels(),[]);
- f.context.asked=[];f.context.fmQueue=text=>f.context.asked.push(text);
+ f.context.asked=[];f.context.deep=[];f.context.fmQueue=(text,big,weigh,spaces,content)=>{f.context.asked.push(text);f.context.deep.push(!!content);};
  f.type('f');assert.doesNotMatch(f.labels().join('|'),/Chercher/);
- f.type('  facture <b>2026</b> ');assert.deepEqual(f.labels(),['Chercher « facture <b>2026</b> » dans les fichiers']);
+ f.type('  facture <b>2026</b> ');assert.deepEqual(f.labels(),['Chercher « facture <b>2026</b> » dans les fichiers','Chercher « facture <b>2026</b> » dans le contenu des documents']);
+ assert.match(f.elements.get('#palette-results').innerHTML,/Chercher « facture &lt;b&gt;2026&lt;\/b&gt; » dans le contenu des documents<small>Fichiers · dans le texte, dans vos espaces<\/small>/);
  assert.match(f.elements.get('#palette-results').innerHTML,/Chercher « facture &lt;b&gt;2026&lt;\/b&gt; » dans les fichiers<small>Fichiers · par nom, dans tout le NAS<\/small>/);
- f.type('place');assert.deepEqual(f.labels(),['Les plus gros fichiers','Poids des dossiers','Poids des espaces','Chercher « place » dans les fichiers']);
+ f.type('place');assert.deepEqual(f.labels(),['Les plus gros fichiers','Poids des dossiers','Poids des espaces','Chercher « place » dans les fichiers','Chercher « place » dans le contenu des documents']);
  // Elle vient après les résultats habituels et ne lance rien tant qu'elle n'est pas choisie.
- f.type('sauv');assert.deepEqual([f.labels()[0],f.labels().at(-1)],['Sauvegardes','Chercher « sauv » dans les fichiers']);assert.deepEqual(f.context.asked,[]);
- await f.run('runPalette(paletteFound.at(-1))');assert.deepEqual([f.context.asked,f.run('page'),f.elements.get('#palette').hidden],[['sauv'],'files',true]);
+ f.type('sauv');assert.deepEqual([f.labels()[0],...f.labels().slice(-2)],['Sauvegardes','Chercher « sauv » dans les fichiers','Chercher « sauv » dans le contenu des documents']);assert.deepEqual(f.context.asked,[]);
+ await f.run('runPalette(paletteFound.at(-2))');assert.deepEqual([f.context.asked,f.context.deep,f.run('page'),f.elements.get('#palette').hidden],[['sauv'],[false],'files',true]);
+ // La seconde entrée lance la même saisie dans le texte des documents.
+ await f.run('runPalette({find:"sauv",content:true})');assert.deepEqual([f.context.asked,f.context.deep],[['sauv','sauv'],[false,true]]);
  // Dans le bureau, la demande part vers la fenêtre de Fichiers.
  const opened=[];f.context.deskOpenPage=(...args)=>opened.push(args);f.elements.set('#dk-wins',{});
- await f.run('runPalette({find:"rapport"})');assert.deepEqual(JSON.parse(JSON.stringify(opened)),[['files',{find:'rapport'}]]);
+ await f.run('runPalette({find:"rapport"})');assert.deepEqual(JSON.parse(JSON.stringify(opened)),[['files',{find:'rapport',content:false}]]);
+ await f.run('runPalette({find:"rapport",content:true})');assert.deepEqual(JSON.parse(JSON.stringify(opened.pop())),['files',{find:'rapport',content:true}]);
  // « Qu'est-ce qui prend de la place ? » : une entrée fixe, trouvée par ses mots, qui lance les plus gros fichiers.
  await f.run('runPalette({big:true})');assert.deepEqual(JSON.parse(JSON.stringify(opened.at(-1))),['files',{big:true}]);
  f.elements.delete('#dk-wins');f.context.asked=[];f.context.fmQueue=(...args)=>f.context.asked.push(args);
@@ -2904,5 +2908,88 @@ test('sending photos asks the server where each goes, skips those already there 
  assert.match(f.elements.get('#transfer-panel').innerHTML,/<strong>Envoi des photos<\/strong><progress max="1" value="0\.1"><\/progress><span>0 \/ 5 — IMG_1\.jpg<\/span>/);
  await f.run('phSend')(files);assert.equal(f.toast(),'Un transfert est déjà en cours.');
  await f.ph('ph-cancel');await running;assert.equal(f.sent.length,1);assert.equal(f.toast(),'Envoi arrêté : 0 photo ajoutée.');assert.equal(f.run('phSending'),null);
+});
+
+const deepHits={query:'dalle préau',words:['dalle','préau'],partial:true,limit:50,read:1234,pdf:false,scan:{running:false,finished:1794690000,partial:null,error:null},
+ items:[{area:'fichiers',path:'Docs & co',name:'compte <b>rendu</b>.docx',directory:false,link:false,size:1234,modified:1794182400,extract:'La \x02dalle\x03 du <img src=x> pr\x02éau\x03 sera coulée'},
+  {area:'fichiers',path:'',name:'budget.xlsx',directory:false,link:false,size:99,modified:1794182500,extract:'Poste \x02Dalle\x03 béton'},
+  {area:'espace_inconnu',path:'',name:'ailleurs.txt',extract:'x'},{area:'fichiers',path:'',name:''},null]};
+function deepFixture(role='admin'){
+ const state={urls:[],answer:deepHits,status:0,timers:[]};
+ const f=fmFixture(async url=>{state.urls.push(url);if(url.startsWith('/api/files/content'))return state.status?response(state.status,{error:'La recherche dans le contenu n’est pas disponible sur ce système.'}):response(200,state.answer);
+  if(url.startsWith('/api/files/search'))return response(200,{items:[],partial:null,visited:1,skipped:[],limit:200});
+  return response(200,url.startsWith('/api/areas')?fmAreas:url.startsWith('/api/files')?{items:fmSample.filter(i=>i&&i.name)}:{ok:true});},role);
+ f.context.setTimeout=(fn,delay)=>{state.timers.push([fn,delay]);return state.timers.length;};
+ f.state=state;f.list=()=>String(f.elements.get('#fm-list').innerHTML);f.side=()=>String(f.elements.get('#fm-side').innerHTML);
+ f.type=text=>f.listeners.get('input').at(-1)({target:{id:'fm-filter',value:text}});
+ f.at=(selector,dataset)=>f.listeners.get('click').at(-1)({target:{closest:s=>s===selector?{dataset}:null}});
+ f.settle=async()=>{for(let i=0;i<4;i++)await new Promise(resolve=>setImmediate(resolve));};
+ f.deep=()=>state.urls.filter(url=>url.startsWith('/api/files/content'));return f;
+}
+test('content search runs on demand, shows each document with its extract and lets no text become markup',async()=>{
+ const f=deepFixture();await f.run('renderFiles()');f.mount();
+ f.type('d');assert.doesNotMatch(f.list(),/fm-content/);
+ f.type('dalle préau');assert.match(f.list(),/<span class="fm-or">ou ces mots<\/span><button type="button" class="small" data-action="fm-content" ><span>Dans le contenu des documents/);assert.equal(f.deep().length,0);
+ await f.at('[data-action]',{action:'fm-content'});
+ assert.deepEqual(f.deep(),['/api/files/content?q=dalle%20pr%C3%A9au']);
+ const html=f.list();
+ assert.match(html,/<strong>2 documents<\/strong> dont le texte contient « dalle préau », parmi 1.234 lus dans vos espaces/);
+ // Les marques du serveur deviennent un surlignage ici seulement, après échappement : rien d’autre ne devient une balise.
+ assert.match(html,/<td class="fm-extract">La <mark>dalle<\/mark> du &lt;img src=x&gt; pr<mark>éau<\/mark> sera coulée<\/td>/);
+ assert.match(html,/compte &lt;b&gt;rendu&lt;\/b&gt;\.docx<\/td>/);assert.match(html,/<td>Fichiers &lt;b&gt;partagés&lt;\/b&gt; › Docs &amp; co<\/td>/);
+ assert.doesNotMatch(html,/<img|<b>rendu|ailleurs\.txt/);assert.equal((html.match(/<tr class="fm-hit /g)||[]).length,2);
+ assert.match(html,/Seuls les 50 documents les plus pertinents sont affichés : ajoutez un mot pour préciser\./);
+ assert.match(html,/Les PDF ne sont trouvés que par leur nom : l’outil qui lit leur texte \(pdftotext\) n’est pas installé sur ce système\./);
+ assert.equal(f.state.timers.filter(t=>t[1]===3000).length,0);
+ // Un résultat se sélectionne, s’aperçoit et s’ouvre dans son dossier comme ceux de la recherche par nom.
+ await f.at('.fm-hit',{hit:'0'});assert.match(f.list(),/<tr class="fm-hit sel" data-hit="0">/);assert.match(f.side(),/compte &lt;b&gt;rendu&lt;\/b&gt;\.docx/);
+ await f.at('[data-action]',{action:'fm-reveal'});await f.settle();
+ assert.deepEqual([f.run('area'),f.run('currentPath'),f.run('fmFound')],['fichiers','Docs & co',null]);assert.equal(f.state.urls.at(-1),'/api/files?area=fichiers&path=Docs%20%26%20co');
+ // « Chercher ce nom à la place » repart de la même saisie ; fermer rend le dossier.
+ f.mount();f.type('dalle préau');await f.at('[data-action]',{action:'fm-content'});assert.match(f.list(),/data-action="fm-find" data-scope="all"><span>Chercher ce nom à la place/);
+ await f.at('[data-action]',{action:'fm-find',scope:'all'});assert.equal(f.state.urls.at(-1),'/api/files/search?q=dalle%20pr%C3%A9au');assert.equal(f.run('!!fmFound.content'),false);
+ await f.at('[data-action]',{action:'fm-content'});await f.at('[data-action]',{action:'fm-find-close'});assert.equal(f.run('fmFound'),null);
+ // Rien trouvé ; système sans moteur : le refus est dit, le dossier revient.
+ f.state.answer={...deepHits,items:[],partial:false,pdf:true};f.type('introuvable');await f.at('[data-action]',{action:'fm-content'});
+ assert.match(f.list(),/<strong>0 document<\/strong>/);assert.match(f.list(),/Aucun document ne contient ces mots\. Tous doivent s’y trouver/);assert.doesNotMatch(f.list(),/pdftotext/);
+ f.state.status=501;await f.at('[data-action]',{action:'fm-content'});assert.match(f.elements.get('#toast').textContent,/n’est pas disponible sur ce système/);assert.equal(f.run('fmFound'),null);
+ // Un compte en lecture seule cherche aussi dans le contenu de ce qu’il lit.
+ const g=deepFixture('viewer');await g.run('renderFiles()');g.mount();g.type('dalle');await g.at('[data-action]',{action:'fm-content'});assert.match(g.list(),/<strong>2 documents<\/strong>/);
+});
+test('content search rereads by itself while documents are being read, keeps the selection and stops when told',async()=>{
+ const f=deepFixture();await f.run('renderFiles()');f.mount();
+ f.state.answer={...deepHits,items:[],partial:false,read:0,pdf:true,scan:{running:true}};
+ f.type('dalle');await f.at('[data-action]',{action:'fm-content'});
+ assert.match(f.list(),/Première lecture de vos documents : les résultats arrivent d’eux-mêmes\./);assert.match(f.list(),/Rien pour l’instant\./);
+ let timers=f.state.timers.filter(t=>t[1]===3000);assert.equal(timers.length,1);
+ // La relecture ne vide pas la liste et ne repart pas de zéro.
+ f.state.answer={...deepHits,partial:false,pdf:true,scan:{running:true}};timers[0][0]();await f.settle();
+ assert.equal(f.deep().length,2);assert.match(f.list(),/Lecture de vos documents en cours : la liste se complète d’elle-même\./);assert.match(f.list(),/<strong>2 documents<\/strong>/);
+ await f.at('.fm-hit',{hit:'1'});assert.equal(f.run('fmHit'),1);
+ // Le même document, déplacé dans la liste, reste sélectionné ; la lecture finie, plus rien n’est relu.
+ f.state.answer={...deepHits,partial:false,pdf:true,items:[deepHits.items[1],deepHits.items[0]],scan:{running:false}};
+ timers=f.state.timers.filter(t=>t[1]===3000);timers.at(-1)[0]();await f.settle();
+ assert.equal(f.run('fmHit'),0);assert.match(f.list(),/<tr class="fm-hit sel" data-hit="0"><td>.*budget\.xlsx/);assert.doesNotMatch(f.list(),/Lecture de vos documents/);
+ assert.equal(f.state.timers.filter(t=>t[1]===3000).length,timers.length);
+ // Jamais derrière une fenêtre ouverte, ni après la fermeture de la recherche, ni après quarante relectures.
+ f.state.answer={...deepHits,scan:{running:true}};await f.at('[data-action]',{action:'fm-content'});const before=f.deep().length;
+ f.elements.get('#modal').open=true;f.state.timers.at(-1)[0]();await f.settle();assert.equal(f.deep().length,before);f.elements.get('#modal').open=false;
+ await f.at('[data-action]',{action:'fm-find-close'});f.state.timers.at(-1)[0]();await f.settle();assert.equal(f.deep().length,before);
+ await f.at('[data-action]',{action:'fm-content'});f.run('fmFound.polls=39');f.state.timers.length=0;await f.run('fmContent(true)');assert.equal(f.run('fmFound.polls'),40);assert.equal(f.state.timers.filter(t=>t[1]===3000).length,0);
+ // Une relecture qui échoue garde ce qui était affiché, sans message.
+ f.state.status=503;f.elements.get('#toast').textContent='';await f.run('fmContent(true)');assert.match(f.list(),/<strong>2 documents<\/strong>/);assert.equal(f.elements.get('#toast').textContent,'');
+ // Lecture arrêtée ou en échec : dit, sans relecture.
+ f.state.status=0;f.state.answer={...deepHits,partial:false,pdf:true,scan:{running:false,partial:'count'}};await f.at('[data-action]',{action:'fm-content'});assert.match(f.list(),/Lecture arrêtée avant la fin/);
+ f.state.answer={...deepHits,partial:false,pdf:true,scan:{running:false,error:'OSError'}};await f.at('[data-action]',{action:'fm-content'});assert.match(f.list(),/La dernière lecture des documents n’a pas abouti/);assert.doesNotMatch(f.list(),/OSError/);
+});
+test('a content search asked from the desktop search arrives in the field and starts by itself',async()=>{
+ const f=deepFixture();
+ f.run('fmQueue("  dalle préau ",false,false,false,true)');assert.deepEqual([f.run('fmPending'),f.run('fmPendingContent')],['dalle préau',true]);
+ f.run('fmQueue("",false,false,false,true)');assert.equal(f.run('fmPendingContent'),false);
+ f.run('deskApply({find:"dalle",content:true,app:"files"})');assert.deepEqual([f.run('fmPending'),f.run('fmPendingContent')],['dalle',true]);
+ f.mount();await f.run('renderFiles()');await f.settle();
+ assert.deepEqual(f.deep(),['/api/files/content?q=dalle']);assert.equal(f.run('fmPendingContent'),false);assert.equal(f.run('fmFilter'),'dalle');
+ // Sans la marque, la même saisie reste une recherche par nom.
+ f.run('deskApply({find:"dalle",app:"files"})');await f.run('renderFiles()');await f.settle();assert.equal(f.deep().length,1);assert.equal(f.state.urls.at(-1),'/api/files/search?q=dalle');
 });
 

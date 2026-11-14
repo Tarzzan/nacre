@@ -6,7 +6,7 @@ const FM_KINDS=[[/\.(jpe?g|png|gif|webp)$/i,'img','Image'],[/\.(mp4|webm)$/i,'vi
 const FM_MARK={dir:'D',lnk:'↗',img:'IMG',vid:'VID',pdf:'PDF',txt:'TXT',zip:'ZIP',doc:'DOC',xls:'XLS',ppt:'PPT',file:'·'};
 let fmItems=[],fmSel=new Set(),fmLast='',fmView='list',fmPreview=true,fmFilter='',fmSort=['name',1],fmRequest=0,fmDrag=null,fmBusy=false;
 // Recherche par nom : null hors recherche ; sinon la demande, sa portée et ses résultats (items null tant qu’elle court).
-let fmFound=null,fmHit=-1,fmFindRequest=0,fmPending='',fmPendingBig=false,fmPendingWeigh=false,fmPendingSpaces=false,fmSpacesBusy='';
+let fmFound=null,fmHit=-1,fmFindRequest=0,fmPending='',fmPendingBig=false,fmPendingWeigh=false,fmPendingSpaces=false,fmSpacesBusy='',fmPendingContent=false,fmContentTimer=null;
 // Sous-dossiers déjà vus, par « espace|chemin » : l’arborescence se construit en naviguant.
 const fmDirs=new Map();
 
@@ -60,7 +60,48 @@ function fmFindable(){return fmFilter.replace(/\s/g,'').length>=2;}
 // Sous le champ, dès deux caractères : le filtre reste local, la recherche se lance ici ou par Entrée.
 function fmAsk(){
  if(!fmFindable())return '';
- return `<div class="fm-find"><span>Filtre sur ce dossier. Chercher ce nom ailleurs :</span><span class="fm-grow"></span>${button('fm-find',currentPath?'Dans ses sous-dossiers':'Dans cet espace',null,'small','data-scope="here"')}${button('fm-find','Dans tout le NAS',null,'primary small','data-scope="all"')}</div>`;
+ return `<div class="fm-find"><span>Filtre sur ce dossier. Chercher ce nom ailleurs :</span><span class="fm-grow"></span>${button('fm-find',currentPath?'Dans ses sous-dossiers':'Dans cet espace',null,'small','data-scope="here"')}${button('fm-find','Dans tout le NAS',null,'primary small','data-scope="all"')}<span class="fm-or">ou ces mots</span>${button('fm-content','Dans le contenu des documents',null,'small')}</div>`;
+}
+// Recherche dans le contenu : les documents dont le texte contient tous les mots, dans les seuls espaces ouverts à la personne.
+// L’extrait arrive avec deux marques autour des mots trouvés ; elles ne deviennent des balises qu’ici, après échappement.
+function fmMark(text){return esc(String(text??'')).replace(/\x02/g,'<mark>').replace(/\x03/g,'</mark>');}
+function fmContentList(){
+ const {query,items,partial,limit,read,scan,pdf}=fmFound;
+ const head=text=>`<div class="fm-find"><span>${text}</span><span class="fm-grow"></span>${items?button('fm-find','Chercher ce nom à la place',null,'small','data-scope="all"'):''}${button('fm-find-close','Fermer la recherche',null,'small')}</div>`;
+ if(!items)return head(`Recherche de « ${esc(query)} » dans le contenu des documents…`)+'<p class="fm-hint">Recherche en cours…</p>';
+ const notes=[];
+ if(scan.running)notes.push(read?'Lecture de vos documents en cours : la liste se complète d’elle-même.':'Première lecture de vos documents : les résultats arrivent d’eux-mêmes.');
+ else if(scan.partial)notes.push('Lecture arrêtée avant la fin : trop de fichiers pour un seul passage. La recherche porte sur ce qui a été lu.');
+ else if(scan.error)notes.push('La dernière lecture des documents n’a pas abouti : la recherche porte sur ce qui avait été lu.');
+ if(partial)notes.push(`Seuls les ${limit} documents les plus pertinents sont affichés : ajoutez un mot pour préciser.`);
+ if(!pdf)notes.push('Les PDF ne sont trouvés que par leur nom : l’outil qui lit leur texte (pdftotext) n’est pas installé sur ce système.');
+ const note=notes.map(text=>`<p class="fm-note">${esc(text)}</p>`).join('');
+ const title=head(`<strong>${items.length} document${items.length>1?'s':''}</strong> dont le texte contient « ${esc(query)} »${read?`, parmi ${read.toLocaleString('fr-FR')} lus dans vos espaces`:''}`);
+ if(!items.length)return title+note+empty(scan.running?'Rien pour l’instant.':'Aucun document ne contient ces mots. Tous doivent s’y trouver : essayez-en moins, ou le début d’un mot.','folder');
+ return title+note+`<table class="fm-table fm-hits fm-content"><thead><tr><th>Document</th><th>Extrait</th><th>Emplacement</th><th>Modifié</th></tr></thead><tbody>${items.map((item,index)=>`<tr class="fm-hit ${index===fmHit?'sel':''}" data-hit="${index}"><td>${fmIcon(item)}${esc(item.name)}</td><td class="fm-extract">${fmMark(item.extract)}</td><td>${esc(fmAreaName(item.area)+(item.path?' › '+item.path.split('/').join(' › '):''))}</td><td>${date(item.modified)}</td></tr>`).join('')}</tbody></table>`;
+}
+// « quiet » relit la même recherche sans rien effacer : elle sert tant que la lecture des documents tourne.
+async function fmContent(quiet=false){
+ if(quiet&&!fmFound?.content)return;
+ if(!quiet&&!fmFindable())return toast('Saisissez au moins deux caractères à chercher.',true);
+ const text=quiet?fmFound.query:fmFilter.trim(),before=quiet?fmFound:null,chosen=quiet?fmFound.items?.[fmHit]:null;
+ const generation=sessionGeneration,request=++fmFindRequest;
+ const current=()=>generation===sessionGeneration&&request===fmFindRequest&&page==='files'&&!!fmFound;
+ clearTimeout(fmContentTimer);
+ if(!quiet){fmSel.clear();fmHit=-1;fmFound={content:true,query:text,items:null};fmRedraw();}
+ let data;
+ try{data=await api('files/content?q='+encodeURIComponent(text));}
+ catch(error){if(current()){fmFound=before;fmRedraw();}if(quiet)return;throw error;}
+ if(!current())return;
+ // Ne sont gardés que les résultats bien formés, dans un espace que ce compte voit.
+ const items=(Array.isArray(data?.items)?data.items:[]).filter(i=>i&&typeof i.name==='string'&&i.name&&typeof i.path==='string'&&fileAreas.some(a=>a.id===i.area));
+ // Une relecture garde la sélection si le même document est toujours là.
+ fmHit=chosen?items.findIndex(i=>i.area===chosen.area&&i.path===chosen.path&&i.name===chosen.name):-1;
+ fmFound={content:true,query:text,items,partial:data?.partial===true,limit:Number(data?.limit)||items.length,read:Number(data?.read)||0,pdf:data?.pdf!==false,
+  scan:data?.scan&&typeof data.scan==='object'?data.scan:{},polls:(before?.polls||0)+1};
+ fmRedraw();
+ // Tant que les documents sont lus, la liste se relit seule ; jamais plus de quarante fois, jamais derrière une fenêtre ouverte.
+ if(fmFound.scan.running&&fmFound.polls<40)fmContentTimer=setTimeout(()=>{if(page==='files'&&fmFound?.content&&!$('#modal')?.open)fmContent(true).catch(()=>{});},3000);
 }
 // Filtres des résultats : [paramètre de la recherche, libellé, choix]. Le choix vide ne filtre pas.
 const FM_REFINE=[['kind','Type',[['','Tous les types'],['folder','Dossiers'],['image','Images'],['video','Vidéos'],['audio','Sons'],['document','Documents'],['archive','Archives']]],
@@ -101,6 +142,7 @@ function fmSpacesList(){
   return `<tr><td>${icon('folder')}${esc(s.name)}</td><td>${k?many(k.count):'—'}</td><td>${busy?'pesée en cours…':k?(k.state==='whole'?'':'au moins ')+sizes(k.size):'non pesé'}</td><td>${k?share(k.size):'—'}</td><td>${k?date(k.at):'—'}</td><td>${button('fm-space-weigh',k?'Repeser':'Peser',null,'small',`data-area="${esc(s.id)}"${fmSpacesBusy?' disabled':''}`)}${k?button('fm-space-open','Détail',null,'small',`data-area="${esc(s.id)}" title="Ouvrir cet espace et peser ses dossiers"`):''}</td></tr>`;}).join('')}</tbody></table>`;
 }
 function fmFoundList(){
+ if(fmFound.content)return fmContentList();
  if(fmFound.spaces)return fmSpacesList();
  if(fmFound.usage)return fmUsageList();
  const {query,where,items,partial,visited,skipped,limit,filters,matched}=fmFound;
@@ -170,7 +212,7 @@ async function renderFileManager(){
  if(typeof editorDoc!=='undefined'&&editorDoc)return renderEditor();
  const generation=sessionGeneration,request=++fmRequest,current=()=>generation===sessionGeneration&&page==='files'&&request===fmRequest;
  // Une recherche demandée depuis la recherche globale : le nom arrive dans le champ, puis elle part sur tout le NAS.
- const asked=fmPending,big=fmPendingBig,weigh=fmPendingWeigh,spaces=fmPendingSpaces;fmPending='';fmPendingBig=fmPendingWeigh=fmPendingSpaces=false;if(asked||big||weigh||spaces){fmFilter=asked;fmFound=null;}
+ const asked=fmPending,big=fmPendingBig,weigh=fmPendingWeigh,spaces=fmPendingSpaces,deep=fmPendingContent;fmPending='';fmPendingBig=fmPendingWeigh=fmPendingSpaces=fmPendingContent=false;if(asked||big||weigh||spaces){fmFilter=asked;fmFound=null;}
  const areas=await api('areas');if(!current())return;
  fileAreas=areas;
  if(!fmHomed){fmHomed=true;const mine=fileAreas.find(a=>a.kind==='personal');if(user?.role==='member'&&mine&&area==='fichiers'&&!currentPath)area=mine.id;}
@@ -188,10 +230,10 @@ async function renderFileManager(){
  fmSel=new Set([...fmSel].filter(name=>fmItems.some(i=>i.name===name)));
  $('#content').innerHTML=`<div class="fm ${fmPreview?'':'fm-nopreview'}" id="fm"><nav class="fm-tree" id="fm-tree" aria-label="Espaces et dossiers">${fmTree()}</nav><div class="fm-main"><div class="fm-tools" id="fm-tools">${fmTools()}</div><div class="fm-list" id="fm-list">${fmList()}</div></div><aside class="fm-side" id="fm-side" aria-label="Aperçu">${fmSide()}</aside><input type="file" id="fm-upload" multiple hidden><div class="fm-drop" id="fm-drop" hidden></div></div>`;
  fmLoadText();
- if(asked||big||weigh||spaces)(asked?fmFind('all'):big?fmCriteria('all'):weigh?fmUsage():fmSpaces()).catch(error=>{if(error.name!=='AbortError')toast(error.message,true);});
+ if(asked||big||weigh||spaces)(asked?(deep?fmContent():fmFind('all')):big?fmCriteria('all'):weigh?fmUsage():fmSpaces()).catch(error=>{if(error.name!=='AbortError')toast(error.message,true);});
 }
 // À lancer à la prochaine ouverture de Fichiers : la recherche d’un nom, « big » pour les plus gros fichiers du NAS, ou « weigh » pour le poids des dossiers.
-function fmQueue(text,big=false,weigh=false,spaces=false){fmPending=String(text||'').trim().slice(0,80);fmPendingBig=!!big&&!fmPending;fmPendingWeigh=!!weigh&&!fmPending&&!fmPendingBig;fmPendingSpaces=!!spaces&&!fmPending&&!fmPendingBig&&!fmPendingWeigh;}
+function fmQueue(text,big=false,weigh=false,spaces=false,content=false){fmPending=String(text||'').trim().slice(0,80);fmPendingContent=!!content&&!!fmPending;fmPendingBig=!!big&&!fmPending;fmPendingWeigh=!!weigh&&!fmPending&&!fmPendingBig;fmPendingSpaces=!!spaces&&!fmPending&&!fmPendingBig&&!fmPendingWeigh;}
 // Recherche par nom, lancée à la demande : dans le dossier ouvert et ses sous-dossiers (« here ») ou dans tous les espaces.
 // Avec « refine », la même recherche est relancée avec d’autres filtres : nom et portée ne changent pas.
 function fmFind(scope,refine=null){
@@ -246,7 +288,7 @@ async function fmUsage(){
  fmFound={usage:true,query:'',where,filters:{},items,partial:typeof data?.partial==='string'?data.partial:'',visited:amount(data?.visited),total:group(data?.total),hidden:group(data?.hidden),others:group(data?.others)};
  fmRedraw();
 }
-function fmFindClose(){fmFindRequest++;fmFound=null;fmHit=-1;fmSpacesBusy='';fmRedraw();}
+function fmFindClose(){clearTimeout(fmContentTimer);fmFindRequest++;fmFound=null;fmHit=-1;fmSpacesBusy='';fmRedraw();}
 // Lire les pesées gardées. `fmFound.items` reste vide : cette vue n'a ni résultat à sélectionner, ni aperçu.
 async function fmSpaces(){
  fmFilter='';const box=$('#fm-filter');if(box)box.value='';
@@ -370,6 +412,7 @@ document.addEventListener('click',async e=>{
    if(action==='fm-find-close')return fmFindClose();
    if(action==='fm-refine-clear')return await fmFind('',{sort:fmFound?.filters?.sort});
    if(action==='fm-criteria')return await fmCriteria('here');
+   if(action==='fm-content')return await fmContent();
    if(action==='fm-find-wide')return await fmWiden();
    if(action==='fm-weigh')return await fmWeigh(el.dataset.name?fmJoin(el.dataset.name):currentPath);
    if(action==='fm-weigh-up')return await fmWeigh(currentPath.split('/').slice(0,-1).join('/'));

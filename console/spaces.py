@@ -20,7 +20,7 @@ NAME_MAX = 60
 LEVELS = ('read', 'write')
 COMMON = 'space:fichiers'
 # Ce qu'un membre peut lire et écrire dans la console ; tout le reste lui est refusé par défaut.
-MEMBER_READS = ('/api/me', '/api/desk', '/api/areas', '/api/files', '/api/files/search', '/api/files/usage', '/api/files/usage-spaces',
+MEMBER_READS = ('/api/me', '/api/desk', '/api/areas', '/api/files', '/api/files/search', '/api/files/content', '/api/files/usage', '/api/files/usage-spaces',
                 '/api/files/versions', '/api/files/version', '/api/files/text',
                 '/api/download', '/api/archive', '/api/trash', '/api/overview', '/api/account', '/api/links', '/api/photos', '/api/photos/thumb')
 MEMBER_WRITES = ('/api/logout', '/api/desk', '/api/upload', '/api/folder', '/api/rename', '/api/move', '/api/trash', '/api/restore',

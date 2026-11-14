@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.63 — Recherche dans le contenu
+
+Sixième brique de l’espace collaboratif. Dans **Fichiers**, quelques mots puis **Dans le contenu des documents** : Nacre liste les documents dont le texte contient tous ces mots, avec un extrait surligné. Sont lus les textes, les pages, les documents bureautiques (formats ouverts et Microsoft) et les PDF quand l’outil `pdftotext` est installé. Sans accents ni majuscules, et par le début des mots. **Chacun ne trouve que dans ses espaces** : l’index est commun, la réponse ne l’est jamais. Aucun document n’est interprété, et des plafonds bornent tout ce qui est lu. La recherche rapide du bureau propose la même recherche. L’index est une base à part, reconstructible, relue à la demande. Guide : [`docs/SEARCH.md`](docs/SEARCH.md).
+
 ## 0.8.0-alpha.62 — Photos
 
 Cinquième brique de l’espace collaboratif. Une application **Photos** réunit les images de tous les espaces que l’on peut lire et les range par date de prise de vue, **sans rien copier ni déplacer**. Un clic ouvre la photo en grand, avec sa date, son emplacement et l’appareil ; **Voir dans Fichiers** ouvre son dossier. Depuis le téléphone, **Ajouter des photos** dépose la pellicule dans l’espace personnel, rangée par mois, et **renvoyer les mêmes photos ne crée pas de doublon**. Chacun ne voit que ses espaces : l’index est commun, la réponse ne l’est jamais. Aucune bibliothèque d’images : Nacre lit la date et l’orientation au début du fichier et montre la vignette que l’appareil y a glissée. La recherche rapide montre désormais les neuf applications. Guide : [`docs/PHOTOS.md`](docs/PHOTOS.md).
