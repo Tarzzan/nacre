@@ -1,5 +1,15 @@
 # Déploiements de la console sur Spark
 
+## 14 novembre 2026 — alpha.45, dossiers de données protégés
+
+L’installation alpha.44 a reçu le paquet `nacre-0.8.0-alpha.45.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.45), construit depuis le commit [`f5f48de`](https://github.com/Tarzzan/nacre/commit/f5f48de246c56eb7798b81ce8db080082d76d6ac) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
+
+Avant l’import : neuf modules figés identiques, aucune tâche active, répétition isolée alpha.44 → alpha.45 réussie. Fichier importé identique à celui de la release, empreinte contrôlée ; session administrateur temporaire refermée ; installation confirmée depuis la fenêtre Réglages du bureau et suivie jusqu’à **Mise à jour réussie**, session conservée.
+
+Validation enregistrée à 3 h 48 min 19 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+**Aucun geste de root n’a été fait sur cette machine** : ni agent de services, ni montage protégé, ni changement de groupe. Son compte pilote toujours Docker directement, ce que l’accueil rapporte. Constaté en lecture seule après la mise à jour : les deux services en marche, Docker et Compose détectés, une image de la caméra servie sans être conservée. La [migration](SERVICE-AGENT.md#migrer-une-installation-en-service-et-revenir-en-arrière) attend son propriétaire : la console y tourne sous un compte qui sert aussi à autre chose.
+
 ## 14 novembre 2026 — alpha.44, agent de services
 
 L’installation alpha.43 a reçu le paquet `nacre-0.8.0-alpha.44.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.44), construit depuis le commit [`5681768`](https://github.com/Tarzzan/nacre/commit/5681768c01e3ac5edf24dde685ca4bbe70b8dff2) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).

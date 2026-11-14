@@ -291,3 +291,15 @@ de l'invité. Il rejoue les opérations par l'agent, tente de détourner la
 description des services, les variables et les montages, et vérifie chaque
 effet par docker inspect. Résultat dans /home/ubuntu/service-agent-results.json.
 Ne se rejoue pas sur la même VM : repartir d'un overlay neuf.
+
+
+MIGRATION VERS L'AGENT DE SERVICES
+Même VM jetable que le banc de l'agent, overlay neuf.
+
+Dans la VM uniquement :
+sudo env NACRE_VM_LAB=1 python3 /home/ubuntu/nas-autonome/tests/integration_service_migration_vm.py
+
+Ce banc garde ouvertes une session SMB et une console d'essai pendant toute
+la migration, puis pendant le retour arrière. Il retire puis remet ubuntu dans
+le groupe docker de l'invité, et active puis désactive les montages protégés.
+Résultat dans /home/ubuntu/service-migration-results.json.
