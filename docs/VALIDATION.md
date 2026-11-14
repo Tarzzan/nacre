@@ -1,5 +1,11 @@
 # Validation
 
+## Conservation des points natifs, règle et simulation — 0.8.0-alpha.39
+
+325 tests Python et 131 JavaScript. Deux essais Python face à un service natif simulé : répartition exacte des points entre gardés (avec motifs), sortants et protégés ; états non sûrs, date future, autre volume et identifiant mal formé ; captures manuelles protégées par défaut, points programmés soumis à la règle ; restauration en cours qui protège tout le volume ; rien demandé au service natif en dehors de son état et rien enregistré par une simulation ; règle enregistrée par volume et inscrite au journal ; règle illisible remplacée par la règle proposée ; vingt-quatre demandes mal formées refusées ; accès réservé aux administrateurs ; service natif absent. Un essai JavaScript : une ligne par volume, formulaire, simulation et ses trois listes, saisie non entière, refus affiché, réponse tardive ignorée, enregistrement, actualisation périodique suspendue pendant la saisie, carte absente sans volume. Sur le banc, avec le vrai serveur et un service natif simulé : onze points fictifs, règle « 3 derniers, 4 jours, 2 semaines, 2 mois » donnant 6 gardés, 2 protégés et 3 sortants ; règle enregistrée et relue.
+
+Non prouvé : rien n’a été exécuté sur un vrai volume natif, et ce lot n’en a pas besoin puisqu’il ne fait que lire l’état du service. L’installation de développement n’a pas de service natif : la carte n’y apparaît pas.
+
 ## Poids des dossiers — 0.8.0-alpha.38
 
 323 tests Python et 130 JavaScript. Détail dans le [guide du Bureau](DESKTOP.md#validation).

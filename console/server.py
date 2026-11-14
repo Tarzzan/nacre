@@ -715,6 +715,11 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == '/api/storage/health':
                 import disks
                 return self.reply(200, disks.health(ROOT, query['id']))
+            if url.path == '/api/storage/native-retention':
+                if session['role'] != 'admin':
+                    raise Problem('Accès réservé aux administrateurs.', 403)
+                from native_retention import listing
+                return self.reply(200, listing(sys.modules[__name__], session['name']))
             if url.path in ('/api/storage/native', '/api/storage/profiles'):
                 if session['role'] != 'admin':
                     raise Problem('Accès réservé aux administrateurs.', 403)
@@ -951,6 +956,12 @@ class Handler(BaseHTTPRequestHandler):
                 return storage_profiles().delete(body, user)
             elif route == '/api/storage/profile-prepare':
                 return storage_profiles().prepare(body,user)
+            elif route == '/api/storage/native-retention':
+                from native_retention import save
+                return save(sys.modules[__name__], body, user)
+            elif route == '/api/storage/native-retention-preview':
+                from native_retention import simulate
+                return simulate(sys.modules[__name__], body, user)
             elif route == '/api/storage/native-prepare':
                 return native_storage('prepare', user, body)
             elif route == '/api/storage/native-commit':
