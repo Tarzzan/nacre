@@ -138,6 +138,23 @@ La console ne supprime rien elle-même. Elle demande un plan au service, qui rev
 
 L’action vit dans un nouveau module, `console/native_service.py`, qui devient le point d’entrée du service et étend le moteur existant sans le modifier : aucun module figé ni schéma ne change, et la console se met à jour par paquet signé.
 
+### Une restauration restée « à vérifier »
+
+Une restauration interrompue, par une coupure du service ou une copie tuée en route, reste « à vérifier » : le service ne sait pas si sa copie existe. Tant qu’elle le reste, elle protège tous les points de son volume, donc bloque la suppression et fait sauter chaque passage de la conservation automatique.
+
+Depuis alpha.46, le service la relit de lui-même, deux minutes au moins après son lancement, sans rien créer ni supprimer :
+
+| Ce que le stockage montre | La restauration devient | Suite |
+| --- | --- | --- |
+| La copie existe, entière pour le stockage | **Terminée**, avec sa destination | Elle est utilisable comme une restauration réussie. Pour ZFS, le point dont elle dépend reste protégé, à juste titre. |
+| La copie n’existe pas | **Échec** | Rien à nettoyer. |
+| Copie de fichiers LVM dont le processus a disparu | **Échec** | Le dossier partiel reste privé, et n’est pas publié. |
+| Le service ne peut pas trancher | Reste « à vérifier » | Volume indisponible, emplacement de restauration modifié, copie encore en cours. |
+
+Dans les trois premiers cas, la suppression n’est plus bloquée. Comme pour le reste de ce lot, cela demande que root ait [réinstallé le service natif](#activer-la-suppression-sur-un-matériel) depuis cette version.
+
+**Prouvé sur banc VM** (`tests/integration_native_review_vm.py`) : restaurations Btrfs et ZFS coupées juste avant puis juste après la création de la copie, restauration LVM dont la copie est tuée en route. Blocage constaté tant qu’elles sont « à vérifier » ; puis échec quand la copie n’existe pas, terminée avec sa destination quand elle existe, copie Btrfs reconnue lisible, copie ZFS toujours non montée, dossier LVM partiel resté privé ; rien de créé ni de supprimé par la relecture ; suppression de points de nouveau acceptée.
+
 ### Preuves et limites
 
 **Prouvé sur banc VM** (`tests/integration_native_delete_vm.py`), avec de vrais volumes Btrfs, ZFS, LVM classique et LVM thin et le vrai service, installé par `install_native.py` et joint par son socket sous le compte non privilégié :
@@ -156,9 +173,9 @@ Quatorze points supprimés au total, exactement ceux annoncés. Ces preuves ne s
 
 **Limites connues :**
 
+- **Un dossier de restauration LVM partiel** n’est pas supprimé par le service : il reste sur le disque, privé, jusqu’à une intervention manuelle.
 - **Coupure de courant de la machine entière** : non essayée. Seul l’arrêt brutal du service autour de la commande l’a été.
 - **Thin pool saturé** : non essayé. La suppression ne demande pas de capacité libre, mais ce cas n’a pas été reproduit.
-- **Une restauration restée « à vérifier »** interdit toute suppression sur son volume, et rien ne permet encore de la lever depuis la console.
 - **Un point invalide**, par exemple une réserve LVM saturée, n’est pas supprimable par le service : il reste une intervention manuelle sur le stockage.
 
 ## Lot 4 — Conservation automatique

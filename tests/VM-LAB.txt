@@ -303,3 +303,15 @@ Ce banc garde ouvertes une session SMB et une console d'essai pendant toute
 la migration, puis pendant le retour arrière. Il retire puis remet ubuntu dans
 le groupe docker de l'invité, et active puis désactive les montages protégés.
 Résultat dans /home/ubuntu/service-migration-results.json.
+RELECTURE DES RESTAURATIONS « À VÉRIFIER »
+Repartir d'overlays neufs sur la VM 0.3 arrêtée, comme pour la suppression.
+
+Dans la VM uniquement :
+sudo env NACRE_VM_LAB=1 python3 /home/ubuntu/nas-autonome/tests/integration_native_review_vm.py
+
+Ce banc ne formate rien. Il interrompt de vraies restaurations Btrfs et ZFS
+(moteur lancé à part, service arrêté) et tue une copie LVM en route, vieillit
+ces opérations dans le catalogue de l'invité, puis vérifie que le service les
+tranche d'après le stockage et que la suppression n'est plus bloquée. Il écrit
+64 Mio sur le volume LVM classique. Résultat dans
+/home/ubuntu/native-review-results.json. Ne se rejoue pas sur la même VM.
