@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.60 — Éditeur de texte et Markdown
+
+Quatrième brique de l’espace collaboratif, premier temps. Dans **Fichiers**, **Nouveau document** crée un fichier texte ou Markdown et l’ouvre ; **Modifier**, dans l’aperçu d’un fichier texte, l’ouvre dans la fenêtre. Un document Markdown s’affiche en deux colonnes, le rendu suivant la frappe. **Chaque enregistrement garde l’ancien contenu comme version**, les enregistrements rapprochés d’une même personne n’en faisant qu’une. Un fichier modifié ailleurs depuis son ouverture n’est jamais écrasé en silence, et une bannière nomme les autres personnes qui ont le document ouvert. Le texte n’est jamais interprété : une page HTML s’ouvre comme du texte, l’aperçu échappe tout ce qu’il affiche. Un PDF s’ouvre désormais dans un nouvel onglet. Pas de coédition en temps réel, pas encore de documents bureautiques. Aucun changement de schéma ni de module figé. 402 tests Python, 158 JavaScript. [Guide](docs/EDITOR.md).
+
 ## 0.8.0-alpha.59 — Versions d’un fichier
 
 Troisième brique de l’espace collaboratif. Déposer un fichier dont le nom existe déjà ne remplace plus rien d’office : Nacre demande, et si l’on confirme, **l’ancien contenu devient une version**. Dans **Fichiers**, le bouton **Versions** d’un fichier liste ses dix dernières versions : télécharger, **remettre en place** (le contenu actuel devient alors une version, donc le retour se défait) ou retirer. Les versions suivent le fichier quand il est renommé ou déplacé depuis Nacre, et obéissent aux droits de l’espace. Elles ne sont pas une sauvegarde : même volume, et un fichier modifié par le réseau n’en laisse pas. Au passage, un dépôt refusé parce que le nom existe ferme proprement sa connexion. Aucun changement de schéma ni de module figé. 397 tests Python, 156 JavaScript. [Guide](docs/VERSIONS.md).

@@ -281,7 +281,7 @@ def list_files(area, path):
     return sorted(items, key=lambda x: (not x['directory'], x['name'].casefold()))
 
 
-PREVIEW_TYPES = {'.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp',
+PREVIEW_TYPES = {'.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp', '.pdf': 'application/pdf',
                  '.mp4': 'video/mp4', '.webm': 'video/webm',
                  **{suffix: 'text/plain; charset=utf-8' for suffix in ('.txt', '.md', '.csv', '.log', '.json', '.yml', '.yaml', '.ini', '.conf')}}
 PREVIEW_TEXT = 64 * 1024
@@ -635,9 +635,11 @@ class Handler(BaseHTTPRequestHandler):
             raise Problem('Session expirée. Reconnectez-vous.', 401)
         return dict(session)
 
-    def body(self):
+    def body(self, limit=32768):
         length = int(self.headers.get('Content-Length', '0'))
-        if length < 0 or length > 32768:
+        if length < 0 or length > limit:
+            # Le contenu n'est pas lu : la connexion est fermée, pour qu'il ne soit pas pris pour la requête suivante.
+            self.close_connection = True
             raise Problem('Requête trop volumineuse.', 413)
         try:
             value = json.loads(self.rfile.read(length))
@@ -679,7 +681,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise Problem('Ce lien de connexion a expiré ou a déjà été utilisé.', 401)
                 session_token, _ = make_session('admin')
                 return self.reply(303, b'', extra={'Location': '/', 'Set-Cookie': f'nas_session={session_token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800'})
-            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/timezone.js', '/desktop.js', '/desk-prefs.js', '/bell.js', '/palette.js', '/updates.js', '/components.js', '/playback.js', '/detection.js', '/surveillance.js', '/kept.js', '/people.js', '/links.js', '/public.js', '/qr.js', '/network.js', '/files.js', '/search.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
+            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/timezone.js', '/desktop.js', '/desk-prefs.js', '/bell.js', '/palette.js', '/updates.js', '/components.js', '/playback.js', '/detection.js', '/surveillance.js', '/kept.js', '/people.js', '/links.js', '/public.js', '/qr.js', '/network.js', '/editor.js', '/files.js', '/search.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
                 path = STATIC / ('index.html' if url.path == '/' else url.path[1:])
                 return self.reply(200, path.read_bytes(), mimetypes.guess_type(path)[0] or 'text/plain')
             if not post:
@@ -746,7 +748,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self.reply(200,upload(sys.modules[__name__],self))
                 if url.path == '/api/upload':
                     return self.upload(query, session)
-                result = self.mutate(url.path, self.body(), session)
+                # Un texte enregistré depuis l'éditeur dépasse la taille des requêtes ordinaires ; son propre plafond s'applique ensuite.
+                result = self.mutate(url.path, self.body(8 * 1024 ** 2 if url.path == '/api/files/text-save' else 32768), session)
                 return self.reply(200, result or {'ok': True})
             if url.path == '/api/me':
                 from onboarding import read, unset
@@ -817,6 +820,9 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == '/api/files/usage-spaces':
                 from file_search import spaces as weighed
                 return self.reply(200, weighed(sys.modules[__name__], session))
+            if url.path == '/api/files/text':
+                import editor
+                return self.reply(200, editor.read(sys.modules[__name__], query, session))
             if url.path == '/api/files/versions':
                 import versions
                 return self.reply(200, versions.listing(sys.modules[__name__], query.get('area', 'fichiers'), query.get('path', '')))
@@ -1009,6 +1015,9 @@ class Handler(BaseHTTPRequestHandler):
             if route in ('/api/network/configure','/api/network/certificate'):
                 import network
                 return (network.configure if route.endswith('/configure') else network.certificate)(sys.modules[__name__],body,session)
+            if route in ('/api/files/text-save','/api/files/text-new','/api/files/text-presence'):
+                import editor
+                return {'save':editor.save,'new':editor.create,'presence':editor.presence}[route.rsplit('-',1)[1]](sys.modules[__name__],body,session)
             if route in ('/api/files/version-restore','/api/files/version-delete'):
                 import versions
                 return (versions.restore if route.endswith('-restore') else versions.delete)(sys.modules[__name__],body,user)
