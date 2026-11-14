@@ -2531,3 +2531,52 @@ test('account page walks through enabling double authentication and never shows 
  await g.run('modalSubmit(new Map())');assert.deepEqual(g.calls.at(-1),['/api/spaces/totp-reset',{name:'camille'}]);
 });
 
+// Accès par le réseau : état, réglages, certificat ; l’ouverture passe toujours par une confirmation.
+const networkSample={enabled:false,running:false,error:'',port:8443,hosts:[],require_totp:'admins',certificate:null,provided:false,openssl:true,addresses:['192.168.1.20','10.0.0.5'],urls:[],my_totp:false,hosts_max:8};
+function networkFixture(state=networkSample,role='admin',reply){
+ const calls=[],f=deskFixture(async(url,options)=>{const body=options?.body?JSON.parse(options.body):null;calls.push([url,body]);const made=reply?.(url,body);return made||response(200,url==='/api/network'?state:{ok:true});},role);
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/network.js'),'utf8'),f.context);
+ const modal=f.elements.get('#modal');modal.showModal=()=>{modal.open=true;};modal.close=()=>{modal.open=false;};
+ f.calls=calls;f.run('page="network";');f.content=()=>String(f.elements.get('#content').innerHTML);
+ f.fields=(hosts,port,policy='admins')=>{f.elements.set('#network-hosts',{value:hosts});f.elements.set('#network-port',{value:String(port)});f.elements.set('#network-policy',{value:policy});f.error={textContent:''};f.elements.set('#network-error',f.error);};
+ f.submit=()=>Promise.all(f.listeners.get('submit').filter(fn=>fn.toString().includes('network-form')).map(fn=>fn({target:{getAttribute:()=> 'network-form'},preventDefault(){}})));
+ f.act=(action,data={})=>f.listeners.get('click').find(fn=>fn.toString().includes('network-provide'))({target:{closest:()=>({dataset:{action,...data}})}});return f;
+}
+test('network page stays closed until an administrator declares names and confirms the opening',async()=>{
+ const f=networkFixture();f.context.setTimeout=fn=>{fn();return 1;};await f.run('renderNetwork()');
+ let html=f.content();
+ assert.match(html,/<span class="badge dim">Fermé<\/span> La console ne répond que sur la machine elle-même/);assert.match(html,/value="open">Ouvrir l’accès réseau/);
+ assert.match(html,/data-action="network-add"[^>]*data-host="192\.168\.1\.20"/);assert.match(html,/Aucun certificat pour l’instant/);assert.doesNotMatch(html,/network-regenerate|network-close/);
+ assert.deepEqual(JSON.parse(f.run('JSON.stringify(networkHosts(" NAS.local,192.168.1.20 ;nas.local\\n a.b "))')),['nas.local','192.168.1.20','a.b']);
+ // Adresse proposée ajoutée au champ ; saisies invalides arrêtées avant tout envoi.
+ f.fields('nas.local',8443);await f.act('network-add',{host:'192.168.1.20'});assert.equal(f.elements.get('#network-hosts').value,'nas.local, 192.168.1.20');
+ f.fields('',8443);await f.submit();assert.match(f.error.textContent,/au moins un nom/);
+ f.fields('nas.local',80);await f.submit();assert.match(f.error.textContent,/Port invalide/);assert.equal(f.calls.length,1);
+ // Ouverture : confirmation qui nomme le port et les noms, et prévient le compte sans double authentification.
+ f.fields('nas.local, 192.168.1.20',9443,'everyone');await f.submit();
+ const modal=f.elements.get('#modal').innerHTML;
+ assert.match(modal,/Ouvrir la console au réseau \?/);assert.match(modal,/port 9443/);assert.match(modal,/nas\.local, 192\.168\.1\.20/);assert.match(modal,/Votre compte n’a pas la double authentification/);assert.equal(f.calls.length,1);
+ const result=await f.run('modalSubmit(new Map())');
+ assert.deepEqual(f.calls.at(-1),['/api/network/configure',{hosts:['nas.local','192.168.1.20'],port:9443,require_totp:'everyone',enabled:true,confirm:true}]);assert.equal(result.message,'Accès réseau ouvert.');
+ const g=networkFixture(networkSample,'viewer');await g.run('renderNetwork()');assert.match(g.content(),/réservée aux administrateurs/);assert.deepEqual(g.calls,[]);
+ const h=networkFixture({enabled:'oui'});await h.run('renderNetwork()');assert.match(h.content(),/Réponse illisible/);
+});
+test('open network access shows its addresses and certificate, and closes or renews only after confirmation',async()=>{
+ const open={...networkSample,enabled:true,running:true,hosts:['nas.local'],urls:['https://nas.local:8443/'],my_totp:true,certificate:{fingerprint:'AB:CD',expires:1794787200,names:['nas.<b>']}};
+ const f=networkFixture(open);f.context.setTimeout=fn=>{fn();return 1;};await f.run('renderNetwork()');
+ let html=f.content();
+ assert.match(html,/<span class="badge ">Ouvert<\/span>/);assert.match(html,/<li>https:\/\/nas\.local:8443\/<\/li>/);assert.match(html,/SHA-256 AB:CD/);assert.match(html,/Noms couverts : nas\.&lt;b&gt;\./);assert.match(html,/Certificat autosigné/);
+ assert.match(html,/value="save">Enregistrer/);assert.match(html,/data-action="network-close"/);assert.match(html,/data-action="network-regenerate"/);assert.doesNotMatch(html,/Votre compte n’a pas|<b>/);
+ // Déjà ouvert : enregistrer n’ouvre pas de fenêtre, puis la page est relue.
+ f.fields('nas.local, nas2.local',8443);await f.submit();
+ assert.deepEqual(f.calls.at(-2),['/api/network/configure',{hosts:['nas.local','nas2.local'],port:8443,require_totp:'admins',enabled:true,confirm:true}]);assert.deepEqual(f.calls.at(-1),['/api/network',null]);
+ await f.act('network-close');assert.match(f.elements.get('#modal').innerHTML,/Fermer l’accès réseau \?/);await f.run('modalSubmit(new Map())');
+ assert.deepEqual(f.calls.at(-1),['/api/network/configure',{hosts:['nas.local'],port:8443,require_totp:'admins',enabled:false}]);
+ await f.act('network-regenerate');assert.match(f.elements.get('#modal').innerHTML,/nouvelle empreinte/);await f.run('modalSubmit(new Map())');assert.deepEqual(f.calls.at(-1),['/api/network/certificate',{action:'regenerate'}]);
+ await f.act('network-provide');assert.match(f.elements.get('#modal').innerHTML,/name="certificate"[^]*name="key"/);
+ await f.run('modalSubmit(new Map([["certificate","CERT"],["key","KEY"]]))');assert.deepEqual(f.calls.at(-1),['/api/network/certificate',{action:'provide',certificate:'CERT',key:'KEY'}]);
+ // À l’arrêt malgré le réglage, erreur dite ; certificat fourni annoncé comme tel.
+ const g=networkFixture({...open,running:false,error:'Port déjà utilisé <x>',provided:true,my_totp:false});await g.run('renderNetwork()');
+ html=g.content();assert.match(html,/Ouvert, mais à l’arrêt/);assert.match(html,/role="alert">Port déjà utilisé &lt;x&gt;/);assert.match(html,/Certificat fourni par vos soins/);assert.match(html,/par le réseau, il sera refusé/);
+});
+

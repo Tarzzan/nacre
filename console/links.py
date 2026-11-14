@@ -153,7 +153,7 @@ def unlock(app, handler, token, body):
     key, doc = resolve(app, token)
     if 'password' not in doc:
         return {'ok': True}, None
-    if not handler.server.login_limit():
+    if not handler.server.login_limit(handler.client_address[0]):
         raise app.Problem('Trop de tentatives. Attendre une minute.', 429)
     password = body.get('password') if isinstance(body, dict) else None
     if not isinstance(password, str) or not hmac.compare_digest(app.password_hash(password, doc['password']['salt']), doc['password']['hash']):

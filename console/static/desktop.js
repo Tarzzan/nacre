@@ -8,7 +8,7 @@ const DESK_APPS=[
  {id:'storage',name:'Stockage',pages:[['storage','Disques'],['native','Volumes et snapshots']]},
  {id:'protect',name:'Protection',pages:[['backups','Sauvegardes'],['snapshots','Points de restauration'],['retention','Conservation',true]]},
  {id:'share',name:'Personnes et partages',pages:[['people','Personnes et espaces',true],['shares','Partages SMB'],['users','Comptes']]},
- {id:'settings',name:'Réglages',pages:[['settings','Général',true],['services','Services'],['updates','Mises à jour',true],['notifications','Notifications',true]]},
+ {id:'settings',name:'Réglages',pages:[['settings','Général',true],['services','Services'],['updates','Mises à jour',true],['network','Accès réseau',true],['notifications','Notifications',true]]},
  {id:'activity',name:'Activité',pages:[['alerts','Alertes',true],['events','Journal']]},
  {id:'me',name:'Mon compte',pages:[['account','Mon compte']]}];
 // Un membre n’ouvre que ses fichiers et son compte ; la surveillance s’ajoute si elle lui est ouverte.
