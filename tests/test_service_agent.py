@@ -31,6 +31,9 @@ class App:
         self.calls.append(('command', tuple(args), options))
         return self.answers.get('command', '')
 
+    def arguments(self, *args, override=None):
+        return ['docker', 'compose', '-f', str(self.ROOT / 'compose.yaml'), '-f', str(override), *args]
+
 
 class ServiceAgentTests(unittest.TestCase):
     def setUp(self):
@@ -84,7 +87,7 @@ class ServiceAgentTests(unittest.TestCase):
         self.ask('samba_mounts_check', override=override)
         kind, args, options = self.last()
         self.assertEqual((kind, args[:2], args[-2:]), ('command', ('docker', 'compose'), ('config', '--quiet')))
-        self.assertIn('/srv/nacre/compose.yaml', args)
+        self.assertEqual(args[2:6], ('-f', '/srv/nacre/compose.yaml', '-f', str(override)))
         self.assertEqual({name for name in service_agent.OPERATIONS}, {operation for (operation, _), _ in expected} | {'samba_password', 'samba_mounts_check', 'video_address', 'engine'})
 
     def test_video_address_gives_only_the_address_and_engine_only_three_answers(self):
@@ -132,7 +135,7 @@ class ServiceAgentTests(unittest.TestCase):
             ('samba_account', {'name': 'root;id', 'uid': 1002}), ('samba_account', {'name': 'alice', 'uid': 0}), ('samba_account', {'name': 'alice', 'uid': '1002'}), ('samba_account', {'name': '-G', 'uid': 1002}),
             ('samba_password', {'name': 'alice', 'password': 'court'}), ('samba_password', {'name': 'alice', 'password': 'une ligne\npuis une autre'}), ('samba_password', {'name': 'Alice', 'password': 'un secret bien long'}),
             ('samba_enable', {'name': 'alice', 'enabled': 1}), ('samba_enable', {'name': 'alice -x', 'enabled': True}),
-            ('engine', {'lookup': True, 'args': ['docker', 'ps']}),
+            ('engine', {'lookup': True, 'args': ['docker', 'ps']}), ('engine', {'lookup': 'oui'}),
         ]
         for operation, parameters in refused:
             with self.assertRaises(Problem, msg=(operation, parameters)):
@@ -152,10 +155,235 @@ class ServiceAgentTests(unittest.TestCase):
             if lines:
                 found[path.name] = lines
         # Le serveur garde les deux exécuteurs que le catalogue appelle, et rien d'autre.
-        self.assertEqual(found, {'server.py': ['def compose(*args, data=None, timeout=25):', 'from compose_support import arguments']})
+        self.assertEqual(found, {'server.py': ['def compose(*args, data=None, timeout=25):', 'from compose_support import arguments as described']})
         server = (SOURCE / 'console/server.py').read_text()
         self.assertEqual(len(re.findall(r'(?<![A-Za-z_.])command\(', server)), 2)   # sa définition, et son appel par compose()
         self.assertTrue(any(direct.search(line) for line in (SOURCE / 'console/system_recovery.py').read_text().splitlines()))
+
+
+class Storage:
+    """Docker simulé pour l'agent : note chaque commande, répond comme demandé."""
+    def __init__(self):
+        self.calls, self.code, self.out, self.slow = [], 0, '', False
+
+    def __call__(self, args, **options):
+        self.calls.append((list(args), options))
+        if self.slow:
+            raise service_agent.subprocess.TimeoutExpired(args, options.get('timeout'))
+        return service_agent.subprocess.CompletedProcess(args, self.code, self.out, 'détail <privé>')
+
+
+class AgentTests(unittest.TestCase):
+    """L'agent de services : identité de l'appelant, description et montages vérifiés, même liste fermée."""
+
+    def setUp(self):
+        import tempfile
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        base = Path(self.temp.name)
+        self.root, self.runtime, self.approved, self.outside = base / 'installation', base / 'run', base / 'srv/nacre', base / 'ailleurs'
+        for folder in (self.root / 'state/samba', self.root / 'state/console', self.runtime, self.approved / 'volume-a', self.outside):
+            folder.mkdir(parents=True)
+        self.description = base / 'compose.yaml'
+        self.description.write_text('name: nas-autonome-lab\nservices:\n  video: {}\n')
+        (self.root / '.env').write_text('NACRE_FRIGATE_IMAGE=ghcr.io/blakeblackshear/frigate:0.16.2\nNACRE_UID=1000\nNACRE_GID="1000"\nCOMPOSE_FILE=/tmp/piège.yaml\nDOCKER_HOST=tcp://ailleurs:2375\n')
+        self.policy = {'version': 1, 'allowed_uid': 1000, 'root': str(self.root), 'mount_roots': [str(self.approved)]}
+        self.docker = Storage()
+        # La description doit appartenir à root : ici, le compte qui lance les essais en tient lieu.
+        owner = service_agent.os.stat(self.description).st_uid
+        real = service_agent.os.stat
+        patcher = patch.object(service_agent.os, 'stat', side_effect=lambda path, *a, **k: type('Meta', (), {'st_uid': 0, 'st_mode': 0o100644})() if Path(path) == self.description else real(path, *a, **k))
+        patcher.start(); self.addCleanup(patcher.stop)
+        self.assertNotEqual(owner, -1)
+        self.host = service_agent.Host(self.policy, self.description, self.runtime, self.docker)
+        self.mounts_file = self.root / 'state/samba/volumes.compose.json'
+
+    def ask(self, operation, uid=1000, **parameters):
+        return service_agent.answer(self.host, uid, {'operation': operation, 'parameters': parameters})
+
+    def mount(self, source, target='/shares/native_volume-a', **changes):
+        return {'type': 'bind', 'source': str(source), 'target': target, 'read_only': False, 'bind': {'create_host_path': False}, **changes}
+
+    def mounts(self, *items):
+        self.mounts_file.write_text(json.dumps({'services': {'fichiers': {'volumes': list(items)}}}))
+
+    def test_only_the_console_account_is_heard_and_only_the_closed_list(self):
+        for uid in (0, 1001, 65534):
+            self.assertEqual(self.ask('status', uid=uid), {'error': 'Identité du client système non autorisée.', 'status': 403})
+        for message in ({'operation': 'inconnue'}, {'operation': 'control', 'parameters': {'name': 'video', 'action': 'rm'}}, {'operation': 'status', 'parameters': ['video']},
+                        {'operation': 'status', 'parameters': {'component': '--volumes'}}, {'operation': 'compose', 'parameters': {'args': ['run', '--privileged', 'alpine']}}, {}):
+            reply = service_agent.answer(self.host, 1000, message)
+            self.assertEqual((sorted(reply), reply['status']), (['error', 'status'], 400), message)
+        self.assertEqual(self.docker.calls, [])
+        self.docker.out = '{"Service":"video"}\n'
+        self.assertEqual(self.ask('status'), {'result': '{"Service":"video"}\n'})
+        args, options = self.docker.calls[-1]
+        # Sa propre description, le dossier de l'installation, le nom du projet, et un fichier de variables qu'il a filtré.
+        self.assertEqual(args[:5], ['docker', 'compose', '--project-directory', str(self.root), '--project-name'])
+        self.assertEqual((args[5], args[6], args[8:]), ('nas-autonome-lab', '--env-file', ['-f', str(self.description), 'ps', '--all', '--format', 'json']))
+        self.assertEqual(Path(args[7]).read_text(), 'NACRE_FRIGATE_IMAGE=ghcr.io/blakeblackshear/frigate:0.16.2\nNACRE_GID=1000\nNACRE_UID=1000\n')
+        self.assertEqual((Path(args[7]).parent, options['cwd'], options['timeout'], sorted(options['env'])), (self.runtime, self.root, 3, ['HOME', 'LC_ALL', 'PATH']))
+        self.assertNotIn(str(self.root / 'compose.yaml'), args)
+        # Un refus de Docker, un délai dépassé : mêmes sens que sans agent, et aucun détail brut vers la console.
+        self.docker.code = 1
+        self.assertEqual(self.ask('samba_reload'), {'error': 'Le service n’a pas accepté cette opération. Consulter son état.', 'status': 503})
+        self.docker.code, self.docker.slow = 0, True
+        self.assertEqual(self.ask('samba_reload'), {'error': 'Délai dépassé.', 'status': 503, 'kind': 'timeout'})
+        self.docker.slow = False
+        # Le mot de passe arrive à smbpasswd par l'entrée standard.
+        self.ask('samba_password', name='alice', password='un secret bien long')
+        args, options = self.docker.calls[-1]
+        self.assertEqual((args[-7:], options['input']), (['exec', '-T', 'fichiers', 'smbpasswd', '-s', '-a', 'alice'], 'un secret bien long\nun secret bien long\n'))
+
+    def test_share_mounts_must_point_inside_locations_approved_by_root(self):
+        # Sans fichier de montages : rien d'ajouté. Avec un montage approuvé : la copie vérifiée de l'agent, pas le fichier de la console.
+        self.assertIn('result', self.ask('recreate_files'))
+        self.assertEqual(self.docker.calls[-1][0].count('-f'), 1)
+        self.mounts(self.mount(self.approved / 'volume-a'))
+        self.assertIn('result', self.ask('recreate_files'))
+        args = self.docker.calls[-1][0]
+        copy = Path(args[args.index('-f', args.index('-f') + 1) + 1])
+        self.assertEqual((copy.parent, args[-5:]), (self.runtime, ['up', '-d', '--no-deps', '--force-recreate', 'fichiers']))
+        self.assertEqual(json.loads(copy.read_text()), {'services': {'fichiers': {'volumes': [self.mount(service_agent.os.path.realpath(self.approved / 'volume-a'))]}}})
+        self.assertNotIn(str(self.mounts_file), args)
+        # Tout écart refuse l'opération entière, avant toute commande.
+        (self.approved / 'lien').symlink_to(self.outside)
+        before = len(self.docker.calls)
+        bad = [self.mount(self.outside), self.mount('/'), self.mount('/etc'), self.mount(self.approved / 'lien'), self.mount(self.approved / 'absent'), self.mount(str(self.approved) + '/../ailleurs'),
+               self.mount('relatif'), self.mount(self.approved / 'volume-a', target='/shares/fichiers'), self.mount(self.approved / 'volume-a', target='/etc'),
+               self.mount(self.approved / 'volume-a', target='/shares/native_../x'), self.mount(self.approved / 'volume-a', type='volume'), self.mount(self.approved / 'volume-a', read_only='non'),
+               self.mount(self.approved / 'volume-a', bind={'create_host_path': True}), {**self.mount(self.approved / 'volume-a'), 'privileged': True}, 'chaîne']
+        for item in bad:
+            self.mounts(item)
+            self.assertEqual(self.ask('recreate_files'), {'error': 'Montage de partage non approuvé par la politique système.', 'status': 400}, item)
+        for document in ({'services': {'fichiers': {'volumes': [], 'privileged': True}}}, {'services': {'fichiers': {'volumes': []}, 'autre': {'image': 'alpine'}}},
+                         {'services': {'fichiers': {'volumes': []}}, 'volumes': {}}, [], 'x'):
+            self.mounts_file.write_text(json.dumps(document))
+            self.assertEqual(self.ask('status')['status'], 400, document)
+        self.mounts_file.write_text('{illisible')
+        self.assertEqual(self.ask('status')['status'], 400)
+        self.mounts_file.unlink(); self.mounts_file.symlink_to('/etc/passwd')
+        self.assertEqual(self.ask('status')['status'], 503)
+        self.assertEqual(len(self.docker.calls), before)
+        self.mounts_file.unlink()
+        # Sans emplacement approuvé, aucun dossier supplémentaire n'entre dans le conteneur.
+        self.host.policy = {**self.policy, 'mount_roots': []}
+        self.mounts(self.mount(self.approved / 'volume-a'))
+        self.assertEqual(self.ask('recreate_files')['status'], 400)
+        # Le fichier candidat d'une modification de partages passe par le même contrôle.
+        self.host.policy = self.policy
+        self.mounts_file.unlink()
+        candidate = self.root / 'state/samba' / ('.mounts-' + 'c' * 20 + '.json')
+        candidate.write_text(json.dumps({'services': {'fichiers': {'volumes': [self.mount(self.outside)]}}}))
+        self.assertEqual(self.ask('samba_mounts_check', override=str(candidate))['status'], 400)
+        candidate.write_text(json.dumps({'services': {'fichiers': {'volumes': [self.mount(self.approved / 'volume-a')]}}}))
+        self.assertIn('result', self.ask('samba_mounts_check', override=str(candidate)))
+        self.assertEqual(self.docker.calls[-1][0][-2:], ['config', '--quiet'])
+
+    def test_a_recovered_installation_is_read_strictly(self):
+        (self.root / 'state/console/recovery-project.json').write_text(json.dumps({'project': 'nacre-recovered-' + 'a' * 24}))
+        state = self.root / 'state/samba/recovery.compose.json'
+        good = {'services': {'fichiers': {'image': 'sha256:' + 'b' * 64, 'hostname': 'nas-maison'}}, 'volumes': {'samba-state': {'external': True, 'name': 'nacre-recovered-samba'}}}
+        state.write_text(json.dumps(good))
+        self.assertIn('result', self.ask('status'))
+        args = self.docker.calls[-1][0]
+        self.assertEqual(args[5], 'nacre-recovered-' + 'a' * 24)
+        self.assertEqual(json.loads(Path(args[args.index('-f', args.index('-f') + 1) + 1]).read_text()), good)
+        before = len(self.docker.calls)
+        for document in ({**good, 'services': {'fichiers': {**good['services']['fichiers'], 'privileged': True}}}, {**good, 'services': {**good['services'], 'autre': {}}},
+                         {**good, 'volumes': {'samba-state': {'external': False, 'name': 'x'}}}, {'services': {'fichiers': {'image': 'alpine', 'hostname': 'x'}}, 'volumes': good['volumes']}, []):
+            state.write_text(json.dumps(document))
+            self.assertEqual(self.ask('status'), {'error': 'État Samba repris invalide.', 'status': 400}, document)
+        state.write_text(json.dumps(good))
+        (self.root / 'state/console/recovery-project.json').write_text(json.dumps({'project': 'autre-projet'}))
+        self.assertEqual(self.ask('status'), {'error': 'Projet de reprise invalide.', 'status': 400})
+        self.assertEqual(len(self.docker.calls), before)
+        # Reprise commencée, état Samba pas encore préparé : aucun démarrage.
+        (self.root / 'state/console/recovery-project.json').unlink(); state.unlink()
+        (self.root / 'state/console/system-recovery-status.json').write_text('{}')
+        self.assertEqual(self.ask('control', name='video', action='start')['status'], 400)
+        self.assertIn('result', self.ask('control', name='video', action='stop'))
+
+    def test_the_console_reaches_the_agent_through_its_socket_and_keeps_its_error_meanings(self):
+        import threading
+        path = str(self.runtime / 'control.sock')
+        server = service_agent.AgentServer(path, service_agent.AgentHandler)
+        server.host = self.host
+        self.host.policy = {**self.policy, 'allowed_uid': service_agent.os.getuid()}
+        thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
+        self.addCleanup(lambda: (server.shutdown(), server.server_close()))
+        client, app = service_agent.AgentClient(path), App()
+        self.assertTrue(service_agent.agent_present(path)); self.assertFalse(service_agent.agent_present(path + '.absent'))
+        self.docker.out = 'sortie\n'
+        self.assertEqual(client.request(app, 'samba_group', {}), 'sortie\n')
+        self.assertEqual(client.request(app, 'samba_mounts_check', {'override': self.root / 'state/samba' / ('.mounts-' + 'd' * 20 + '.json')}), 'sortie\n')
+        self.assertEqual(app.calls, [])                       # rien n'est exécuté du côté de la console
+        with self.assertRaises(Problem) as refused:
+            client.request(app, 'control', {'name': 'video', 'action': 'rm'})
+        self.assertEqual(refused.exception.args, ('Opération de service non autorisée.', 400))
+        self.docker.code = 1
+        with self.assertRaises(Problem) as failed:
+            client.request(app, 'samba_reload', {})
+        self.assertEqual(failed.exception.args[1], 503)
+        self.docker.code, self.docker.slow = 0, True
+        with self.assertRaises(service_agent.subprocess.TimeoutExpired):
+            client.request(app, 'samba_reload', {})
+        self.docker.slow = False
+        self.host.policy = {**self.policy, 'allowed_uid': service_agent.os.getuid() + 1}
+        with self.assertRaises(Problem) as stranger:
+            client.request(app, 'status', {})
+        self.assertEqual(stranger.exception.args, ('Identité du client système non autorisée.', 403))
+        with self.assertRaises(OSError):
+            service_agent.AgentClient(path + '.absent').request(app, 'status', {})
+        with self.assertRaises(Problem):
+            client.request(app, 'video_validate', {'document': {'x': 'y' * service_agent.MAX_MESSAGE}})
+        # Une demande mal formée est refusée sans rien exécuter.
+        import socket
+        calls = len(self.docker.calls)
+        for raw in (b'pas du json\n', b'[]\n', b'{"operation":"status"}'):
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as direct:
+                direct.connect(path); direct.sendall(raw); direct.shutdown(socket.SHUT_WR)
+                self.assertEqual(json.loads(direct.makefile('rb').readline())['error'], 'Requête système invalide.')
+        self.assertEqual(len(self.docker.calls), calls)
+
+    def test_installer_stages_the_agent_its_own_description_and_an_empty_policy(self):
+        import install_services
+        (self.root / 'compose.yaml').write_text('name: nas-autonome-lab\nservices: {}\n')
+        target = Path(self.temp.name) / 'racine'
+        prepared = install_services.stage(target, 1000, self.root)
+        self.assertEqual(sorted(prepared), ['etc/nacre-services/policy.json', 'etc/systemd/system/nacre-services.service', 'usr/local/lib/nacre-services/compose.yaml',
+                                            'usr/local/lib/nacre-services/native_storage.py', 'usr/local/lib/nacre-services/service_agent.py'])
+        self.assertEqual(json.loads((target / 'etc/nacre-services/policy.json').read_text()), {'version': 1, 'allowed_uid': 1000, 'root': str(self.root.resolve()), 'mount_roots': []})
+        self.assertEqual((target / 'usr/local/lib/nacre-services/compose.yaml').read_text(), (self.root / 'compose.yaml').read_text())
+        self.assertEqual((target / 'usr/local/lib/nacre-services/service_agent.py').read_text(), (SOURCE / 'console/service_agent.py').read_text())
+        self.assertIn('ExecStart=/usr/bin/python3 -I /usr/local/lib/nacre-services/service_agent.py\n', prepared['etc/systemd/system/nacre-services.service'])
+        self.assertEqual((target / 'etc/nacre-services/policy.json').stat().st_mode & 0o777, 0o600)
+        # Réinstaller met le code et la description à jour, jamais la politique.
+        (target / 'etc/nacre-services/policy.json').write_text('{"gardée": true}')
+        (self.root / 'compose.yaml').write_text('name: nas-autonome-lab\nservices: {video: {}}\n')
+        install_services.stage(target, 1000, self.root)
+        self.assertEqual((target / 'etc/nacre-services/policy.json').read_text(), '{"gardée": true}')
+        self.assertIn('video', (target / 'usr/local/lib/nacre-services/compose.yaml').read_text())
+        for uid, root in ((0, self.root), (1000, self.outside)):
+            with self.assertRaises(ValueError):
+                install_services.stage(target, uid, root)
+
+    def test_policy_and_description_must_belong_to_root(self):
+        with self.assertRaises(service_agent.AgentError):
+            service_agent.read_policy(Path(self.temp.name) / 'policy.json')        # absente
+        for policy in ({}, {**self.policy, 'version': 2}, {**self.policy, 'allowed_uid': 0}, {**self.policy, 'root': 'relatif'}, {**self.policy, 'root': '/srv/../etc'},
+                       {**self.policy, 'mount_roots': ['/']}, {**self.policy, 'mount_roots': ['relatif']}, {**self.policy, 'mount_roots': '/srv'}):
+            target = Path(self.temp.name) / 'policy.json'
+            target.write_text(json.dumps(policy))
+            with self.assertRaises(service_agent.AgentError, msg=policy):
+                service_agent.read_policy(target)
+        # Un dossier de /tmp, inscriptible par tous, n'est jamais un ancrage de confiance : même une politique bien formée y est refusée.
+        target.write_text(json.dumps(self.policy))
+        with self.assertRaises(service_agent.AgentError):
+            service_agent.read_policy(target)
+        self.description.write_text('services: {}\n')
+        with self.assertRaises(service_agent.AgentError):
+            service_agent.Host(self.policy, self.description, self.runtime, self.docker)
 
 
 if __name__ == '__main__':
