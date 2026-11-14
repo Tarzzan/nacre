@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.55 — Double authentification
+
+Deuxième brique de l’espace collaboratif, premier temps. Chaque personne peut ajouter à son compte un **code à six chiffres** donné par une application d’authentification, demandé à chaque connexion par mot de passe. L’activation se fait dans **Mon compte** : mot de passe, **code QR** à scanner, premier code pour confirmer, puis dix **codes de secours** affichés une seule fois. À la connexion, le champ du code n’apparaît que si le compte en demande un ; un code ne sert qu’une fois. Un administrateur peut retirer la double authentification d’une autre personne qui a perdu son téléphone ; le lien de connexion locale, généré sur la machine, reste le recours. Norme TOTP (RFC 6238), sans dépendance ; le code QR est dessiné par la console. Aucun changement de schéma ni de module figé. 386 tests Python, 152 JavaScript. [Guide](docs/ACCESS.md#double-authentification).
+
 ## 0.8.0-alpha.54 — Espaces dans les sauvegardes
 
 Les plans de sauvegarde proposent une nouvelle source, **Espaces personnels et d’équipe** : tous les espaces d’un coup, présents et à venir, sans leurs corbeilles. Un nouveau plan la coche d’office avec l’espace commun ; un plan existant garde ses choix. Une restauration les rend sous `espaces/<identifiant>` dans les restaurations privées, donc lisibles par l’administrateur qui restaure. La brique « comptes, groupes, espaces » est ainsi complète pour l’usage par le navigateur ; l’exposition des espaces en SMB reste à faire. Aucun changement de schéma ni de module figé. 381 tests Python, 149 JavaScript. [Guide](docs/SPACES.md#sauvegarder-les-espaces).

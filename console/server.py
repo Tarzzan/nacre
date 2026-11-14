@@ -658,7 +658,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise Problem('Ce lien de connexion a expiré ou a déjà été utilisé.', 401)
                 session_token, _ = make_session('admin')
                 return self.reply(303, b'', extra={'Location': '/', 'Set-Cookie': f'nas_session={session_token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800'})
-            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/timezone.js', '/desktop.js', '/desk-prefs.js', '/bell.js', '/palette.js', '/updates.js', '/components.js', '/playback.js', '/detection.js', '/surveillance.js', '/kept.js', '/people.js', '/links.js', '/public.js', '/files.js', '/search.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
+            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/timezone.js', '/desktop.js', '/desk-prefs.js', '/bell.js', '/palette.js', '/updates.js', '/components.js', '/playback.js', '/detection.js', '/surveillance.js', '/kept.js', '/people.js', '/links.js', '/public.js', '/qr.js', '/files.js', '/search.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
                 path = STATIC / ('index.html' if url.path == '/' else url.path[1:])
                 return self.reply(200, path.read_bytes(), mimetypes.guess_type(path)[0] or 'text/plain')
             if not post and url.path.startswith('/p/'):
@@ -681,6 +681,18 @@ class Handler(BaseHTTPRequestHandler):
                 hashed = password_hash(password, salt)
                 if not user or not user['active'] or not hmac.compare_digest(hashed, user['hash']):
                     raise Problem('Identifiant ou mot de passe refusé.', 401)
+                # Double authentification : le code n'est demandé qu'une fois le mot de passe reconnu.
+                import totp
+                with database() as db:
+                    db.execute('BEGIN IMMEDIATE')
+                    if totp.enabled(db, username):
+                        code = body.get('code')
+                        if code in (None, ''):
+                            return self.reply(401, {'error': 'Saisissez le code de double authentification.', 'totp': True})
+                        if not totp.check(sys.modules[__name__], db, username, code):
+                            db.execute('INSERT INTO audit(ts,username,action,detail) VALUES(?,?,?,?)', (time.time(), username, 'Code de double authentification refusé', ''))
+                            db.commit()
+                            return self.reply(401, {'error': 'Code de double authentification refusé.', 'totp': True})
                 token, csrf = make_session(username)
                 audit(username, 'Connexion')
                 return self.reply(200, {'csrf': csrf, 'name': username, 'role': user['role']}, extra={'Set-Cookie': f'nas_session={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800'})
@@ -695,7 +707,7 @@ class Handler(BaseHTTPRequestHandler):
             if maintenance(sys.modules[__name__]) and (post or url.path not in ('/api/me','/api/updates')):
                 raise Problem('Mise à jour en cours. La console sera bientôt disponible.',503)
             if post:
-                self.authorize_write(session, require_admin=url.path not in ('/api/logout', '/api/desk', '/api/account/password') and not (session['role'] in ('member', 'admin') and url.path in spaces.MEMBER_WRITES))
+                self.authorize_write(session, require_admin=url.path not in ('/api/logout', '/api/desk', '/api/account/password', '/api/account/totp/start', '/api/account/totp/confirm', '/api/account/totp/disable') and not (session['role'] in ('member', 'admin') and url.path in spaces.MEMBER_WRITES))
                 if url.path == '/api/updates/upload':
                     from updates import upload
                     return self.reply(200,upload(sys.modules[__name__],self))
@@ -751,7 +763,8 @@ class Handler(BaseHTTPRequestHandler):
                 from links import listing as shared_links
                 return self.reply(200, shared_links(sys.modules[__name__], session))
             if url.path == '/api/account':
-                return self.reply(200, {'name': session['name'], 'role': session['role']})
+                import totp
+                return self.reply(200, {'name': session['name'], 'role': session['role'], 'totp': totp.summary(sys.modules[__name__], session)})
             if url.path == '/api/spaces':
                 if session['role'] != 'admin':raise Problem('Accès réservé aux administrateurs.',403)
                 return self.reply(200, spaces.overview(sys.modules[__name__]))
@@ -947,12 +960,17 @@ class Handler(BaseHTTPRequestHandler):
                 return submit(sys.modules[__name__],body,user)
             if route.startswith('/api/spaces/'):
                 action={'group':spaces.save_group,'group-delete':spaces.delete_group,'space':spaces.save_space,'space-delete':spaces.delete_space,
-                        'common':spaces.save_common,'person':spaces.save_person,'adopt':spaces.adopt}.get(route[len('/api/spaces/'):])
+                        'common':spaces.save_common,'person':spaces.save_person,'adopt':spaces.adopt,'totp-reset':__import__('totp').reset}.get(route[len('/api/spaces/'):])
                 if not action:raise Problem('Ressource inconnue.',404)
                 return action(sys.modules[__name__],body,user)
             if route in ('/api/links/create','/api/links/revoke'):
                 import links
                 return (links.create if route.endswith('/create') else links.revoke)(sys.modules[__name__],body,session)
+            if route.startswith('/api/account/totp/'):
+                import totp
+                action={'start':totp.start,'confirm':totp.confirm,'disable':totp.disable}.get(route.rsplit('/',1)[1])
+                if not action:raise Problem('Ressource inconnue.',404)
+                return action(sys.modules[__name__],body,session)
             if route == '/api/account/password':
                 return spaces.change_password(sys.modules[__name__],body,session)
             if route in ('/api/camera/keep','/api/camera/unkeep'):

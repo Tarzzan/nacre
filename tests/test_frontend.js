@@ -2470,3 +2470,64 @@ test('a new backup plan protects the common space and the spaces of people, and 
  f.run('protectionSources=[{id:"fichiers",name:"Fichiers partagés"}];');assert.doesNotMatch(f.run('dataChoices()'),/value="espaces"/);
 });
 
+// Double authentification : code QR sans dépendance, champ de code à la connexion, activation depuis Mon compte.
+test('QR code matches a reference encoder and refuses a text that does not fit',()=>{
+ const context=vm.createContext({TextEncoder,console});vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/qr.js'),'utf8'),context);
+ const run=code=>vm.runInContext(code,context);
+ // Matrice produite par une bibliothèque de référence pour le même texte, la même correction et le même masque.
+ const reference='111111101011010011111111001111111/100000101101010010101001001000001/101110100101000001000010101011101/101110101000101110011110001011101/101110100001101001001001101011101/100000100110100000111010001000001/111111101010101010101010101111111/000000001110100001101001000000000/101101110001101011111111101001011/100000001110101010010001011101111/001000111110001011000101100001001/101000001010111110111001100001010/111101100110000100100001100001010/101010000001110011100111110100110/101100110010000111000100111101000/000010011110100010011110001001111/011101101010100110111011001011010/110100011001110101101011111110001/010110100010000111000000100100110/111001000010111110011011110100011/111000111101100100110000000110100/111010010011001100100010000000001/000100100110110010001111010111111/010011001100101010110010001011011/100011111110111111001010111110100/000000001101100101010000100011000/111111101001111000011011101011000/100000101001001100010101100011101/101110100100011101000011111110101/101110101111101000111001110100001/101110101101011000100101001000000/100000100001101111101010011100001/111111101101110111100101010111000';
+ assert.equal(run('qrMatrix("otpauth://totp/Nacre:essai?secret=JBSWY3DPEHPK3PXP",3)').map(row=>row.map(Number).join('')).join('/'),reference);
+ for(const [length,size] of [[1,21],[14,21],[15,25],[106,41],[107,45],[213,57]])assert.equal(run(`qrMatrix("x".repeat(${length})).length`),size,length);
+ assert.equal(run('qrMatrix("x".repeat(214))'),null);assert.equal(run('qrSvg("x".repeat(214))'),'');
+ const svg=run('qrSvg("otpauth://totp/Nacre:a?secret=AAAA","Clé <b>")');
+ assert.match(svg,/^<svg class="qr" viewBox="0 0 \d+ \d+" role="img" aria-label="Clé <b>"/);assert.match(svg,/<rect class="qr-bg"/);assert.match(svg,/<path class="qr-fg" d="M4 4h1v1h-1z/);assert.doesNotMatch(svg,/style=/);
+});
+test('login asks for the code only after the server says so, and sends it with the password',async()=>{
+ const sent=[];let answer=()=>response(401,{error:'Saisissez le code de double authentification.',totp:true});
+ const f=fixture(async(url,options)=>{if(url==='/api/login'){sent.push(JSON.parse(options.body));return answer();}return response(200,account);});
+ f.run('login()');
+ const html=String(f.elements.get('#app').innerHTML||'');
+ const row={hidden:true},code={focused:0,focus(){this.focused++;}};f.elements.set('#login-code-row',row);f.elements.set('#field-code',code);
+ const button={disabled:false},form={getAttribute:()=> 'login-form',values:{username:'camille',password:'secret-de-banc',code:''},querySelector:()=>button};
+ const submit=()=>Promise.all(f.listeners.get('submit').map(fn=>fn({target:form,preventDefault(){}})));
+ await submit();
+ assert.equal(row.hidden,false);assert.equal(code.focused,1);assert.equal(f.elements.get('#login-error').textContent,'Saisissez le code de double authentification.');assert.equal(button.disabled,false);
+ // Un mot de passe refusé ne révèle pas le champ.
+ row.hidden=true;answer=()=>response(401,{error:'Identifiant ou mot de passe refusé.'});await submit();assert.equal(row.hidden,true);
+ form.values.code='123 456';answer=()=>response(200,account);f.run('render=async()=>{};');await submit();
+ assert.deepEqual(sent.at(-1),{username:'camille',password:'secret-de-banc',code:'123 456'});
+ assert.match(source,/id="login-code-row" hidden>.*autocomplete="one-time-code"/);
+});
+test('account page walks through enabling double authentication and never shows recovery codes twice',async()=>{
+ let state={enabled:false,recovery:0},refuse='';
+ const f=peopleFixture((url,body)=>url==='/api/account'?response(200,{name:'camille',role:'member',totp:state}):refuse?response(403,{error:refuse}):
+  url.endsWith('/start')?response(200,{secret:'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP',uri:'otpauth://totp/Nacre:camille?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&issuer=Nacre'}):
+  url.endsWith('/confirm')?response(200,{ok:true,recovery:['abcd-efgh','<b>x-yz']}):response(200,{ok:true}),'member');
+ f.context.TextEncoder=TextEncoder;vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/qr.js'),'utf8'),f.context);
+ f.run('page="account"');await f.run('renderAccount()');
+ assert.match(f.content(),/id="totp"><h2>Double authentification<\/h2><p><span class="badge dim">Inactive<\/span>/);assert.match(f.content(),/id="totp-start"/);assert.match(f.content(),/lien de connexion locale/);
+ const error={textContent:''},send={disabled:false};f.elements.set('#totp-error',error);
+ const submit=(id,values)=>Promise.all(f.listeners.get('submit').filter(fn=>fn.toString().includes('totp-confirm')).map(fn=>fn({target:{getAttribute:()=>id,values,querySelector:()=>send},preventDefault(){}})));
+ refuse='Mot de passe actuel refusé.';await submit('totp-start',{password:'faux'});assert.equal(error.textContent,refuse);assert.equal(f.run('totpFlow'),null);
+ refuse='';await submit('totp-start',{password:'juste'});
+ assert.deepEqual(f.calls.filter(c=>c[0].includes('/totp/')).at(-1),['/api/account/totp/start',{password:'juste'}]);
+ let html=f.content();
+ assert.match(html,/<svg class="qr"/);assert.match(html,/class="totp-key">JBSW Y3DP EHPK 3PXP JBSW Y3DP EHPK 3PXP</);assert.match(html,/id="totp-confirm"/);assert.match(html,/autocomplete="one-time-code"/);
+ await submit('totp-confirm',{code:'123456'});
+ assert.deepEqual(f.calls.filter(c=>c[0].includes('/totp/')).at(-1),['/api/account/totp/confirm',{code:'123456'}]);
+ html=f.content();assert.match(html,/Ils ne seront plus affichés/);assert.match(html,/<li>abcd-efgh<\/li><li>&lt;b&gt;x-yz<\/li>/);assert.doesNotMatch(html,/<b>x/);
+ // « J’ai noté mes codes » : ils disparaissent pour de bon, la carte montre l’état actif et la désactivation.
+ state={enabled:true,recovery:10};
+ await Promise.all(f.listeners.get('click').filter(fn=>fn.toString().includes('totp-done')).map(fn=>fn({target:{closest:()=>({dataset:{action:'totp-done'}})}})));
+ html=f.content();assert.doesNotMatch(html,/abcd-efgh/);assert.match(html,/<span class="badge">Active<\/span>[^]*Codes de secours restants : <strong>10<\/strong>/);assert.match(html,/id="totp-disable"/);
+ await submit('totp-disable',{password:'juste',code:'654321'});
+ assert.deepEqual(f.calls.filter(c=>c[0].includes('/totp/')).at(-1),['/api/account/totp/disable',{password:'juste',code:'654321'}]);
+ // Administration : la colonne dit qui l’a activée, et le retrait ne vaut que pour les autres.
+ const g=peopleFixture(url=>response(200,url==='/api/spaces'?{...peopleSample,people:peopleSample.people.map(p=>({...p,totp:p.name==='camille'||p.name==='admin'}))}:{ok:true}));
+ await g.run('renderPeople()');html=g.content();
+ assert.match(html,/<th>Double authentification<\/th>/);assert.equal((html.match(/data-action="people-totp-reset"/g)||[]).length,1);assert.match(html,/data-action="people-totp-reset"[^>]*data-name="camille"/);
+ await g.act('people-totp-reset',{name:'admin'});assert.equal(g.elements.get('#modal').open,false);
+ await g.act('people-totp-reset',{name:'camille'});assert.match(g.elements.get('#modal').innerHTML,/perdu son téléphone et ses codes de secours/);
+ await g.run('modalSubmit(new Map())');assert.deepEqual(g.calls.at(-1),['/api/spaces/totp-reset',{name:'camille'}]);
+});
+

@@ -1,5 +1,9 @@
 # Validation
 
+## Double authentification — 0.8.0-alpha.55
+
+386 tests Python et 152 JavaScript. Cinq essais Python sur le vrai serveur : vecteurs de la RFC 6238, tolérance d’une période, refus d’un code rejoué ; activation qui exige le mot de passe puis un premier code juste, fermeture des autres sessions, codes de secours absents de la base en clair ; connexion qui ne demande le code qu’après le mot de passe, refuse un code faux, un code déjà utilisé, et accepte le suivant une fois ; code de secours à usage unique ; désactivation avec mot de passe et code ; activation expirée ; retrait par un administrateur, jamais pour son propre compte. Trois essais JavaScript : **code QR identique à une bibliothèque de référence**, champ du code révélé seulement sur demande du serveur, parcours d’activation sans second affichage des codes de secours. Hors essais, le générateur de code QR a été comparé module à module à cette bibliothèque sur 96 cas (versions 1 à 10, huit masques). Sur le banc local, dans le navigateur : activation complète avec un code calculé par le navigateur lui-même, indépendamment du serveur, puis connexion refusée sans code et acceptée avec. Non prouvé : le scan du code QR par un vrai téléphone.
+
 ## Espaces dans les sauvegardes — 0.8.0-alpha.54
 
 381 tests Python et 149 JavaScript. Un essai Python avec le vrai restic : source proposée juste après l’espace commun, sauvegarde réussie alors qu’aucun espace n’existe, puis sauvegarde d’un espace d’équipe, écrasement du fichier, restauration qui rend la version sauvegardée sous `espaces/<identifiant>`, sans la corbeille, sans toucher au fichier en place. Un essai JavaScript : un nouveau plan coche les espaces, un plan existant garde ses choix. Non prouvé : une installation qui a déjà des plans actifs ; ils ne changent pas d’eux-mêmes.

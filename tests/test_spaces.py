@@ -100,7 +100,7 @@ class SpaceTests(unittest.TestCase):
         status, data = self.get('camille', '/api/overview')
         self.assertEqual((status, data['events'], data['services'], data['camera']), (200, [], [], {}))
         self.assertEqual(self.get('camille', '/api/me')[1]['camera'], False)
-        self.assertEqual(self.get('camille', '/api/account')[1], {'name': 'camille', 'role': 'member'})
+        self.assertEqual(self.get('camille', '/api/account')[1], {'name': 'camille', 'role': 'member', 'totp': {'enabled': False, 'recovery': 0}})
         # La surveillance s'ouvre personne par personne, en lecture.
         self.assertEqual(self.post('admin', '/api/spaces/person', {'name': 'camille', 'camera': True})[0], 200)
         self.assertEqual(self.get('camille', '/api/cameras')[0], 200)

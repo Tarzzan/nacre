@@ -23,7 +23,8 @@ COMMON = 'space:fichiers'
 MEMBER_READS = ('/api/me', '/api/desk', '/api/areas', '/api/files', '/api/files/search', '/api/files/usage', '/api/files/usage-spaces',
                 '/api/download', '/api/archive', '/api/trash', '/api/overview', '/api/account', '/api/links')
 MEMBER_WRITES = ('/api/logout', '/api/desk', '/api/upload', '/api/folder', '/api/rename', '/api/move', '/api/trash', '/api/restore',
-                 '/api/account/password', '/api/links/create', '/api/links/revoke')
+                 '/api/account/password', '/api/links/create', '/api/links/revoke',
+                 '/api/account/totp/start', '/api/account/totp/confirm', '/api/account/totp/disable')
 CAMERA_READS = ('/api/cameras', '/api/camera/')
 
 
@@ -255,6 +256,7 @@ def overview(app):
     active = {p['name'] for p in people if p['active']}
     return {
         'people': [{'name': p['name'], 'role': p['role'], 'active': bool(p['active']), 'camera': flags[p['name']].get('camera') is True,
+                    'totp': isinstance(flags[p['name']].get('totp'), dict) and flags[p['name']]['totp'].get('enabled') is True,
                     'groups': [g['id'] for g in groups if p['name'] in g['members']], 'personal': p['name'] in owners} for p in people],
         'groups': groups,
         'spaces': sorted(({'id': 'espace_' + s['id'], 'name': s.get('name', ''), 'members': s.get('members', {}), 'groups': s.get('groups', {}),
