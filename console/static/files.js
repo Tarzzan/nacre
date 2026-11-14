@@ -2,8 +2,8 @@
 // Gestionnaire de fichiers du bureau : arborescence, sélection multiple, glisser-déposer et aperçu.
 // Il réutilise l’envoi, le renommage, la corbeille et la création de dossier existants ; déplacer et archiver sont nouveaux côté serveur.
 // Le champ du haut filtre le dossier ouvert pendant la saisie ; la recherche par nom dans les sous-dossiers ou tout le NAS se lance, elle, à la demande.
-const FM_KINDS=[[/\.(jpe?g|png|gif|webp)$/i,'img','Image'],[/\.(mp4|webm)$/i,'vid','Vidéo'],[/\.pdf$/i,'pdf','PDF'],[/\.(txt|md|csv|log|json|ya?ml|ini|conf)$/i,'txt','Texte'],[/\.(zip|tar|gz|tgz|7z|rar)$/i,'zip','Archive']];
-const FM_MARK={dir:'D',lnk:'↗',img:'IMG',vid:'VID',pdf:'PDF',txt:'TXT',zip:'ZIP',file:'·'};
+const FM_KINDS=[[/\.(jpe?g|png|gif|webp)$/i,'img','Image'],[/\.(mp4|webm)$/i,'vid','Vidéo'],[/\.pdf$/i,'pdf','PDF'],[/\.(txt|md|csv|log|json|ya?ml|ini|conf)$/i,'txt','Texte'],[/\.(zip|tar|gz|tgz|7z|rar)$/i,'zip','Archive'],[/\.(odt|docx?|rtf)$/i,'doc','Document'],[/\.(ods|xlsx?)$/i,'xls','Classeur'],[/\.(odp|pptx?|odg)$/i,'ppt','Présentation']];
+const FM_MARK={dir:'D',lnk:'↗',img:'IMG',vid:'VID',pdf:'PDF',txt:'TXT',zip:'ZIP',doc:'DOC',xls:'XLS',ppt:'PPT',file:'·'};
 let fmItems=[],fmSel=new Set(),fmLast='',fmView='list',fmPreview=true,fmFilter='',fmSort=['name',1],fmRequest=0,fmDrag=null,fmBusy=false;
 // Recherche par nom : null hors recherche ; sinon la demande, sa portée et ses résultats (items null tant qu’elle court).
 let fmFound=null,fmHit=-1,fmFindRequest=0,fmPending='',fmPendingBig=false,fmPendingWeigh=false,fmPendingSpaces=false,fmSpacesBusy='';
@@ -147,7 +147,7 @@ function fmSide(){
  const item=chosen[0],write=fmWritable();
  if(fmVers&&(fmVers.area!==area||fmVers.path!==fmJoin(item.name)))fmVers=null;
  if(fmVers)return fmVersionsHtml();
- return fmCard(item,currentPath,area,{before:item.directory&&!item.link?button('fm-open','Ouvrir',null,'primary small',`data-name="${esc(item.name)}"`)+button('fm-weigh','Peser ce dossier',null,'small',`data-name="${esc(item.name)}"`):typeof editorCan==='function'&&editorCan(item)?button('ed-open',write?'Modifier':'Lire dans l’éditeur',null,'primary small'):'',after:(write?button('rename','Renommer',null,'small',`data-path="${esc(fmJoin(item.name))}" data-name="${esc(item.name)}"`)+button('fm-trash','Corbeille',null,'small'):'')+(item.directory||item.link?'':button('fm-versions','Versions',null,'small'))});
+ return fmCard(item,currentPath,area,{before:item.directory&&!item.link?button('fm-open','Ouvrir',null,'primary small',`data-name="${esc(item.name)}"`)+button('fm-weigh','Peser ce dossier',null,'small',`data-name="${esc(item.name)}"`):typeof editorCan==='function'&&editorCan(item)?button('ed-open',write?'Modifier':'Lire dans l’éditeur',null,'primary small'):typeof officeCan==='function'&&officeCan(item)?button('office-open',write?'Ouvrir dans la suite bureautique':'Lire dans la suite bureautique',null,'primary small'):'',after:(write?button('rename','Renommer',null,'small',`data-path="${esc(fmJoin(item.name))}" data-name="${esc(item.name)}"`)+button('fm-trash','Corbeille',null,'small'):'')+(item.directory||item.link?'':button('fm-versions','Versions',null,'small'))});
 }
 // Aperçu d’un texte : les premiers kilo-octets, lus comme du texte et jamais interprétés.
 async function fmLoadText(){

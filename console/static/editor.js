@@ -78,10 +78,16 @@ function editorClose(){
  if(!editorDirty())return leave();
  confirmAction('Fermer sans enregistrer ?',`Les modifications de « ${d.name} » depuis le dernier enregistrement seront perdues.`,'Fermer sans enregistrer',async()=>{editorStop();api('files/text-presence',{area:d.area,path:d.path,open:false}).catch(()=>{});editorDoc=null;return {message:'Document fermé.'};});
 }
+// Un seul « Nouveau document » : texte et Markdown pour l’éditeur intégré, texte bureautique et classeur quand une suite est raccordée.
+function editorKinds(){const suite=typeof officeCreate==='function'&&Array.isArray(user?.office)?user.office:[];return [['md','Document mis en forme (Markdown)'],['txt','Texte simple'],...(suite.includes('odt')?[['odt','Texte bureautique (.odt)']]:[]),...(suite.includes('ods')?[['ods','Classeur (.ods)']]:[])];}
 function editorNew(){
- const where=area,folder=currentPath;
- modal('Nouveau document','<div class="field"><label for="ed-new-name">Nom du document</label><input id="ed-new-name" name="name" type="text" value="Sans titre.md" maxlength="180" autocomplete="off" required><small>.md pour un document mis en forme (Markdown), .txt pour du texte simple.</small></div>','Créer et ouvrir',async form=>{
-  const made=await api('files/text-new',{area:where,path:folder,name:String(form.get('name')||'').trim()});
+ const where=area,folder=currentPath,kinds=editorKinds(),suite=kinds.length>2;
+ modal('Nouveau document',`<div class="field"><label for="ed-new-kind">Type</label><select id="ed-new-kind" name="kind">${kinds.map(([value,label])=>`<option value="${value}">${label}</option>`).join('')}</select></div><div class="field"><label for="ed-new-name">Nom du document</label><input id="ed-new-name" name="name" type="text" value="Sans titre" maxlength="170" autocomplete="off" required>${suite?'<small>Texte bureautique et classeur s’ouvrent dans la suite bureautique, dans un nouvel onglet.</small>':''}</div>`,'Créer et ouvrir',async form=>{
+  // Une extension tapée dans le nom l’emporte sur le type choisi.
+  const typed=String(form.get('name')||'').trim(),known=typed.match(/\.([a-z]+)$/i),chosen=kinds.some(k=>k[0]===known?.[1].toLowerCase())?known[1].toLowerCase():null;
+  const kind=chosen||(kinds.some(k=>k[0]===form.get('kind'))?form.get('kind'):'md'),name=chosen?typed:typed+'.'+kind;
+  if(kind==='odt'||kind==='ods')return officeCreate(where,folder,name);
+  const made=await api('files/text-new',{area:where,path:folder,name});
   await editorOpen(where,made.path);return {message:'Document créé.'};
  });
 }
