@@ -100,7 +100,7 @@ Le bureau s’adapte de lui-même à un écran étroit : chaque application occu
 
 - **Changer d’espace** : sur un écran étroit, l’arbre de Fichiers est replié ; un sélecteur en haut de la fenêtre le remplace. Sans lui, un membre restait enfermé dans le premier espace ouvert.
 - **Se connecter** : le formulaire n’est plus prérempli avec « admin » et se laisse remplir par le gestionnaire de mots de passe du téléphone, code de double authentification compris.
-- **Installer sur l’écran d’accueil** : la console se déclare comme une application (nom, icône, affichage plein écran). Dans le navigateur du téléphone, « Ajouter à l’écran d’accueil » ou « Installer » ; elle s’ouvre ensuite comme une application, sans barre d’adresse. Cela demande l’[accès par le réseau](#accès-par-le-réseau), en HTTPS.
+- **Installer sur l’écran d’accueil** : la console se déclare comme une application (nom, icône, affichage plein écran ; depuis 0.8.0-alpha.58 sur une installation mise à jour par paquet). Dans le navigateur du téléphone, « Ajouter à l’écran d’accueil » ou « Installer » ; elle s’ouvre ensuite comme une application, sans barre d’adresse. Cela demande l’[accès par le réseau](#accès-par-le-réseau), en HTTPS.
 
 ### Limites
 

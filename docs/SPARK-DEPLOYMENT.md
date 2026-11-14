@@ -1,6 +1,13 @@
 # Déploiements de la console sur Spark
 
-## 14 novembre 2026 — alpha.56, accès par le réseau
+## 14 novembre 2026 — alpha.57, sur un téléphone
+
+L’installation alpha.56 a reçu le paquet `nacre-0.8.0-alpha.57.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.57), par le même [parcours de mise à jour](BROWSER-UPDATES.md) : neuf modules figés identiques, répétition isolée alpha.56 → alpha.57 réussie, fichier importé identique à celui de la release, installation confirmée depuis la fenêtre Réglages et suivie jusqu’à **Mise à jour réussie**.
+
+Validation enregistrée à 17 h 56 min 05 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+**Défaut trouvé par le contrôle** : la page annonce bien le manifeste, mais le manifeste et les icônes répondent « introuvable ». Un paquet de mise à jour n’embarque, parmi les fichiers statiques, que les scripts, les styles, les pages et les images vectorielles ; ces fichiers-là n’ont donc jamais été installés. Rien d’autre n’est touché. Corrigé en alpha.58, avec un essai qui garde la règle.
+
 
 L’installation alpha.55 a reçu le paquet `nacre-0.8.0-alpha.56.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.56), par le même [parcours de mise à jour](BROWSER-UPDATES.md) : neuf modules figés identiques, répétition isolée alpha.55 → alpha.56 réussie, fichier importé identique à celui de la release, installation confirmée depuis la fenêtre Réglages et suivie jusqu’à **Mise à jour réussie**.
 

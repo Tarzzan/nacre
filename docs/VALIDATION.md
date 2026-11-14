@@ -1,5 +1,9 @@
 # Validation
 
+## Icônes d’installation servies après une mise à jour — 0.8.0-alpha.58
+
+392 tests Python et 155 JavaScript. Un essai Python de garde : chaque fichier que la console sert, chaque fichier présent dans son dossier statique et chaque module Python doit être de ceux qu’un paquet de mise à jour embarque ; un fichier image ajouté pour l’essayer le fait échouer. L’essai des fichiers servis lit désormais le manifeste et les quatre icônes par HTTP, sans session, et contrôle leur format et leur taille. Défaut trouvé sur l’installation de développement en alpha.57 : page à jour, mais manifeste et icônes introuvables.
+
 ## Sur un téléphone — 0.8.0-alpha.57
 
 391 tests Python et 155 JavaScript. Un essai JavaScript : sélecteur d’espace en tête des outils, noms échappés, espace inconnu refusé, absent quand il n’y a qu’un espace, affiché seulement sous la largeur où l’arbre est replié ; formulaire de connexion sans identifiant prérempli ; manifeste lisible, icônes au format et à la taille annoncés. L’essai des fichiers servis couvre le manifeste et les quatre icônes. Sur le banc local, à la largeur d’un téléphone (375 points) : bureau d’un membre, changement d’espace par le sélecteur, aucune page plus large que l’écran, manifeste servi. Non prouvé : un vrai téléphone, l’installation sur son écran d’accueil, le remplissage par un gestionnaire de mots de passe.
