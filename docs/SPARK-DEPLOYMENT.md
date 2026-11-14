@@ -1,5 +1,15 @@
 # Déploiements de la console sur Spark
 
+## 14 novembre 2026 — alpha.41, suppression explicite des points natifs
+
+L’installation alpha.40 a reçu le paquet `nacre-0.8.0-alpha.41.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.41), construit depuis le commit [`f555ef1`](https://github.com/Tarzzan/nacre/commit/f555ef1dc1b7ad690a82ec2b8bfaa0710f5aa7a4) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
+
+Avant l’import : neuf modules figés identiques, aucune tâche active, répétition isolée alpha.40 → alpha.41 réussie. Fichier importé identique à celui de la release, empreinte contrôlée ; session administrateur temporaire refermée ; installation confirmée depuis la fenêtre Réglages du bureau et suivie jusqu’à **Mise à jour réussie**, session conservée.
+
+Validation enregistrée à 2 h 03 min 39 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Cette installation n’a pas de service natif : la [suppression des points](NATIVE-SNAPSHOT-POLICY.md#lot-3--suppression-explicite) n’y a rien à supprimer, et sa preuve sur de vrais volumes vient du banc VM, pas d’ici. Constaté dans le navigateur : la page Volumes et snapshots s’affiche comme avant, douze cartes, sans les cartes de programmation et de conservation, donc sans aucun bouton de suppression.
+
 ## 13 novembre 2026 — alpha.40, programmation des captures natives
 
 L’installation alpha.39 a reçu le paquet `nacre-0.8.0-alpha.40.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.40), construit depuis le commit [`5e40bd6`](https://github.com/Tarzzan/nacre/commit/5e40bd616d0a11c2d7286630e0fe10e9777dcfd8) après validation CI x86-64/ARM64, par le même [parcours de mise à jour](BROWSER-UPDATES.md).
