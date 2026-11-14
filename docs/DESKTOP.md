@@ -21,6 +21,7 @@ Depuis la version 0.8.0-alpha.26, Nacre s’ouvre sur un bureau, à la manière 
 | Application | Onglets | Rubriques d’origine |
 | --- | --- | --- |
 | **Fichiers** | Parcourir, Corbeille | Fichiers |
+| **Photos** | Photos | [Galerie par date](PHOTOS.md), depuis la version 0.8.0-alpha.62 |
 | **Surveillance** | Caméras | Surveillance |
 | **Stockage** | Disques, Volumes et snapshots | Stockage, Volumes natifs |
 | **Protection** | Sauvegardes, Points de restauration, Conservation | Sauvegardes, Snapshots, Rétention |
@@ -29,7 +30,7 @@ Depuis la version 0.8.0-alpha.26, Nacre s’ouvre sur un bureau, à la manière 
 | **Activité** | Alertes, Journal | Alertes, Journal d’activité |
 | **Mon compte** | Mon compte | Changer son mot de passe (depuis la version 0.8.0-alpha.52) |
 
-La vue d’ensemble est devenue le bureau lui-même. Un compte en lecture seule ne voit pas les onglets réservés aux administrateurs. Un [membre](SPACES.md) n’a que Fichiers et Mon compte, plus Surveillance si elle lui est ouverte.
+La vue d’ensemble est devenue le bureau lui-même. Un compte en lecture seule ne voit pas les onglets réservés aux administrateurs. Un [membre](SPACES.md) n’a que Fichiers, Photos et Mon compte, plus Surveillance si elle lui est ouverte.
 
 ## Plusieurs fenêtres
 

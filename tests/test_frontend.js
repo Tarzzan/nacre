@@ -945,11 +945,11 @@ test('desktop shell replaces the sidebar, keeps the anchors pages rely on and es
  assert.match(f.html,/^<div class="dk dk-bg-nacre" id="dk-root">/);assert.doesNotMatch(f.html,/class="sidebar"|<b>Atelier|style=|<iframe/);assert.match(f.html,/&lt;b&gt;Atelier/);
  for(const id of ['content','crumb','topclock','side-host','side-version','alert-summary','zone-prompt','dk-stage','dk-wins','dk-widgets'])assert.match(f.html,new RegExp(`id="${id}"`),id);
  assert.match(f.html,/<main class="content dk-solo" id="content" hidden>/);assert.match(f.html,/class="dk-brand" data-action="desk-home"/);
- assert.equal((f.html.match(/class="dk-dockapp"/g)||[]).length,8);assert.equal((f.html.match(/class="dk-app"/g)||[]).length,8);
+ assert.equal((f.html.match(/class="dk-dockapp"/g)||[]).length,9);assert.equal((f.html.match(/class="dk-app"/g)||[]).length,9);
  assert.match(f.html,/data-action="shell-classic"/);assert.match(f.html,/data-action="logout"/);
  // Lecture seule : ni alertes ni onglets d'administration, et les applications gardent leurs pages ouvertes à tous.
  const g=deskFixture(undefined,'viewer');assert.doesNotMatch(g.html,/alert-summary/);
- assert.deepEqual(JSON.parse(JSON.stringify(g.run('deskApps().map(a=>[a.id,deskPages(a).map(p=>p[0])])'))),[['files',['files','trash']],['cam',['camera']],['storage',['storage','native']],['protect',['backups','snapshots']],['share',['shares','users']],['settings',['services']],['activity',['events']],['me',['account']]]);
+ assert.deepEqual(JSON.parse(JSON.stringify(g.run('deskApps().map(a=>[a.id,deskPages(a).map(p=>p[0])])'))),[['files',['files','trash']],['photos',['photos']],['cam',['camera']],['storage',['storage','native']],['protect',['backups','snapshots']],['share',['shares','users']],['settings',['services']],['activity',['events']],['me',['account']]]);
  // Chaque page de la console appartient à une application et une seule.
  const pages=f.run('DESK_APPS.flatMap(a=>a.pages.map(p=>p[0]))');assert.equal(new Set(pages).size,pages.length);
  for(const name of pages)assert.ok(f.run('titles')[name],name);
@@ -1161,7 +1161,7 @@ test('search sits in the desktop bar and only indexes what the account can open'
  const pages=f.run('DESK_APPS.flatMap(a=>a.pages.map(p=>p[0]))');
  for(const [label,target] of f.run('PALETTE_TOPICS'))assert.ok(pages.includes(target),label);
  const admin=f.run('paletteIndex()'),hints=new Set(admin.map(e=>e.hint));
- assert.ok(hints.has('Réglages · Général'));assert.ok(hints.has('Application'));assert.equal(admin.filter(e=>e.hint==='Application').length,8);
+ assert.ok(hints.has('Réglages · Général'));assert.ok(hints.has('Application'));assert.equal(admin.filter(e=>e.hint==='Application').length,9);
  const viewer=paletteFixture(paletteReply,'viewer').run('paletteIndex()');
  for(const entry of viewer)assert.ok(!['settings','updates','notifications','alerts','retention'].includes(entry.page),entry.label);
  assert.ok(viewer.some(e=>e.label==='Nouveau partage'));assert.ok(!viewer.some(e=>e.label==='Fuseau horaire'));
@@ -1169,11 +1169,11 @@ test('search sits in the desktop bar and only indexes what the account can open'
 });
 test('typed words match the start of words, ignore accents and put the closest label first',async()=>{
  const f=paletteFixture();const q=text=>JSON.parse(JSON.stringify(f.run('paletteSearch')(text).map(e=>e.label)));
- assert.deepEqual(q(''),['Fichiers','Surveillance','Stockage','Protection','Personnes et partages','Réglages','Activité','Mon compte']);
+ assert.deepEqual(q(''),['Fichiers','Photos','Surveillance','Stockage','Protection','Personnes et partages','Réglages','Activité','Mon compte']);
  assert.deepEqual(q('fuseau'),['Fuseau horaire']);assert.deepEqual(q('HEURE'),['Fuseau horaire']);assert.deepEqual(q('mot de passe'),['Changer un mot de passe']);
- assert.deepEqual(q('reglages').slice(0,5),['Réglages','Réglages','Général','Services','Mises à jour']);assert.equal(q('reglages').length,8);
+ assert.deepEqual(q('reglages').slice(0,5),['Réglages','Réglages','Général','Services','Mises à jour']);assert.equal(q('reglages').length,9);
  assert.deepEqual(JSON.parse(JSON.stringify(f.run('paletteSearch')('mur').map(e=>[e.label,e.hint,e.view])))[0],['Mur','Surveillance',['cam','wall']]);assert.deepEqual(JSON.parse(JSON.stringify(f.run('paletteSearch')('relecture').map(e=>e.view))),[['cam','replay'],['cam','replay']]);assert.equal(q('sauv')[0],'Sauvegardes');
- assert.ok(!q('gar').includes('Sauvegardes'));assert.deepEqual(q('zzz'),[]);assert.ok(q('a').length<=8);
+ assert.ok(!q('gar').includes('Sauvegardes'));assert.deepEqual(q('zzz'),[]);assert.ok(q('a').length<=9);
  assert.deepEqual(q('classique'),['Affichage classique']);
  // Caméras et espaces lus à l'ouverture : noms échappés à l'affichage, entrées sans identifiant écartées.
  f.key('k',{ctrlKey:true});await new Promise(resolve=>setImmediate(resolve));
@@ -1187,8 +1187,8 @@ test('keyboard opens, moves, runs and closes the search without acting behind a 
  f.elements.get('#modal').open=true;f.key('k',{ctrlKey:true});assert.equal(panel.hidden,true);f.elements.get('#modal').open=false;
  f.key('k',{ctrlKey:true,altKey:true});assert.equal(panel.hidden,true);
  f.key('K',{metaKey:true});assert.deepEqual([panel.hidden,f.focused.at(-1),f.elements.get('#palette-open').attrs['aria-expanded']],[false,'palette-q','true']);
- assert.equal(f.labels().length,8);f.key('ArrowUp');assert.equal(f.run('palettePick'),7);f.key('ArrowDown');assert.equal(f.run('palettePick'),0);f.key('ArrowDown');assert.equal(f.run('palettePick'),1);
- f.key('Enter');await new Promise(resolve=>setImmediate(resolve));assert.deepEqual([f.run('page'),panel.hidden],['camera',true]);
+ assert.equal(f.labels().length,9);f.key('ArrowUp');assert.equal(f.run('palettePick'),8);f.key('ArrowDown');assert.equal(f.run('palettePick'),0);f.key('ArrowDown');assert.equal(f.run('palettePick'),1);
+ f.key('Enter');await new Promise(resolve=>setImmediate(resolve));assert.deepEqual([f.run('page'),panel.hidden],['photos',true]);
  f.key('k',{ctrlKey:true});f.type('fuseau');f.key('Enter');await new Promise(resolve=>setImmediate(resolve));assert.equal(f.run('page'),'settings');
  f.key('k',{ctrlKey:true});f.key('Escape');assert.deepEqual([panel.hidden,f.focused.at(-1)],[true,'palette-open']);
  f.key('k',{ctrlKey:true});f.key('k',{ctrlKey:true});assert.equal(panel.hidden,true);
@@ -2315,12 +2315,12 @@ function peopleFixture(reply,role='admin'){
  f.act=(action,data={})=>f.listeners.get('click').find(fn=>fn.toString().includes('people-adopt'))({target:{closest:()=>({dataset:{action,...data}})}});
  f.form=(values,all={})=>{const m=new Map(Object.entries(values));m.getAll=key=>all[key]||[];return m;};return f;
 }
-test('a member opens only files and account in the desktop, plus surveillance when it is opened to them',()=>{
+test('a member opens only files, photos and account in the desktop, plus surveillance when it is opened to them',()=>{
  const f=deskFixture(undefined,'member');
- assert.deepEqual(JSON.parse(f.run('JSON.stringify(deskApps().map(a=>a.id))')),['files','me']);
- assert.equal((f.html.match(/class="dk-dockapp"/g)||[]).length,2);
+ assert.deepEqual(JSON.parse(f.run('JSON.stringify(deskApps().map(a=>a.id))')),['files','photos','me']);
+ assert.equal((f.html.match(/class="dk-dockapp"/g)||[]).length,3);
  let html=f.run('deskWidgets({})');assert.match(html,/Mes fichiers/);assert.match(html,/data-page="account"/);assert.doesNotMatch(html,/Stockage libre|Services|Activité récente|data-page="camera"/);
- f.run('user.camera=true');assert.deepEqual(JSON.parse(f.run('JSON.stringify(deskApps().map(a=>a.id))')),['files','cam','me']);assert.match(f.run('deskWidgets({})'),/data-page="camera"/);
+ f.run('user.camera=true');assert.deepEqual(JSON.parse(f.run('JSON.stringify(deskApps().map(a=>a.id))')),['files','photos','cam','me']);assert.match(f.run('deskWidgets({})'),/data-page="camera"/);
  // Un compte en lecture seule garde ses applications, sans la page d’administration des personnes.
  const g=deskFixture(undefined,'viewer');
  assert.deepEqual(JSON.parse(g.run('JSON.stringify(deskPages(DESK_APPS.find(a=>a.id==="share")).map(p=>p[0]))')),['shares','users']);
@@ -2799,3 +2799,110 @@ test('office settings connect a suite, say when it does not answer, and disconne
  const m=officeFixture(null,'member');m.run('page="office"');const before=m.calls.length;await m.run('renderOffice()');
  assert.match(m.content(),/réservée aux administrateurs/);assert.equal(m.calls.length,before);
 });
+
+const phSample={total:3,months:[['2026-11',2],['2026-10',1]],next:null,page:120,personal:true,scan:{running:false,finished:1794690000,visited:9,kept:3,partial:null,error:null},
+ areas:[{id:'espace_a1a1a1a1a1a1',name:'Mon <b>espace</b>'},{id:'fichiers',name:'Fichiers partagés'}],
+ items:[{area:'espace_a1a1a1a1a1a1',path:'Photos/2026-11/IMG <b>.jpg',name:'IMG <b>.jpg',size:5000000,taken:'2026-11-10T12:05:00',dated:true,orient:6,thumb:true,v:'17"3',width:4000,height:3000,model:'Banc'},
+  {area:'fichiers',path:'vue.png',name:'vue.png',size:200000,taken:'2026-11-02T08:00:00',dated:false,orient:6,thumb:false,v:'9',width:640,height:480,model:null},
+  {area:'fichiers',path:'Gros/panorama.jpg',name:'panorama.jpg',size:9000000,taken:'2026-10-20T16:30:00',dated:true,orient:1,thumb:false,v:'4',width:null,height:null,model:null}]};
+function phFixture(reply,role='member'){
+ const calls=[],f=fmFixture(async(url,options)=>{const body=options?.body?JSON.parse(options.body):null;calls.push([url,body]);const made=reply?.(url,body);
+  return made||response(200,url.startsWith('/api/photos/')?{ok:true,started:true}:url.startsWith('/api/photos')?phSample:url.startsWith('/api/areas')?fmAreas:url.startsWith('/api/files')?{items:[]}:{ok:true});},role);
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/photos.js'),'utf8'),f.context);
+ const modal=f.elements.get('#modal');modal.showModal=()=>{modal.open=true;};modal.close=()=>{modal.open=false;};
+ f.calls=calls;f.run('page="photos"');f.content=()=>String(f.elements.get('#content').innerHTML);
+ f.ph=(action,data={})=>f.listeners.get('click').find(fn=>fn.toString().includes('ph-open'))({target:{closest:()=>({dataset:{action,...data}})}});
+ f.toast=()=>f.elements.get('#toast').textContent;return f;
+}
+test('photos page groups by month, turns device thumbnails, falls back to a light image and never lets a name become markup',async()=>{
+ const f=phFixture();await f.run('renderPhotos()');let html=f.content();
+ assert.deepEqual(f.calls.at(-1),['/api/photos',null]);
+ assert.match(html,/<h2>Novembre 2026 <small>2 photos<\/small><\/h2>/);assert.match(html,/<h2>Octobre 2026 <small>1 photo<\/small><\/h2>/);
+ assert.match(html,/3 photos dans vos espaces, sans rien copier ni déplacer\./);assert.match(html,/Espaces relus le /);
+ // Vignette d’appareil : relue par sa route, tournée ici ; l’adresse et le nom sont échappés.
+ assert.match(html,/<img class="ph-o6" src="\/api\/photos\/thumb\?area=espace_a1a1a1a1a1a1&amp;path=Photos%2F2026-11%2FIMG%20%3Cb%3E\.jpg&amp;v=17%223" alt="IMG &lt;b&gt;\.jpg" loading="lazy" decoding="async">/);
+ // Sans vignette : l’image elle-même si elle est légère, que le navigateur redresse seul ; sinon son nom.
+ assert.match(html,/<img src="\/api\/download\?area=fichiers&amp;path=vue\.png&amp;inline=1" alt="vue\.png"/);
+ assert.match(html,/data-index="2" title="panorama\.jpg"><span class="ph-none">panorama\.jpg<\/span>/);
+ assert.doesNotMatch(html,/<b>|style=/);assert.match(html,/<option value="espace_a1a1a1a1a1a1" >Mon &lt;b&gt;espace&lt;\/b&gt;<\/option>/);
+ assert.match(html,/data-action="ph-add"/);assert.match(html,/id="ph-input" accept="image\/\*,video\/\*" multiple hidden/);assert.doesNotMatch(html,/ph-more/);
+ // Un seul espace : la demande le porte, la page le dit.
+ await f.listeners.get('change').find(fn=>fn.toString().includes('ph-area'))({target:{id:'ph-area',value:'fichiers'}});
+ assert.deepEqual(f.calls.at(-1),['/api/photos?area=fichiers',null]);assert.match(f.content(),/dans cet espace/);assert.match(f.content(),/<option value="fichiers" selected>/);
+ // Suite de la liste : ajoutée à la suite, sans rien redemander du début.
+ const more=phFixture(url=>url.startsWith('/api/photos?before=')?response(200,{...phSample,items:[{...phSample.items[2],path:'vieux.jpg',name:'vieux.jpg',taken:'2026-09-01T10:00:00'}],next:null}):url==='/api/photos'?response(200,{...phSample,next:'2026-10-20T16:30:00~7'}):null);
+ await more.run('renderPhotos()');assert.match(more.content(),/data-action="ph-more"/);more.elements.set('#ph-body',{innerHTML:''});
+ await more.ph('ph-more');assert.deepEqual(more.calls.at(-1),['/api/photos?before=2026-10-20T16%3A30%3A00~7',null]);
+ assert.equal(more.run('phItems.length'),4);assert.match(more.elements.get('#ph-body').innerHTML,/Septembre 2026/);assert.doesNotMatch(more.elements.get('#ph-body').innerHTML,/ph-more/);
+ // Lecture en cours, rien encore, lecture seule, réponse illisible.
+ const busy=phFixture(()=>response(200,{...phSample,items:[],total:0,months:[],scan:{running:true,kept:0}}));await busy.run('renderPhotos()');
+ assert.match(busy.content(),/Lecture de vos espaces en cours\. Les nouvelles photos apparaissent d’elles-mêmes\./);assert.match(busy.content(),/les photos vont apparaître/);
+ const none=phFixture(()=>response(200,{...phSample,items:[],total:0,months:[],personal:false,areas:[phSample.areas[1]]}),'viewer');await none.run('renderPhotos()');
+ assert.match(none.content(),/Aucune photo pour l’instant\. Déposez des images dans un de vos espaces\./);assert.doesNotMatch(none.content(),/ph-add|ph-area|Ajouter des photos/);
+ const odd=phFixture(()=>response(200,{items:[{}],areas:[],scan:{}}));await odd.run('renderPhotos()');assert.match(odd.content(),/Réponse illisible du serveur/);
+ const partial=phFixture(()=>response(200,{...phSample,scan:{running:false,partial:'count'}}));await partial.run('renderPhotos()');assert.match(partial.content(),/Lecture arrêtée avant la fin/);
+});
+test('photo viewer shows one photo with its details, steps through, fetches the next page at the end and reveals the file in Files',async()=>{
+ const f=phFixture(url=>url.startsWith('/api/photos?before=')?response(200,{...phSample,items:[{...phSample.items[2],path:'vieux.jpg',name:'vieux.jpg',taken:'2026-09-01T10:00:00',dated:false}],next:null}):url==='/api/photos'?response(200,{...phSample,next:'2026-10-20T16:30:00~7'}):null),modal=f.elements.get('#modal');
+ await f.run('renderPhotos()');await f.ph('ph-open',{index:'0'});
+ assert.equal(modal.open,true);assert.equal(f.run('phShown'),0);
+ assert.match(modal.innerHTML,/<h2>IMG &lt;b&gt;\.jpg<\/h2>/);assert.match(modal.innerHTML,/<img src="\/api\/download\?area=espace_a1a1a1a1a1a1&amp;path=Photos%2F2026-11%2FIMG%20%3Cb%3E\.jpg&amp;inline=1" alt="IMG &lt;b&gt;\.jpg">/);
+ // Légende : date lisible, emplacement, dimensions telles qu’on voit la photo (rangée couchée, lue debout), appareil.
+ assert.match(modal.innerHTML,/10 novembre 2026, 12 h 05 · Mon &lt;b&gt;espace&lt;\/b&gt; › Photos › 2026-11 · [^·]+ · 3000 × 4000 · Banc</);
+ assert.match(modal.innerHTML,/data-action="ph-prev" aria-label="Photo plus récente" disabled/);assert.doesNotMatch(modal.innerHTML,/data-action="ph-next"[^>]*disabled/);assert.doesNotMatch(modal.innerHTML,/<b>/);
+ await f.ph('ph-next');assert.equal(f.run('phShown'),1);assert.match(modal.innerHTML,/2 novembre 2026, 08 h 00 \(date du fichier\) · Fichiers partagés · /);assert.match(modal.innerHTML,/ · 480 × 640</);
+ // Flèches du clavier ; au bout de la page, la suite est demandée puis montrée.
+ const keys=f.listeners.get('keydown').filter(fn=>fn.toString().includes('phStep'));let prevented=0;
+ keys.forEach(fn=>fn({key:'ArrowRight',preventDefault(){prevented++;}}));await new Promise(r=>setImmediate(r));assert.equal(f.run('phShown'),2);assert.equal(prevented,1);
+ f.elements.set('#ph-body',{innerHTML:''});await f.ph('ph-next');assert.deepEqual(f.calls.at(-1),['/api/photos?before=2026-10-20T16%3A30%3A00~7',null]);
+ assert.equal(f.run('phShown'),3);assert.match(modal.innerHTML,/<h2>vieux\.jpg<\/h2>/);assert.match(modal.innerHTML,/data-action="ph-next" aria-label="Photo plus ancienne" disabled/);
+ await f.ph('ph-next');assert.equal(f.run('phShown'),3);
+ keys.forEach(fn=>fn({key:'ArrowLeft',preventDefault(){}}));await new Promise(r=>setImmediate(r));assert.equal(f.run('phShown'),2);
+ // Télécharger part du fichier d’origine ; « Voir dans Fichiers » ferme la photo et ouvre son dossier, fichier sélectionné.
+ await f.ph('ph-download');assert.equal(f.context.location.href,'/api/download?area=fichiers&path=Gros%2Fpanorama.jpg');
+ await f.ph('ph-reveal');assert.equal(modal.open,false);
+ assert.deepEqual([f.run('area'),f.run('currentPath'),f.run('page'),JSON.parse(f.run('JSON.stringify([...fmSel])'))],['fichiers','Gros','files',['panorama.jpg']]);
+ // Photo fermée : les flèches ne font plus rien.
+ f.run('page="photos"');f.listeners.get('close')?.forEach(fn=>fn());f.run('phShown=-1');keys.forEach(fn=>fn({key:'ArrowRight',preventDefault(){prevented++;}}));assert.equal(prevented,1);
+});
+test('sending photos asks the server where each goes, skips those already there and says what happened',async()=>{
+ const plan=[{name:'IMG_1.jpg',state:'send',path:'Photos/2026-11',as:'IMG_1.jpg'},{name:'IMG_2.jpg',state:'present',path:'Photos/2026-11',as:'IMG_2.jpg'},{name:'notes.txt',state:'refused'},
+  {name:'IMG_3.jpg',state:'send',path:'Photos/2026-10',as:'IMG_3 (2).jpg'},{name:'IMG_4.jpg',state:'send',path:'Photos/2026-10',as:'IMG_4.jpg'}];
+ const files=plan.map((p,i)=>({name:p.name,size:100+i,lastModified:1794000000000+i}));
+ function sender(statuses,reply){
+  const f=phFixture((url,body)=>reply?.(url,body)||(url==='/api/photos/plan'?response(200,{area:'espace_a1a1a1a1a1a1',items:plan.slice(0,body.items.length)}):null));
+  f.sent=[];f.panel=null;
+  f.context.document.body={append(el){f.panel=el;}};f.context.document.createElement=()=>({id:'',innerHTML:'',remove(){f.elements.delete('#transfer-panel');}});
+  const real=f.context.document.body.append;f.context.document.body.append=el=>{real(el);f.elements.set('#transfer-panel',el);};
+  f.context.XMLHttpRequest=class{constructor(){this.upload={};this.headers={};}open(method,url){this.url=url;}setRequestHeader(k,v){this.headers[k]=v;}
+   send(file){f.sent.push([this.url,this.headers['X-CSRF-Token'],file.name]);const status=statuses.shift()??200;this.status=status;this.responseText=JSON.stringify(status<300?{ok:true}:{error:status===507?'Espace physique insuffisant sur le volume de destination.':'Refus.'});
+    this.upload.onprogress?.({lengthComputable:true,loaded:50,total:100});if(f.hold)f.hold(this);else Promise.resolve().then(()=>this.onload());}
+   abort(){Promise.resolve().then(()=>this.onabort());}};
+  return f;
+ }
+ let f=sender([200,409,500]);await f.run('renderPhotos()');
+ await f.listeners.get('change').find(fn=>fn.toString().includes('ph-input'))({target:{id:'ph-input',files,value:'x'}});
+ assert.deepEqual(f.calls.find(c=>c[0]==='/api/photos/plan')[1].items[0],{name:'IMG_1.jpg',size:100,modified:1794000000000});
+ assert.deepEqual(f.sent,[['/api/upload?area=espace_a1a1a1a1a1a1&path=Photos%2F2026-11&name=IMG_1.jpg','synthetic','IMG_1.jpg'],
+  ['/api/upload?area=espace_a1a1a1a1a1a1&path=Photos%2F2026-10&name=IMG_3%20(2).jpg','synthetic','IMG_3.jpg'],['/api/upload?area=espace_a1a1a1a1a1a1&path=Photos%2F2026-10&name=IMG_4.jpg','synthetic','IMG_4.jpg']]);
+ // Un nom pris entre-temps compte comme déjà là ; un échec est dit ; la galerie est relue après l’envoi.
+ assert.equal(f.toast(),'1 photo ajoutée, 2 déjà là, 1 écartée (type non pris en charge), 1 en échec.');
+ assert.equal(f.run('phSending'),null);assert.equal(f.run('activeUpload'),null);assert.equal(f.elements.has('#transfer-panel'),false);
+ assert.deepEqual(f.calls.slice(-2).map(c=>c[0]),['/api/photos/refresh','/api/photos']);
+ // Rien de neuf : dit simplement, sans relire la galerie.
+ f=sender([],(url,body)=>url==='/api/photos/plan'?response(200,{area:'espace_a1a1a1a1a1a1',items:body.items.map(i=>({name:i.name,state:'present'}))}):null);await f.run('renderPhotos()');
+ await f.run('phSend')(files.slice(0,2));assert.equal(f.toast(),'Rien de nouveau : 2 photos déjà là.');assert.equal(f.sent.length,0);assert.notEqual(f.calls.at(-1)[0],'/api/photos/refresh');
+ // Volume plein : l’envoi s’arrête là, le reste échouerait de même.
+ f=sender([200,507]);await f.run('renderPhotos()');await f.run('phSend')(files);
+ assert.equal(f.sent.length,2);assert.equal(f.toast(),'Espace physique insuffisant sur le volume de destination. 1 photo ajoutée, 1 déjà là, 1 écartée (type non pris en charge), 1 en échec.');
+ // Refus de la préparation : rien n’est envoyé.
+ f=sender([],url=>url==='/api/photos/plan'?response(403,{error:'Ce compte n’a pas d’espace personnel où déposer des photos.'}):null);await f.run('renderPhotos()');await f.run('phSend')(files);
+ assert.equal(f.sent.length,0);assert.match(f.toast(),/^Ce compte n’a pas d’espace personnel/);
+ // Arrêter : le transfert en cours est coupé, la suite n’est pas envoyée ; un second envoi simultané est refusé.
+ f=sender([]);await f.run('renderPhotos()');let held=null;f.hold=xhr=>{held=xhr;};
+ const running=f.run('phSend')(files);await new Promise(r=>setImmediate(r));
+ assert.match(f.elements.get('#transfer-panel').innerHTML,/<strong>Envoi des photos<\/strong><progress max="1" value="0\.1"><\/progress><span>0 \/ 5 — IMG_1\.jpg<\/span>/);
+ await f.run('phSend')(files);assert.equal(f.toast(),'Un transfert est déjà en cours.');
+ await f.ph('ph-cancel');await running;assert.equal(f.sent.length,1);assert.equal(f.toast(),'Envoi arrêté : 0 photo ajoutée.');assert.equal(f.run('phSending'),null);
+});
+

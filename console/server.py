@@ -684,7 +684,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise Problem('Ce lien de connexion a expiré ou a déjà été utilisé.', 401)
                 session_token, _ = make_session('admin')
                 return self.reply(303, b'', extra={'Location': '/', 'Set-Cookie': f'nas_session={session_token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800'})
-            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/timezone.js', '/desktop.js', '/desk-prefs.js', '/bell.js', '/palette.js', '/updates.js', '/components.js', '/playback.js', '/detection.js', '/surveillance.js', '/kept.js', '/people.js', '/links.js', '/public.js', '/qr.js', '/network.js', '/editor.js', '/office.js', '/files.js', '/search.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
+            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/timezone.js', '/desktop.js', '/desk-prefs.js', '/bell.js', '/palette.js', '/updates.js', '/components.js', '/playback.js', '/detection.js', '/surveillance.js', '/kept.js', '/people.js', '/links.js', '/public.js', '/qr.js', '/network.js', '/editor.js', '/office.js', '/photos.js', '/files.js', '/search.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
                 path = STATIC / ('index.html' if url.path == '/' else url.path[1:])
                 return self.reply(200, path.read_bytes(), mimetypes.guess_type(path)[0] or 'text/plain')
             if not post:
@@ -825,6 +825,12 @@ class Handler(BaseHTTPRequestHandler):
                 if (query.get('area') == 'restaurations' or query.get('area','').startswith('native_')) and session['role'] != 'admin':
                     raise Problem('Accès réservé aux administrateurs.', 403)
                 return self.reply(200, {'items': list_files(query.get('area', 'fichiers'), query.get('path', ''))})
+            if url.path == '/api/photos':
+                import photos
+                return self.reply(200, photos.listing(sys.modules[__name__], query, session))
+            if url.path == '/api/photos/thumb':
+                import photos
+                return photos.thumb(sys.modules[__name__], self, query, session)
             if url.path == '/api/files/search':
                 from file_search import search
                 return self.reply(200, search(sys.modules[__name__], query, session))
@@ -1023,6 +1029,9 @@ class Handler(BaseHTTPRequestHandler):
                         'common':spaces.save_common,'person':spaces.save_person,'adopt':spaces.adopt,'totp-reset':__import__('totp').reset}.get(route[len('/api/spaces/'):])
                 if not action:raise Problem('Ressource inconnue.',404)
                 return action(sys.modules[__name__],body,user)
+            if route in ('/api/photos/plan','/api/photos/refresh'):
+                import photos
+                return (photos.plan if route.endswith('/plan') else photos.refresh)(sys.modules[__name__],body,session)
             if route in ('/api/office/configure','/api/office/open','/api/office/new'):
                 import office
                 if route.endswith('/configure') and session['role'] != 'admin':raise Problem('Un compte administrateur est nécessaire.',403)
