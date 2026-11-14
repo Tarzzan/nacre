@@ -93,11 +93,26 @@ Les gestes de l’administrateur du système, sur chaque machine. **Les faire de
    - `frigate_image` : facultatif, pour fixer l’image Frigate.
 4. **Démarrer l’agent** : `sudo systemctl enable --now nacre-services`. La console passe par lui dès que son socket existe.
 
-À ce stade le compte de la console a encore son accès direct, et l’accueil le dit. Le lui retirer, `sudo gpasswd -d COMPTE docker` puis redémarrage de la console, fait partie de la migration du lot 4 : elle n’est pas encore qualifiée sur une installation en service.
-
-**Revenir en arrière** : `sudo systemctl disable --now nacre-services`, remettre le compte dans le groupe s’il en était sorti, et désactiver les unités de montage si on le souhaite. La console reprend la main sur Docker.
+À ce stade le compte de la console a encore son accès direct, et l’accueil le dit. La section suivante dit comment le lui retirer sur une installation qui sert, et comment revenir en arrière.
 
 **Après une mise à jour qui change la description des services ou les sources des images**, rejouer le premier geste : tant que root ne l’a pas fait, l’agent garde les anciennes.
+
+### Migrer une installation en service, et revenir en arrière
+
+Les quatre gestes ci-dessus se font console et services en marche : ils ne redémarrent ni ne recréent aucun conteneur. Il en reste un, qui retire vraiment l’accès.
+
+5. **Sortir le compte de la console du groupe `docker`** : `sudo gpasswd -d COMPTE docker`, puis **relancer la console sous une nouvelle session du compte**. Un processus déjà lancé garde les groupes qu’il avait en démarrant : tant que la console n’est pas relancée, elle garde son accès direct. Pour un service utilisateur systemd, relancer le service ne suffit pas toujours ; fermer la session du compte ou redémarrer son gestionnaire de services l’assure.
+
+Avant ce geste, vérifier deux choses :
+
+- **Le compte de la console n’est-il que celui de la console ?** S’il sert aussi à une personne ou à d’autres outils qui utilisent Docker, il perdra Docker pour eux aussi. Dans ce cas, donner d’abord à la console un compte qui lui est propre.
+- **L’accueil dit-il « agent actif, accès direct encore présent » ?** C’est l’état attendu juste avant. Après, il doit dire que Docker est piloté par l’agent et que les dossiers sont protégés.
+
+**Revenir en arrière**, dans l’ordre inverse, toujours sans coupure :
+
+1. `sudo systemctl disable --now nacre-services` : sans agent ni accès direct, la console ne pilote plus rien, mais les services continuent de tourner.
+2. `sudo gpasswd -a COMPTE docker`, puis relancer la console sous une nouvelle session : elle reprend la main sur Docker.
+3. Au besoin, désactiver les deux unités de montage ; elles se démontent à chaud.
 
 ### Prouvé sur banc VM
 
@@ -112,11 +127,12 @@ Les gestes de l’administrateur du système, sur chaque machine. **Les faire de
 - agent arrêté : la console n’a plus aucun accès et le dit comme une indisponibilité ; agent relancé : elle reprend ;
 - **le chemin par les conteneurs, démontré puis fermé** : avant protection, le compte de la console obtient les droits de root par un programme que le conteneur a marqué dans le dossier partagé, et lit le disque système par un fichier de périphérique ; après activation des deux montages, ni l’un ni l’autre, sans redémarrer le conteneur, y compris pour ce qu’il dépose ensuite ;
 - protection exigée par la politique : un partage approuvé mais posé sur un dossier exposé n’est plus monté ;
+- **migration d’une installation en service et retour arrière** (`tests/integration_service_migration_vm.py`) : une seule session SMB, ouverte avant le premier geste, écrit neuf fois jusqu’après le dernier ; le conteneur de fichiers n’est ni recréé ni redémarré, à aucune étape ; une console restée en marche garde son accès direct après la sortie du groupe, et le perd une fois relancée ; agent arrêté, compte remis dans le groupe, montages démontés à chaud : la console pilote de nouveau Docker ;
 - source d’image trafiquée par le compte de la console : l’image reconstruite par l’agent n’en porte aucune trace.
 
 ## Ce qui reste ouvert
 
-- **Aucune installation en service n’est migrée.** Les gestes ci-dessus sont prouvés sur une installation d’essai avec le service de fichiers. Sortir le compte de la console du groupe `docker` sur une machine qui sert, avec la vidéo, et pouvoir revenir en arrière sans coupure, c’est le lot 4.
+- **Aucune installation réelle n’est migrée.** La migration et le retour arrière sont prouvés sur une installation d’essai en service, avec le service de fichiers. Les faire sur une vraie machine demande root, et un compte de console qui ne serve qu’à elle.
 - **La vidéo n’a pas été exercée par l’agent sur un vrai Docker** : l’image Frigate est trop lourde pour le banc. Ses opérations sont les mêmes commandes, essayées face à un Docker simulé.
 - **Les conteneurs tournent toujours en root à l’intérieur.** Protégés par `nosuid` et `nodev`, leurs dossiers ne donnent plus de droits sur l’hôte ; une faille du noyau ou de Docker lui-même reste hors de portée de ce plan.
 - **Le contenu de l’image Frigate de base** n’est approuvé que si root la fixe dans la politique.
@@ -131,6 +147,6 @@ Les gestes de l’administrateur du système, sur chaque machine. **Les faire de
 | 1 | Modèle de menace, inventaire, liste fermée d’opérations dans la console | Paquet signé | Livré en alpha.43 |
 | 2 | Agent séparé : identité de l’appelant, description des services et montages vérifiés, essais de refus | Paquet signé pour la console ; agent installé par root ; banc VM | Livré en alpha.44 |
 | 3 | Conteneurs sans pouvoir sur l’hôte : dossiers de données sans programmes privilégiés ni périphériques, sources des images tenues par root | Paquet signé pour la console ; montages activés par root ; banc VM | Livré en alpha.45 |
-| 4 | Migration réversible d’une installation existante ; continuité de la vidéo et des partages prouvée | Geste de root sur chaque machine ; banc VM | À faire |
+| 4 | Migration réversible d’une installation existante ; continuité de la vidéo et des partages prouvée | Geste de root sur chaque machine ; banc VM | Marche à suivre et retour arrière prouvés en VM pour les partages ; vidéo et machine réelle à faire |
 
-Critères de l’issue : modèle de menace et inventaire, remplis ; contrôle d’identité et protocole fermé, remplis ; essais de refus, remplis en VM pour les partages, la continuité de la vidéo restant à prouver ; migration réversible, à faire au lot 4.
+Critères de l’issue : modèle de menace et inventaire, remplis ; contrôle d’identité et protocole fermé, remplis ; essais de refus, remplis en VM pour les partages, la continuité de la vidéo restant à prouver ; migration réversible, prouvée en VM sur une installation d’essai en service ; il reste à la faire sur une machine réelle, avec la vidéo.

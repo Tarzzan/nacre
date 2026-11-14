@@ -78,10 +78,10 @@ def running():
     return False
 
 
-def main():
+def prepare():
+    """Installation d'essai en service, pilotée directement par le compte ubuntu. Rend l'identifiant du conteneur de fichiers."""
     assert os.geteuid() == 0
     sys.path.insert(0, str(SOURCE / 'console'))
-    out = {}
     assert 'docker' in run('id', '-nG', 'ubuntu').split(), 'Le banc part d’un compte ubuntu membre du groupe docker'
     # Installation d'essai, propre à ce banc : sources copiées, état initialisé par la console elle-même.
     subprocess.run(['docker', 'rm', '-f', CONTAINER], capture_output=True)
@@ -103,7 +103,12 @@ def main():
     assert running()
     direct = [json.loads(line) for line in one('status')['result'].splitlines()]
     assert [(item['Service'], item['State']) for item in direct] == [('fichiers', 'running')], direct
-    identity = inspect()['Id']
+    return inspect()['Id']
+
+
+def main():
+    out = {}
+    identity = prepare()
     out['direct_before'] = True
 
     # 2. L'agent s'installe et démarre ; le compte ubuntu QUITTE le groupe docker.

@@ -1,5 +1,9 @@
 # Validation
 
+## Migration vers l’agent de services — banc seul, sans nouvelle version
+
+**Banc VM** (`tests/integration_service_migration_vm.py`, même VM jetable que l’agent) : installation d’essai en service, une session SMB ouverte avant le premier geste et un processus tenant lieu de console en marche. Agent posé, dossiers protégés, protection exigée, agent démarré, compte sorti du groupe `docker` : neuf écritures par la même session SMB, conteneur de fichiers jamais recréé ni redémarré (même identifiant, même heure de démarrage). Le processus resté en marche garde son accès direct après la sortie du groupe et le perd une fois relancé. Retour arrière dans l’ordre inverse : agent arrêté, compte remis dans le groupe, montages démontés à chaud, la console pilote de nouveau Docker, toujours sans coupure. Non prouvé : la vidéo, et une machine réelle.
+
 ## Dossiers de données protégés — 0.8.0-alpha.45
 
 355 tests Python et 134 JavaScript. Un essai Python de plus pour l’agent : seuls les dossiers où un conteneur écrit sont examinés, pas les montages en lecture seule ni les volumes Docker ; sans exigence, l’agent rapporte et démarre ; avec, démarrage, redémarrage et recréation refusés tant qu’un dossier est exposé, lecture d’état et arrêt toujours permis ; partage approuvé en écriture compté, en lecture seule non ; dossier absent jamais « protégé » ; image Frigate fixée par root. L’essai de l’installateur couvre la copie des sources des images, la description qui y renvoie, et les deux unités de montage au nom que systemd attend.
