@@ -52,7 +52,7 @@ def public_job(row):
 
 
 def ready(app, component):
-    lines = app.compose('ps','--all','--format','json',component,timeout=10).splitlines()
+    lines = app.service_op('status',component=component,timeout=10).splitlines()
     if not lines:
         return False
     items = [json.loads(line) for line in lines]
@@ -62,7 +62,7 @@ def ready(app, component):
         return all(item.get('Health') == 'healthy' for item in items)
     # Le conteneur peut tourner alors que l'entrypoint prépare encore Samba.
     try:
-        return 'PONG from pid ' in app.compose('exec','-T','fichiers','smbcontrol','smbd','ping',timeout=10)
+        return 'PONG from pid ' in app.service_op('samba_ping')
     except app.Problem:
         return False
 
@@ -78,20 +78,19 @@ def install(app, row):
         install_restic(app.ROOT)
         result = {'message':'Moteur de sauvegarde installé et vérifié.'}
     else:
-        from onboarding import probe
-        if not probe(['docker','info','--format','{{.ServerVersion}}']) or not probe(['docker','compose','version']):
+        if not app.service_op('engine',lookup=False)['compose']:
             raise app.Problem('Docker Engine et Compose doivent être installés et accessibles au compte Nacre.')
         if component == 'video':
             progress('Préparation de Frigate et du correctif de déconnexion…')
-            app.compose('build','video',timeout=1800)
+            app.service_op('build',component='video')
         else:
             progress('Préparation du service Samba…')
             manager = app.shares()
             manager.prepare_start(app.smb_state())
             if not (app.ROOT/'state/samba/recovery.compose.json').exists():
-                app.compose('build','fichiers',timeout=1200)
+                app.service_op('build',component='fichiers')
         progress('Démarrage et contrôle du service…')
-        app.compose('up','-d','--no-deps','--no-build',component,timeout=180)
+        app.service_op('start_component',component=component)
         # Un code de sortie Compose réussi ne suffit pas à annoncer un service prêt.
         confirmed = False
         for _ in range(30):

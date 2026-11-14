@@ -110,9 +110,8 @@ def probe(args):
 def status(app):
     state = read(app)
     capacity = shutil.disk_usage(app.ROOT)
-    docker = bool(shutil.which('docker'))
-    engine = docker and probe(['docker', 'info', '--format', '{{.ServerVersion}}'])
-    compose = docker and probe(['docker', 'compose', 'version'])
+    found = app.service_op('engine')
+    docker, engine, compose = found['docker'], found['engine'], found['compose']
     protection = app.protection().capabilities()
     from native_storage import SOCKET
     native_socket = os.path.exists(SOCKET)

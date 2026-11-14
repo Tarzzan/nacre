@@ -9,7 +9,6 @@ from urllib.parse import quote
 
 IDENTIFIER = re.compile(r'[A-Za-z0-9_-]{1,64}\Z')
 NEW_IDENTIFIER = re.compile(r'[a-z][a-z0-9_]{1,31}\Z')
-VALIDATE = 'import json,sys;from frigate.config import FrigateConfig;FrigateConfig.model_validate(json.load(sys.stdin))'
 
 
 def config(app):
@@ -169,7 +168,7 @@ def apply(app,row):
             streams.pop(key+'_sub',None)
         streams.update(payload['streams'])
         progress('Validation de la configuration par Frigate…')
-        try: app.compose('exec','-T','video','python3','-c',VALIDATE,data=json.dumps(current),timeout=30)
+        try: app.service_op('video_validate',document=current,timeout=30)
         except (app.Problem,OSError):
             raise app.Problem('Frigate doit être démarré et accepter la configuration. Aucun réglage existant n’a été remplacé.',503) from None
         if path.read_bytes()!=original:
@@ -179,7 +178,7 @@ def apply(app,row):
         progress('Configuration enregistrée ; redémarrage de la vidéo…')
         app.private_write(path,json.dumps(current,indent=2)+'\n')
         try:
-            app.compose('restart','video',timeout=90)
+            app.service_op('control',name='video',action='restart',timeout=90)
             app._upstream_cache=(0,None)
             ready=False
             for _ in range(30):

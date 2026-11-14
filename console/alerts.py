@@ -78,7 +78,7 @@ def collect(app):
         scopes['services']=scopes['cameras']=scopes['docker']=scopes['video_api']=None
         return scopes, seen
     try:
-        lines = app.compose('ps','--all','--format','json',timeout=3).splitlines()
+        lines = app.service_op('status').splitlines()
         services = {item['Service']:item for item in (json.loads(line) for line in lines if line.strip())}
     except Exception:
         scopes['services']=scopes['cameras']=None if seen else []
