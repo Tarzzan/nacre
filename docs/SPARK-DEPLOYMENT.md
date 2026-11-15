@@ -1,5 +1,15 @@
 # Déploiements de la console sur Spark
 
+## 14 novembre 2026 — alpha.63, recherche dans le contenu
+
+L’installation alpha.62 a reçu le paquet `nacre-0.8.0-alpha.63.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.63), par le même [parcours de mise à jour](BROWSER-UPDATES.md) : neuf modules figés identiques, répétition isolée alpha.62 → alpha.63 réussie, fichier importé identique à celui de la release, installation confirmée depuis la fenêtre Réglages et suivie jusqu’à **Mise à jour réussie**.
+
+Validation enregistrée à 20 h 58 min 12 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Constaté en lecture seule, en ne relevant que des nombres, avec un mot qui ne peut rien trouver : la première recherche a lancé la lecture des deux espaces du compte, terminée sans erreur ni arrêt ; **aucun document** ne s’y trouve, aucun résultat. L’outil des PDF est présent sur ce système. L’index `search.db` a été créé à côté de la base de Nacre, qui n’a pas changé. La recherche sur de vrais documents est prouvée sur le banc et par les essais.
+
+C’est la douzième et dernière installation du programme « espace collaboratif » (alpha.52 à alpha.63), toutes faites le même jour par paquet signé.
+
 ## 14 novembre 2026 — alpha.62, photos
 
 L’installation alpha.61 a reçu le paquet `nacre-0.8.0-alpha.62.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.62), par le même [parcours de mise à jour](BROWSER-UPDATES.md) : neuf modules figés identiques, répétition isolée alpha.61 → alpha.62 réussie, fichier importé identique à celui de la release, installation confirmée depuis la fenêtre Réglages et suivie jusqu’à **Mise à jour réussie**.
