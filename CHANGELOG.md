@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.64 — Certificat reconnu par les appareils
+
+Deux défauts des versions précédentes, trouvés en préparant la suite. **Le certificat de l’accès réseau** n’était pas conforme à ce qu’exigent les appareils Apple, se refaisait sans prévenir et rien n’alertait avant son échéance. Nacre crée désormais une **autorité locale**, limitée aux noms locaux et aux adresses privées, et un certificat de serveur signé par elle : **on installe l’autorité une fois sur chaque appareil**, depuis Réglages ou Mon compte, et le certificat se renouvelle seul sans rien redemander. Une alerte prévient quand un certificat ne peut pas se renouveler. Un ancien certificat autosigné est gardé tant qu’on ne demande pas de le remplacer. **La lecture des espaces** pour Photos et la recherche avait un plafond commun à tous les espaces : un espace immense empêchait la lecture des suivants ; le plafond vaut maintenant pour chacun. Guide : [`docs/ACCESS.md`](docs/ACCESS.md).
+
 ## 0.8.0-alpha.63 — Recherche dans le contenu
 
 Sixième brique de l’espace collaboratif. Dans **Fichiers**, quelques mots puis **Dans le contenu des documents** : Nacre liste les documents dont le texte contient tous ces mots, avec un extrait surligné. Sont lus les textes, les pages, les documents bureautiques (formats ouverts et Microsoft) et les PDF quand l’outil `pdftotext` est installé. Sans accents ni majuscules, et par le début des mots. **Chacun ne trouve que dans ses espaces** : l’index est commun, la réponse ne l’est jamais. Aucun document n’est interprété, et des plafonds bornent tout ce qui est lu. La recherche rapide du bureau propose la même recherche. L’index est une base à part, reconstructible, relue à la demande. Guide : [`docs/SEARCH.md`](docs/SEARCH.md).

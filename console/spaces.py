@@ -22,7 +22,7 @@ COMMON = 'space:fichiers'
 # Ce qu'un membre peut lire et écrire dans la console ; tout le reste lui est refusé par défaut.
 MEMBER_READS = ('/api/me', '/api/desk', '/api/areas', '/api/files', '/api/files/search', '/api/files/content', '/api/files/usage', '/api/files/usage-spaces',
                 '/api/files/versions', '/api/files/version', '/api/files/text',
-                '/api/download', '/api/archive', '/api/trash', '/api/overview', '/api/account', '/api/links', '/api/photos', '/api/photos/thumb')
+                '/api/download', '/api/archive', '/api/trash', '/api/overview', '/api/account', '/api/links', '/api/photos', '/api/photos/thumb', '/api/network/authority')
 MEMBER_WRITES = ('/api/logout', '/api/desk', '/api/upload', '/api/folder', '/api/rename', '/api/move', '/api/trash', '/api/restore',
                  '/api/account/password', '/api/links/create', '/api/links/revoke', '/api/files/version-restore', '/api/files/version-delete',
                  '/api/files/text-save', '/api/files/text-new', '/api/files/text-presence', '/api/office/open', '/api/office/new',

@@ -214,10 +214,12 @@ def work(app, progress, note):
                     note(progress)
 
             complete = True
+            progress['counted'] = 0
             try:
                 with app.folder(area, '') as fd:
                     library.walk(fd, [], progress, visit)
             except library.Stop as stop:
+                # Espace trop grand pour un passage : ce qui en a été lu est gardé, et les espaces suivants sont lus quand même.
                 partial, complete = str(stop), False
             except (app.Problem, OSError):
                 complete = False   # espace indisponible : ce qu'on en savait est gardé
@@ -228,9 +230,9 @@ def work(app, progress, note):
                         db.execute('DELETE FROM docs WHERE id=?', (value[0],))
             db.commit()
             note(progress)
-            if partial:
+            if partial == 'halt':
                 break
-        if not partial:
+        if partial != 'halt':
             for row in db.execute('SELECT DISTINCT area FROM docs').fetchall():
                 if row['area'] not in areas:
                     db.execute('DELETE FROM texts WHERE rowid IN (SELECT id FROM docs WHERE area=?)', (row['area'],))

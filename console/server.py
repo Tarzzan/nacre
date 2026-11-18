@@ -805,6 +805,10 @@ class Handler(BaseHTTPRequestHandler):
                 if session['role'] != 'admin':raise Problem('Accès réservé aux administrateurs.',403)
                 import office
                 return self.reply(200, office.status(sys.modules[__name__], session, None if self.networked() else self.server.server_port))
+            if url.path == '/api/network/authority':
+                # Le certificat de l'autorité locale n'est pas un secret : chacun peut l'installer sur son appareil.
+                import network
+                return network.authority_file(sys.modules[__name__], self)
             if url.path == '/api/network':
                 if session['role'] != 'admin':raise Problem('Accès réservé aux administrateurs.',403)
                 import network
@@ -815,7 +819,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply(200, shared_links(sys.modules[__name__], session))
             if url.path == '/api/account':
                 import totp
-                return self.reply(200, {'name': session['name'], 'role': session['role'], 'totp': totp.summary(sys.modules[__name__], session)})
+                import network
+                return self.reply(200, {'name': session['name'], 'role': session['role'], 'totp': totp.summary(sys.modules[__name__], session),
+                                        'authority': network.trusted(sys.modules[__name__]) if network.read(sys.modules[__name__])['certificate'] == 'authority' else None})
             if url.path == '/api/spaces':
                 if session['role'] != 'admin':raise Problem('Accès réservé aux administrateurs.',403)
                 return self.reply(200, spaces.overview(sys.modules[__name__]))
@@ -984,7 +990,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.proxy_stream(upstream, 'video/mp4', filename)
             raise Problem('Ressource inconnue.', 404)
         except Problem as error:
-            self.reply(error.status, {'error': error.message})
+            reason = getattr(error, 'reason', None)
+            self.reply(error.status, {'error': error.message, **({'reason': reason} if isinstance(reason, str) else {})})
         except (BrokenPipeError, ConnectionResetError):
             pass
         except (FileNotFoundError, NotADirectoryError):
