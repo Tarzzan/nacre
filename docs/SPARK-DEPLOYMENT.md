@@ -1,5 +1,15 @@
 # Déploiements de la console sur Spark
 
+## 18 novembre 2026 — alpha.64, certificat reconnu par les appareils
+
+L’installation alpha.63 a reçu le paquet `nacre-0.8.0-alpha.64.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.64), par le même [parcours de mise à jour](BROWSER-UPDATES.md) : neuf modules figés identiques, répétition isolée alpha.63 → alpha.64 réussie, fichier importé identique à celui de la release, installation confirmée depuis la fenêtre Réglages et suivie jusqu’à **Mise à jour réussie**.
+
+Validation enregistrée à 9 h 10 min 07 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Constaté en lecture seule : l’accès réseau est toujours **fermé**, aucun certificat ni aucune autorité n’a été créé par la mise à jour, le fichier de l’autorité répond 404, aucune alerte de certificat. **Rien n’a été ouvert ni créé ici** : l’autorité locale est prouvée sur le banc et par les essais, pas sur un appareil réel.
+
+Un des quatre contrôles de la branche principale a échoué une première fois, puis réussi relancé sans changement : voir « Course dans le superviseur » dans [REPRISE.md](REPRISE.md).
+
 ## 14 novembre 2026 — alpha.63, recherche dans le contenu
 
 L’installation alpha.62 a reçu le paquet `nacre-0.8.0-alpha.63.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.63), par le même [parcours de mise à jour](BROWSER-UPDATES.md) : neuf modules figés identiques, répétition isolée alpha.62 → alpha.63 réussie, fichier importé identique à celui de la release, installation confirmée depuis la fenêtre Réglages et suivie jusqu’à **Mise à jour réussie**.

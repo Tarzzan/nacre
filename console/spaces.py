@@ -26,7 +26,8 @@ MEMBER_READS = ('/api/me', '/api/desk', '/api/areas', '/api/files', '/api/files/
 MEMBER_WRITES = ('/api/logout', '/api/desk', '/api/upload', '/api/folder', '/api/rename', '/api/move', '/api/trash', '/api/restore',
                  '/api/account/password', '/api/links/create', '/api/links/revoke', '/api/files/version-restore', '/api/files/version-delete',
                  '/api/files/text-save', '/api/files/text-new', '/api/files/text-presence', '/api/office/open', '/api/office/new',
-                 '/api/account/totp/start', '/api/account/totp/confirm', '/api/account/totp/disable', '/api/photos/plan', '/api/photos/refresh')
+                 '/api/account/totp/start', '/api/account/totp/confirm', '/api/account/totp/disable', '/api/photos/plan', '/api/photos/refresh',
+                 '/api/account/devices/create', '/api/account/devices/revoke')
 CAMERA_READS = ('/api/cameras', '/api/camera/')
 
 
@@ -89,7 +90,22 @@ def granted(db, doc, name):
 
 
 def level(app, session, area):
-    """Niveau d'accès de la session à un espace : None, 'read' ou 'write'."""
+    """Niveau d'accès de la session à un espace : None, 'read' ou 'write'.
+
+    Une session d'appareil (voir devices.py) n'ouvre que les fichiers des espaces — jamais les sauvegardes, les vidéos ni un
+    volume — et seulement en lecture si l'appareil n'a pas reçu l'écriture. Ses droits restent par ailleurs ceux de sa personne.
+    """
+    device = session.get('device')
+    if device is None:
+        return own_level(app, session, area)
+    if not isinstance(area, str) or not (area == 'fichiers' or SPACE.fullmatch(area)):
+        return None
+    found = own_level(app, {key: value for key, value in session.items() if key != 'device'}, area)
+    return 'read' if found and device.get('write') is not True else found
+
+
+def own_level(app, session, area):
+    """Niveau d'accès d'une personne à un espace, hors de toute borne d'appareil."""
     role, name = session.get('role'), session.get('name')
     if not isinstance(area, str):
         return None
@@ -252,6 +268,8 @@ def overview(app):
         people, groups, spaces = accounts(db), every(db, 'group:'), every(db, 'space:')
         shared = common(db)
         flags = {p['name']: person(db, p['name']) for p in people}
+        import devices
+        owned = devices.counts(db)
     groups = sorted(({'id': g['id'], 'name': g.get('name', ''), 'members': sorted(m for m in g.get('members', []) if m in flags)}
                      for g in groups if isinstance(g.get('id'), str) and IDENT.fullmatch(g['id'])), key=lambda g: g['name'].casefold())
     owners = {s.get('owner'): s for s in spaces if s.get('kind') == 'personal'}
@@ -259,7 +277,7 @@ def overview(app):
     return {
         'people': [{'name': p['name'], 'role': p['role'], 'active': bool(p['active']), 'camera': flags[p['name']].get('camera') is True,
                     'totp': isinstance(flags[p['name']].get('totp'), dict) and flags[p['name']]['totp'].get('enabled') is True,
-                    'groups': [g['id'] for g in groups if p['name'] in g['members']], 'personal': p['name'] in owners} for p in people],
+                    'groups': [g['id'] for g in groups if p['name'] in g['members']], 'personal': p['name'] in owners, 'devices': owned.get(p['name'], 0)} for p in people],
         'groups': groups,
         'spaces': sorted(({'id': 'espace_' + s['id'], 'name': s.get('name', ''), 'members': s.get('members', {}), 'groups': s.get('groups', {}),
                            'former': s.get('former')} for s in spaces if s.get('kind') == 'team'), key=lambda s: s['name'].casefold()),
@@ -422,4 +440,6 @@ def change_password(app, body, session):
         db.execute('UPDATE users SET salt=?,hash=? WHERE name=?', (salt, app.password_hash(wanted, salt), session['name']))
         db.execute('DELETE FROM sessions WHERE name=? AND token<>?', (session['name'], session['token']))
         db.execute('INSERT INTO audit(ts,username,action,detail) VALUES(?,?,?,?)', (time.time(), session['name'], 'Mot de passe modifié', ''))
+        import devices
+        devices.revoke_all(db, session['name'], session['name'], 'mot de passe changé')
     return {'ok': True}

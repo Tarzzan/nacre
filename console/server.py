@@ -254,7 +254,7 @@ def parent(area, path, write=False):
 
 
 def safe_name(name):
-    if not isinstance(name, str) or name.strip() != name or not name or len(name) > 180 or name.startswith('.') or any(x in name for x in '/\\\r\n\x00'):
+    if not isinstance(name, str) or name.strip() != name or not name or len(name) > 180 or name.startswith('.') or any(x in name for x in '/\\') or any(ord(c) < 32 or ord(c) == 127 for c in name):
         raise Problem('Nom invalide : éviter les chemins et les noms commençant par un point.')
     return name
 
@@ -591,8 +591,8 @@ class Handler(BaseHTTPRequestHandler):
     def allowed_host(self):
         if self.networked():
             import network
-            return self.headers.get('Host') in network.allowed_hosts(self.server)
-        return self.headers.get('Host') in (f'127.0.0.1:{self.server.server_port}', f'localhost:{self.server.server_port}')
+            return (self.headers.get('Host') or '').lower() in network.allowed_hosts(self.server)
+        return (self.headers.get('Host') or '').lower() in (f'127.0.0.1:{self.server.server_port}', f'localhost:{self.server.server_port}')
 
     def origins(self):
         if self.networked():
@@ -662,7 +662,21 @@ class Handler(BaseHTTPRequestHandler):
             raise Problem('Un compte administrateur est nécessaire.', 403)
 
     def do_GET(self):
+        if self.path == '/dav' or self.path.startswith('/dav/'):
+            return self.dav()
         self.handle_request(False)
+
+    def dav(self):
+        # Fichiers pour les appareils et les outils : voir dav.py. Aucun droit avant le mot de passe de l'appareil.
+        import dav
+        dav.handle(sys.modules[__name__], self, self.command)
+
+    def do_HEAD(self):
+        if self.path == '/dav' or self.path.startswith('/dav/'):
+            return self.dav()
+        self.send_error(501, 'Unsupported method (%r)' % self.command)
+
+    do_OPTIONS = do_PROPFIND = do_PROPPATCH = do_PUT = do_DELETE = do_MKCOL = do_MOVE = do_COPY = do_LOCK = do_UNLOCK = do_HEAD
 
     def do_POST(self):
         self.handle_request(True)
@@ -749,7 +763,7 @@ class Handler(BaseHTTPRequestHandler):
             if maintenance(sys.modules[__name__]) and (post or url.path not in ('/api/me','/api/updates')):
                 raise Problem('Mise à jour en cours. La console sera bientôt disponible.',503)
             if post:
-                self.authorize_write(session, require_admin=url.path not in ('/api/logout', '/api/desk', '/api/account/password', '/api/account/totp/start', '/api/account/totp/confirm', '/api/account/totp/disable', '/api/office/open') and not (session['role'] in ('member', 'admin') and url.path in spaces.MEMBER_WRITES))
+                self.authorize_write(session, require_admin=url.path not in ('/api/logout', '/api/desk', '/api/account/password', '/api/account/totp/start', '/api/account/totp/confirm', '/api/account/totp/disable', '/api/account/devices/create', '/api/account/devices/revoke', '/api/office/open') and not (session['role'] in ('member', 'admin') and url.path in spaces.MEMBER_WRITES))
                 if url.path == '/api/updates/upload':
                     from updates import upload
                     return self.reply(200,upload(sys.modules[__name__],self))
@@ -820,7 +834,9 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == '/api/account':
                 import totp
                 import network
+                import devices
                 return self.reply(200, {'name': session['name'], 'role': session['role'], 'totp': totp.summary(sys.modules[__name__], session),
+                                        'devices': devices.listing(sys.modules[__name__], session['name']),
                                         'authority': network.trusted(sys.modules[__name__]) if network.read(sys.modules[__name__])['certificate'] == 'authority' else None})
             if url.path == '/api/spaces':
                 if session['role'] != 'admin':raise Problem('Accès réservé aux administrateurs.',403)
@@ -1036,7 +1052,7 @@ class Handler(BaseHTTPRequestHandler):
                 return submit(sys.modules[__name__],body,user)
             if route.startswith('/api/spaces/'):
                 action={'group':spaces.save_group,'group-delete':spaces.delete_group,'space':spaces.save_space,'space-delete':spaces.delete_space,
-                        'common':spaces.save_common,'person':spaces.save_person,'adopt':spaces.adopt,'totp-reset':__import__('totp').reset}.get(route[len('/api/spaces/'):])
+                        'common':spaces.save_common,'person':spaces.save_person,'adopt':spaces.adopt,'totp-reset':__import__('totp').reset,'devices-revoke':__import__('devices').revoke_person}.get(route[len('/api/spaces/'):])
                 if not action:raise Problem('Ressource inconnue.',404)
                 return action(sys.modules[__name__],body,user)
             if route in ('/api/photos/plan','/api/photos/refresh'):
@@ -1063,6 +1079,9 @@ class Handler(BaseHTTPRequestHandler):
                 action={'start':totp.start,'confirm':totp.confirm,'disable':totp.disable}.get(route.rsplit('/',1)[1])
                 if not action:raise Problem('Ressource inconnue.',404)
                 return action(sys.modules[__name__],body,session)
+            if route in ('/api/account/devices/create', '/api/account/devices/revoke'):
+                import devices
+                return (devices.create if route.endswith('/create') else devices.revoke)(sys.modules[__name__],body,session)
             if route == '/api/account/password':
                 return spaces.change_password(sys.modules[__name__],body,session)
             if route in ('/api/camera/keep','/api/camera/unkeep'):
@@ -1269,6 +1288,8 @@ class Handler(BaseHTTPRequestHandler):
                         salt = secrets.token_hex(16)
                         db.execute('UPDATE users SET salt=?,hash=? WHERE name=?', (salt, password_hash(password, salt), name))
                         db.execute('DELETE FROM sessions WHERE name=? AND token<>?', (name, session['token']))
+                        # Un mot de passe remis par un administrateur retire aussi les appareils de la personne.
+                        __import__('devices').revoke_all(db, name, user, 'mot de passe remis par un administrateur')
                 if name == 'admin' and password:
                     private_write(STATE / 'acces.txt', 'Console Nacre — utilisateur admin.\nMot de passe modifié depuis la console ; utiliser le mot de passe que vous avez choisi.\n')
                 audit(user, 'Compte console mis à jour', name)

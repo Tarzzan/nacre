@@ -136,6 +136,8 @@ def confirm(app, body, session, now=None):
         save(db, session['name'], {'enabled': True, 'secret': doc['pending'], 'last': counter, 'recovery': [digest(value) for value in codes], 'since': now})
         db.execute('DELETE FROM sessions WHERE name=? AND token<>?', (session['name'], session['token']))
         db.execute('INSERT INTO audit(ts,username,action,detail) VALUES(?,?,?,?)', (now, session['name'], 'Double authentification activée', ''))
+        import devices
+        devices.revoke_all(db, session['name'], session['name'], 'double authentification activée')
     return {'ok': True, 'recovery': codes}
 
 
@@ -150,6 +152,8 @@ def disable(app, body, session, now=None):
             raise app.Problem('Code refusé.', 403)
         save(db, session['name'], None)
         db.execute('INSERT INTO audit(ts,username,action,detail) VALUES(?,?,?,?)', (time.time(), session['name'], 'Double authentification désactivée', ''))
+        import devices
+        devices.revoke_all(db, session['name'], session['name'], 'double authentification retirée')
     return {'ok': True}
 
 
@@ -167,4 +171,6 @@ def reset(app, body, actor):
         save(db, name, None)
         db.execute('DELETE FROM sessions WHERE name=?', (name,))
         db.execute('INSERT INTO audit(ts,username,action,detail) VALUES(?,?,?,?)', (time.time(), actor, 'Double authentification retirée par un administrateur', name))
+        import devices
+        devices.revoke_all(db, name, actor, 'double authentification retirée')
     return {'ok': True}

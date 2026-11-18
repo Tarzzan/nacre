@@ -62,6 +62,8 @@ def account(app, body, session):
         salt, csrf = secrets.token_hex(16), secrets.token_urlsafe(24)
         db.execute("UPDATE users SET salt=?,hash=? WHERE name='admin'", (salt, app.password_hash(password, salt)))
         db.execute('DELETE FROM sessions WHERE token<>?', (session['token'],))
+        import devices
+        devices.revoke_all(db, 'admin', 'admin', 'compte initial sécurisé')
         db.execute('UPDATE sessions SET csrf=? WHERE token=?', (csrf, session['token']))
         db.execute('DELETE FROM tickets')
         state['phase'] = 'system'
