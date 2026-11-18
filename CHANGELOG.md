@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.65 — Appareils et WebDAV
+
+Premier lot du programme « appareils et communication ». Dans **Mon compte → Mes appareils**, chacun ajoute un outil de synchronisation ou une application : Nacre lui donne un **mot de passe qui lui est propre**, montré une fois, qui n’ouvre que les fichiers de ses espaces et se retire d’un geste. Avec lui, l’outil **lit les fichiers par WebDAV**, à l’adresse de la console suivie de `/dav/`, sans jamais saisir le mot de passe du compte ni un code. Aucun droit avant ce mot de passe ; ensuite, ceux de la personne, vivants. Lecture seule pour l’instant. Éprouvé avec rclone. Guide : [`docs/DEVICES.md`](docs/DEVICES.md).
+
 ## 0.8.0-alpha.64 — Certificat reconnu par les appareils
 
 Deux défauts des versions précédentes, trouvés en préparant la suite. **Le certificat de l’accès réseau** n’était pas conforme à ce qu’exigent les appareils Apple, se refaisait sans prévenir et rien n’alertait avant son échéance. Nacre crée désormais une **autorité locale**, limitée aux noms locaux et aux adresses privées, et un certificat de serveur signé par elle : **on installe l’autorité une fois sur chaque appareil**, depuis Réglages ou Mon compte, et le certificat se renouvelle seul sans rien redemander. Une alerte prévient quand un certificat ne peut pas se renouveler. Un ancien certificat autosigné est gardé tant qu’on ne demande pas de le remplacer. **La lecture des espaces** pour Photos et la recherche avait un plafond commun à tous les espaces : un espace immense empêchait la lecture des suivants ; le plafond vaut maintenant pour chacun. Guide : [`docs/ACCESS.md`](docs/ACCESS.md).

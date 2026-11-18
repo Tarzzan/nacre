@@ -182,3 +182,5 @@ dialog:has(.ph-view){width:min(1080px,96vw);max-width:96vw;max-height:calc(100vh
 .fm-extract mark{background:#fdeeb0;color:inherit;border-radius:3px;padding:0 2px}
 /* Autorité locale : marche à suivre repliée. */
 .trust-how{margin-top:12px;font-size:13px}.trust-how summary{cursor:pointer;color:var(--ink);font-weight:550}.trust-how ul{margin:8px 0;padding-left:18px}.trust-how li{margin:5px 0}
+/* Mes appareils : les trois réglages à reporter, montrés une fois. */
+.device-new{display:grid;grid-template-columns:max-content 1fr;gap:6px 16px;margin:12px 0;font-size:13px}.device-new dt{color:var(--muted)}.device-new dd{margin:0;overflow-wrap:anywhere;color:var(--ink);font-weight:550}

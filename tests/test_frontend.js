@@ -2506,7 +2506,7 @@ test('account page walks through enabling double authentication and never shows 
  let state={enabled:false,recovery:0},refuse='';
  const f=peopleFixture((url,body)=>url==='/api/account'?response(200,{name:'camille',role:'member',totp:state}):refuse?response(403,{error:refuse}):
   url.endsWith('/start')?response(200,{secret:'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP',uri:'otpauth://totp/Nacre:camille?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&issuer=Nacre'}):
-  url.endsWith('/confirm')?response(200,{ok:true,recovery:['abcd-efgh','<b>x-yz']}):response(200,{ok:true}),'member');
+  url.endsWith('/confirm')?response(200,{ok:true,recovery:['aaaa-bbbb','<b>x-yz']}):response(200,{ok:true}),'member');
  f.context.TextEncoder=TextEncoder;vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/qr.js'),'utf8'),f.context);
  f.run('page="account"');await f.run('renderAccount()');
  assert.match(f.content(),/id="totp"><h2>Double authentification<\/h2><p><span class="badge dim">Inactive<\/span>/);assert.match(f.content(),/id="totp-start"/);assert.match(f.content(),/lien de connexion locale/);
@@ -2519,11 +2519,11 @@ test('account page walks through enabling double authentication and never shows 
  assert.match(html,/<svg class="qr"/);assert.match(html,/class="totp-key">JBSW Y3DP EHPK 3PXP JBSW Y3DP EHPK 3PXP</);assert.match(html,/id="totp-confirm"/);assert.match(html,/autocomplete="one-time-code"/);
  await submit('totp-confirm',{code:'123456'});
  assert.deepEqual(f.calls.filter(c=>c[0].includes('/totp/')).at(-1),['/api/account/totp/confirm',{code:'123456'}]);
- html=f.content();assert.match(html,/Ils ne seront plus affichés/);assert.match(html,/<li>abcd-efgh<\/li><li>&lt;b&gt;x-yz<\/li>/);assert.doesNotMatch(html,/<b>x/);
+ html=f.content();assert.match(html,/Ils ne seront plus affichés/);assert.match(html,/<li>aaaa-bbbb<\/li><li>&lt;b&gt;x-yz<\/li>/);assert.doesNotMatch(html,/<b>x/);
  // « J’ai noté mes codes » : ils disparaissent pour de bon, la carte montre l’état actif et la désactivation.
  state={enabled:true,recovery:10};
  await Promise.all(f.listeners.get('click').filter(fn=>fn.toString().includes('totp-done')).map(fn=>fn({target:{closest:()=>({dataset:{action:'totp-done'}})}})));
- html=f.content();assert.doesNotMatch(html,/abcd-efgh/);assert.match(html,/<span class="badge">Active<\/span>[^]*Codes de secours restants : <strong>10<\/strong>/);assert.match(html,/id="totp-disable"/);
+ html=f.content();assert.doesNotMatch(html,/aaaa-bbbb/);assert.match(html,/<span class="badge">Active<\/span>[^]*Codes de secours restants : <strong>10<\/strong>/);assert.match(html,/id="totp-disable"/);
  await submit('totp-disable',{password:'juste',code:'654321'});
  assert.deepEqual(f.calls.filter(c=>c[0].includes('/totp/')).at(-1),['/api/account/totp/disable',{password:'juste',code:'654321'}]);
  // Administration : la colonne dit qui l’a activée, et le retrait ne vaut que pour les autres.
@@ -3026,5 +3026,50 @@ test('a content search asked from the desktop search arrives in the field and st
  assert.deepEqual(f.deep(),['/api/files/content?q=dalle']);assert.equal(f.run('fmPendingContent'),false);assert.equal(f.run('fmFilter'),'dalle');
  // Sans la marque, la même saisie reste une recherche par nom.
  f.run('deskApply({find:"dalle",app:"files"})');await f.run('renderFiles()');await f.settle();assert.equal(f.deep().length,1);assert.equal(f.state.urls.at(-1),'/api/files/search?q=dalle');
+});
+
+test('my devices: one is added after asking the password again, its password is shown once to that session only, and one is removed after confirmation',async()=>{
+ let devices=[],refuse='',totp={enabled:false,recovery:0};
+ const f=peopleFixture((url,body)=>url==='/api/account'?response(200,{name:'camille',role:'member',totp,devices,authority:null}):refuse?response(403,{error:refuse}):
+  url.endsWith('/devices/create')?response(200,{device:{id:'ab12cd34ef56',name:body.name,write:false,created:1794700000,used:0},password:'aaaa-bbbb-cccc-dddd-eeee-ffff',username:'cam<b>ille'}):response(200,{ok:true}),'member');
+ f.context.location.origin='https://nas.local:8443';f.run('page="account"');await f.run('renderAccount()');
+ let html=f.content();
+ assert.match(html,/<section class="card cardpad" id="devices"><h2>Mes appareils<\/h2>/);assert.match(html,/Aucun appareil pour l’instant\./);
+ assert.match(html,/Il n’ouvre que les fichiers de vos espaces/);assert.match(html,/un appareil lit vos fichiers sans pouvoir les modifier/);assert.doesNotMatch(html,/device-code/);
+ const fields={name:' Portable ',password:'mot de passe du compte'},form=()=>({getAttribute:()=> 'device-form',values:fields,querySelector:()=>send}),send={disabled:false};
+ const error={textContent:'ancien'};f.elements.set('#device-error',error);
+ const submit=f.listeners.get('submit').find(fn=>fn.toString().includes('device-form'));
+ // Mot de passe refusé : dit sous le formulaire, rien n’est montré.
+ refuse='Mot de passe actuel refusé.';await submit({target:form(),preventDefault(){}});assert.equal(error.textContent,'Mot de passe actuel refusé.');assert.equal(send.disabled,false);assert.equal(f.run('deviceShown'),null);
+ refuse='';devices=[{id:'ab12cd34ef56',name:'Portable <i>',write:false,created:1794700000,used:0}];
+ await submit({target:form(),preventDefault(){}});
+ assert.deepEqual(f.calls.find(c=>c[0].endsWith('/devices/create')&&c[1].name===' Portable '),['/api/account/devices/create',{name:' Portable ',password:'mot de passe du compte'}]);
+ html=f.content();
+ // Les trois réglages à reporter, une seule fois ; tout est échappé.
+ assert.match(html,/<dt>Adresse \(WebDAV\)<\/dt><dd>https:\/\/nas\.local:8443\/dav\/<\/dd><dt>Identifiant<\/dt><dd>cam&lt;b&gt;ille<\/dd><dt>Mot de passe<\/dt><dd class="totp-key">aaaa-bbbb-cccc-dddd-eeee-ffff<\/dd>/);
+ assert.match(html,/Le mot de passe ne sera plus affiché\./);assert.doesNotMatch(html,/<b>|device-form/);
+ const act=(action,data={})=>f.listeners.get('click').find(fn=>fn.toString().includes('device-revoke'))({target:{closest:()=>({dataset:{action,...data}})}});
+ await act('device-done');html=f.content();
+ assert.doesNotMatch(html,/aaaa-bbbb/);assert.equal(f.run('deviceShown'),null);
+ assert.match(html,/<td><strong>Portable &lt;i&gt;<\/strong><\/td><td>Lecture<\/td>/);assert.match(html,/<td>jamais<\/td>/);assert.match(html,/data-action="device-revoke" data-id="ab12cd34ef56" data-name="Portable &lt;i&gt;"/);
+ // Retirer : confirmation d’abord.
+ const modal=f.elements.get('#modal');modal.innerHTML='';const before=f.calls.length;
+ await act('device-revoke',{id:'ab12cd34ef56',name:'Portable <i>'});assert.match(modal.innerHTML,/Retirer cet appareil \?/);assert.match(modal.innerHTML,/« Portable &lt;i&gt; » cessera d’ouvrir vos fichiers/);assert.equal(f.calls.length,before);
+ const done=await f.run('modalSubmit(new Map())');assert.deepEqual(f.calls.at(-1),['/api/account/devices/revoke',{id:'ab12cd34ef56'}]);assert.equal(done.message,'Appareil retiré.');
+ // Avec la double authentification, le code est demandé et envoyé.
+ totp={enabled:true,recovery:8};await f.run('renderAccount()');assert.match(f.content(),/id="device-code" name="code"/);
+ fields.code='123456';await submit({target:form(),preventDefault(){}});assert.equal(f.calls.filter(c=>c[0].endsWith('/devices/create')).at(-1)[1].code,'123456');
+ // Une autre connexion dans le même onglet ne voit jamais le mot de passe resté affiché.
+ assert.match(f.content(),/aaaa-bbbb/);f.run('sessionGeneration++');assert.doesNotMatch(f.run('devicesCard')([],{enabled:false}),/aaaa-bbbb/);assert.equal(f.run('deviceShown'),null);
+});
+test('an administrator sees how many devices each person has and removes them all after confirmation',async()=>{
+ const sample={...peopleSample,people:peopleSample.people.map((p,i)=>({...p,devices:i===0?0:2}))},f=peopleFixture(url=>response(200,url==='/api/spaces'?sample:{ok:true,removed:2}));
+ await f.run('renderPeople()');const html=f.content(),name=sample.people[1].name;
+ assert.match(html,/<th>Appareils<\/th>/);assert.match(html,/data-action="people-devices"/);assert.equal((html.match(/data-action="people-devices"/g)||[]).length,sample.people.length-1);
+ const modal=f.elements.get('#modal');modal.innerHTML='';await f.act('people-devices',{name});
+ assert.match(modal.innerHTML,/Retirer ses appareils \?/);assert.match(modal.innerHTML,/Les 2 appareils de /);assert.match(modal.innerHTML,/Sa connexion à la console ne change pas/);
+ await f.run('modalSubmit(new Map())');assert.deepEqual(f.calls.at(-1),['/api/spaces/devices-revoke',{name}]);
+ // Personne sans appareil, ou inconnue : rien ne s’ouvre.
+ modal.innerHTML='';await f.act('people-devices',{name:sample.people[0].name});await f.act('people-devices',{name:'inconnu'});assert.equal(modal.innerHTML,'');
 });
 
