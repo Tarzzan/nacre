@@ -666,6 +666,13 @@ class Handler(BaseHTTPRequestHandler):
             return self.dav()
         self.handle_request(False)
 
+    def handle_expect_100(self):
+        # Sous /dav/, le feu vert n'est donné qu'une fois les droits vérifiés (dav.proceed) : rien n'est reçu d'un inconnu.
+        if self.path == '/dav' or self.path.startswith('/dav/'):
+            self.expects = True
+            return True
+        return super().handle_expect_100()
+
     def dav(self):
         # Fichiers pour les appareils et les outils : voir dav.py. Aucun droit avant le mot de passe de l'appareil.
         import dav

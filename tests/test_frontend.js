@@ -3035,7 +3035,8 @@ test('my devices: one is added after asking the password again, its password is 
  f.context.location.origin='https://nas.local:8443';f.run('page="account"');await f.run('renderAccount()');
  let html=f.content();
  assert.match(html,/<section class="card cardpad" id="devices"><h2>Mes appareils<\/h2>/);assert.match(html,/Aucun appareil pour l’instant\./);
- assert.match(html,/Il n’ouvre que les fichiers de vos espaces/);assert.match(html,/un appareil lit vos fichiers sans pouvoir les modifier/);assert.doesNotMatch(html,/device-code/);
+ assert.match(html,/Il n’ouvre que les fichiers de vos espaces/);assert.match(html,/<select id="device-access" name="write"><option value="">Lire mes fichiers<\/option><option value="1">Lire et modifier mes fichiers<\/option>/);
+ assert.match(html,/Ce qu’il remplace reste dans les versions, ce qu’il supprime va à la corbeille/);assert.doesNotMatch(html,/device-code/);
  const fields={name:' Portable ',password:'mot de passe du compte'},form=()=>({getAttribute:()=> 'device-form',values:fields,querySelector:()=>send}),send={disabled:false};
  const error={textContent:'ancien'};f.elements.set('#device-error',error);
  const submit=f.listeners.get('submit').find(fn=>fn.toString().includes('device-form'));
@@ -3043,7 +3044,7 @@ test('my devices: one is added after asking the password again, its password is 
  refuse='Mot de passe actuel refusé.';await submit({target:form(),preventDefault(){}});assert.equal(error.textContent,'Mot de passe actuel refusé.');assert.equal(send.disabled,false);assert.equal(f.run('deviceShown'),null);
  refuse='';devices=[{id:'ab12cd34ef56',name:'Portable <i>',write:false,created:1794700000,used:0}];
  await submit({target:form(),preventDefault(){}});
- assert.deepEqual(f.calls.find(c=>c[0].endsWith('/devices/create')&&c[1].name===' Portable '),['/api/account/devices/create',{name:' Portable ',password:'mot de passe du compte'}]);
+ assert.deepEqual(f.calls.find(c=>c[0].endsWith('/devices/create')&&c[1].name===' Portable '),['/api/account/devices/create',{name:' Portable ',write:false,password:'mot de passe du compte'}]);
  html=f.content();
  // Les trois réglages à reporter, une seule fois ; tout est échappé.
  assert.match(html,/<dt>Adresse \(WebDAV\)<\/dt><dd>https:\/\/nas\.local:8443\/dav\/<\/dd><dt>Identifiant<\/dt><dd>cam&lt;b&gt;ille<\/dd><dt>Mot de passe<\/dt><dd class="totp-key">aaaa-bbbb-cccc-dddd-eeee-ffff<\/dd>/);
@@ -3058,7 +3059,7 @@ test('my devices: one is added after asking the password again, its password is 
  const done=await f.run('modalSubmit(new Map())');assert.deepEqual(f.calls.at(-1),['/api/account/devices/revoke',{id:'ab12cd34ef56'}]);assert.equal(done.message,'Appareil retiré.');
  // Avec la double authentification, le code est demandé et envoyé.
  totp={enabled:true,recovery:8};await f.run('renderAccount()');assert.match(f.content(),/id="device-code" name="code"/);
- fields.code='123456';await submit({target:form(),preventDefault(){}});assert.equal(f.calls.filter(c=>c[0].endsWith('/devices/create')).at(-1)[1].code,'123456');
+ fields.code='123456';fields.write='1';await submit({target:form(),preventDefault(){}});assert.deepEqual([f.calls.filter(c=>c[0].endsWith('/devices/create')).at(-1)[1].code,f.calls.filter(c=>c[0].endsWith('/devices/create')).at(-1)[1].write],['123456',true]);
  // Une autre connexion dans le même onglet ne voit jamais le mot de passe resté affiché.
  assert.match(f.content(),/aaaa-bbbb/);f.run('sessionGeneration++');assert.doesNotMatch(f.run('devicesCard')([],{enabled:false}),/aaaa-bbbb/);assert.equal(f.run('deviceShown'),null);
 });
