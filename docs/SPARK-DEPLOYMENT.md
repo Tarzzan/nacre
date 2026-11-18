@@ -1,5 +1,15 @@
 # Déploiements de la console sur Spark
 
+## 18 novembre 2026 — alpha.67, vider la corbeille
+
+L’installation alpha.66 a reçu le paquet `nacre-0.8.0-alpha.67.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.67), par le même [parcours de mise à jour](BROWSER-UPDATES.md) : neuf modules figés identiques, répétition isolée alpha.66 → alpha.67 réussie, fichier importé identique à celui de la release, installation confirmée depuis la fenêtre Réglages et suivie jusqu’à **Mise à jour réussie**.
+
+Validation enregistrée à 12 h 07 min 14 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Constaté en lecture seule : la corbeille y est vide (aucune ligne, aucun élément dans le dossier de l’espace commun), **aucune durée de garde n’est réglée** et aucune ligne de journal de vidage n’existe ; la page est servie ; sans session, les quatre routes de la corbeille répondent 401. **Rien n’a été effacé ni réglé ici** : le vidage est prouvé sur le banc et par les essais ; choisir une durée de garde revient à son propriétaire.
+
+Un contrôle sur quatre a échoué sur la branche principale puis réussi relancé sans changement : un essai de la double authentification recalculait « le code du moment » à quelques instants d’intervalle et se trompait quand la période de trente secondes basculait entre les deux. L’essai rejoue désormais le code même qui a servi.
+
 ## 18 novembre 2026 — alpha.66, écrire par WebDAV
 
 L’installation alpha.65 a reçu le paquet `nacre-0.8.0-alpha.66.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.66), par le même [parcours de mise à jour](BROWSER-UPDATES.md) : neuf modules figés identiques, répétition isolée alpha.65 → alpha.66 réussie, fichier importé identique à celui de la release, installation confirmée depuis la fenêtre Réglages et suivie jusqu’à **Mise à jour réussie**.
