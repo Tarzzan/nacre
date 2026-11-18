@@ -110,7 +110,7 @@ Les gestes faits dans un espace d’équipe portent le nom de l’espace et du f
 
 - **Les droits sont appliqués par la console**, à l’ouverture de tout dossier. Ce ne sont pas des permissions du système : une personne qui a la main sur la machine lit les fichiers sur le disque.
 - **Droits par espace, pas par dossier.** Pour des droits différents, créer un autre espace.
-- **Pas encore par le réseau.** Les espaces ne sont pas exposés en SMB ; les partages SMB existants ne changent pas.
+- **Pas encore par le réseau.** Les espaces ne sont pas exposés en SMB ; les partages SMB existants ne changent pas. Le modèle est [cadré et prouvé sur banc](SMB-SPACES.md), rien n’est livré.
 - **Pas de quota par espace.** La [pesée des espaces](DESKTOP.md#comparer-les-espaces) dit ce que chacun occupe.
 - **Pas de dépôt par lien** : un visiteur ne peut rien envoyer.
 - **Pas encore d’invitation** : l’administrateur choisit le premier mot de passe et le transmet.
