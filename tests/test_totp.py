@@ -72,7 +72,8 @@ class TotpTests(unittest.TestCase):
         self.assertEqual(self.post('camille', '/api/account/totp/confirm', {'code': '000000'})[0], 403)
         self.assertEqual(self.post('camille', '/api/account/totp/confirm', {})[0], 403)
         other = app.make_session('camille')
-        status, done = self.post('camille', '/api/account/totp/confirm', {'code': self.now()})
+        used = self.now()
+        status, done = self.post('camille', '/api/account/totp/confirm', {'code': used})
         self.assertEqual((status, len(done['recovery'])), (200, 10))
         self.assertEqual(self.get('camille', '/api/account')[1]['totp'], {'enabled': True, 'recovery': 10})
         # Les autres sessions du compte sont fermées ; les codes de secours ne sont gardés que sous forme d'empreinte.
@@ -91,7 +92,9 @@ class TotpTests(unittest.TestCase):
         status, data = self.login(code='000000')
         self.assertEqual((status, data['totp']), (401, True)); self.assertIn('refusé', data['error'])
         # Le code de l'activation ne ressert pas ; celui de la période suivante passe, une seule fois.
-        self.assertEqual(self.login(code=self.now())[0], 401)
+        # Le code même qui a servi, et non « le code du moment » : si la période de trente secondes bascule entre-temps, le code du
+        # moment est un code neuf, que le serveur accepte à raison.
+        self.assertEqual(self.login(code=used)[0], 401)
         fresh = self.now(shift=1)
         status, data = self.login(code=fresh)
         self.assertEqual((status, data['name'], data['role']), (200, 'camille', 'member'))
