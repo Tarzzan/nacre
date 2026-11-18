@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0-alpha.66 — Écrire par WebDAV
+
+Le socle « appareils » est complet pour les outils de synchronisation. À l’ajout d’un appareil, on choisit s’il **lit** ou s’il **lit et modifie**. Un appareil qui modifie dépose, remplace, crée des dossiers, déplace, copie et supprime, **là où la personne écrit elle-même et nulle part ailleurs**. Mêmes règles que dans la console : remplacer garde l’ancien contenu comme version, supprimer envoie à la corbeille, un fichier n’apparaît qu’une fois entièrement reçu. Les dates données par l’outil sont gardées, les envois sans longueur annoncée sont acceptés, et le feu vert d’un gros envoi n’est donné qu’une fois les droits vérifiés. Ce qu’une autre personne enregistre pendant un envoi n’est jamais perdu, et un envoi partiel est refusé plutôt que pris pour le fichier entier. Éprouvé avec rclone : envoi d’un dossier, second envoi sans rien à transférer, modification, suppression, déplacement. **Limite à connaître : la corbeille ne se vide pas encore**, un outil qui supprime beaucoup la remplit. Guide : [`docs/DEVICES.md`](docs/DEVICES.md).
+
 ## 0.8.0-alpha.65 — Appareils et WebDAV
 
 Premier lot du programme « appareils et communication ». Dans **Mon compte → Mes appareils**, chacun ajoute un outil de synchronisation ou une application : Nacre lui donne un **mot de passe qui lui est propre**, montré une fois, qui n’ouvre que les fichiers de ses espaces et se retire d’un geste. Avec lui, l’outil **lit les fichiers par WebDAV**, à l’adresse de la console suivie de `/dav/`, sans jamais saisir le mot de passe du compte ni un code. Aucun droit avant ce mot de passe ; ensuite, ceux de la personne, vivants. Lecture seule pour l’instant. Éprouvé avec rclone. Guide : [`docs/DEVICES.md`](docs/DEVICES.md).

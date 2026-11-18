@@ -2,6 +2,7 @@
 import base64
 import http.client
 import os
+import socket
 import time
 import unittest
 import unittest.mock
@@ -315,12 +316,15 @@ class DavTests(unittest.TestCase):
         # Un dossier ne se télécharge pas, un fichier absent se dit, une méthode d'écriture n'existe pas encore.
         for path in (base, base + 'Dossier', '/dav/', '/dav/files/'):
             status, headers, _ = self.dav('GET', path, 'camille', password)
-            self.assertEqual((status, headers.get('Allow')), (405, 'OPTIONS, PROPFIND, GET, HEAD'), path)
+            self.assertEqual((status, headers.get('Allow')), (405, 'OPTIONS, PROPFIND, GET, HEAD, PUT, DELETE, MKCOL, MOVE, COPY'), path)
         self.assertEqual(self.dav('GET', base + 'absent.txt', 'camille', password)[0], 404)
         status, headers, _ = self.dav('OPTIONS', '/dav/', 'camille', password)
-        self.assertEqual((status, headers['DAV'], headers['Allow']), (200, '1', 'OPTIONS, PROPFIND, GET, HEAD'))
-        for method in ('PUT', 'DELETE', 'MKCOL', 'MOVE', 'COPY', 'PROPPATCH', 'LOCK'):
-            self.assertIn(self.dav(method, base + 'grand.bin', 'camille', password, b'x' if method == 'PUT' else None)[0], (405, 501), method)
+        self.assertEqual((status, headers['DAV'], headers['Allow']), (200, '1', 'OPTIONS, PROPFIND, GET, HEAD, PUT, DELETE, MKCOL, MOVE, COPY'))
+        # Un appareil en lecture n'écrit pas ; les verrous et les propriétés à écrire n'existent pas encore.
+        for method in ('PUT', 'DELETE', 'MKCOL', 'MOVE', 'COPY'):
+            self.assertEqual(self.dav(method, base + 'grand.bin', 'camille', password, b'x' if method == 'PUT' else None, {'Destination': base + 'autre.bin'})[0], 403, method)
+        for method in ('PROPPATCH', 'LOCK', 'UNLOCK'):
+            self.assertEqual(self.dav(method, base + 'grand.bin', 'camille', password)[0], 405, method)
         self.assertEqual((self.common / 'grand.bin').read_bytes(), content)
         # Le reste de la console ne change pas : HEAD hors de /dav/ n'existe toujours pas, GET de la page d'accueil répond.
         self.assertEqual(self.request('GET', '/')[0], 200)
@@ -368,6 +372,350 @@ class DavTests(unittest.TestCase):
         devices.FAILED.clear()
         self.assertEqual((ok('dora', mine), self.get('dora', '/api/account')[1]['devices']), (401, []))
         del ident
+
+    def writer(self, who='camille', name='Portable'):
+        return self.device(who, name, write=True)
+
+    def leftovers(self):
+        return sorted(str(p.relative_to(app.ROOT)) for p in Path(app.ROOT, 'data').rglob('.nacre-upload-*'))
+
+    def versions(self, who, area, path):
+        return self.get(who, f'/api/files/versions?area={area}&path={quote(path)}')[1]['versions']
+
+    def test_a_device_writes_only_where_its_person_may_and_only_if_it_was_given_writing(self):
+        self.team()
+        (self.team_dir / 'notes.txt').write_text('équipe')
+        reader, writer = self.device('camille', 'Liseuse'), self.writer()
+        base, mine = '/dav/files/Chantier école/', '/dav/files/Mon espace/'
+        # Appareil en lecture : aucune écriture, quelle qu'elle soit, et rien n'est créé.
+        for method, path, extra in (('PUT', base + 'neuf.txt', {}), ('MKCOL', base + 'Dossier', {}), ('DELETE', base + 'notes.txt', {}),
+                                    ('MOVE', base + 'notes.txt', {'Destination': base + 'autre.txt'}), ('COPY', base + 'notes.txt', {'Destination': base + 'copie.txt'})):
+            status, _, _ = self.dav(method, path, 'camille', reader, b'x' if method == 'PUT' else None, extra)
+            self.assertEqual(status, 403, method)
+        self.assertEqual(sorted(p.name for p in self.team_dir.iterdir() if not p.name.startswith('.nacre-')), ['notes.txt'])
+        # Appareil en écriture : là où la personne écrit. Lecteur d'une équipe, compte en lecture seule, espace commun en lecture : refus.
+        self.assertEqual(self.dav('PUT', base + 'neuf.txt', 'camille', writer, b'bonjour')[0], 201)
+        self.assertEqual(self.dav('PUT', mine + 'journal.md', 'camille', writer, b'personnel')[0], 201)
+        self.assertEqual(self.dav('PUT', '/dav/files/Fichiers partagés/x.txt', 'camille', writer, b'x')[0], 403)
+        bruno, lecteur = self.writer('bruno'), self.writer('lecteur')
+        self.assertEqual(self.dav('PUT', base + 'de-bruno.txt', 'bruno', bruno, b'x')[0], 403)
+        self.assertEqual(self.dav('PUT', '/dav/files/Fichiers partagés/x.txt', 'lecteur', lecteur, b'x')[0], 403)
+        self.assertEqual(self.dav('DELETE', base + 'neuf.txt', 'bruno', bruno)[0], 403)
+        self.assertEqual(self.dav('PUT', '/dav/files/Mon espace/chez-camille.txt', 'bruno', bruno, b'x')[0], 201)   # le sien, pas celui de camille
+        self.assertFalse((self.mine_dir / 'chez-camille.txt').exists())
+        # Ni la racine, ni la liste des espaces, ni un espace ne se créent, ne se retirent ou ne se renomment d'ici.
+        for method, path, extra in (('PUT', '/dav/x.txt', {}), ('PUT', '/dav/files/x.txt', {}), ('MKCOL', '/dav/files/Nouvel espace', {}), ('DELETE', '/dav/files/Chantier école', {}),
+                                    ('DELETE', '/dav/files/', {}), ('MOVE', '/dav/files/Chantier école', {'Destination': '/dav/files/Autre'}),
+                                    ('MOVE', base + 'neuf.txt', {'Destination': '/dav/files/Autre'}), ('COPY', base + 'neuf.txt', {'Destination': '/dav/principals/x'})):
+            self.assertEqual(self.dav(method, path, 'camille', writer, b'x' if method == 'PUT' else None, extra)[0], 403, (method, path))
+        self.assertTrue(self.team_dir.is_dir())
+        # Sans mot de passe d'appareil : rien, et le contenu envoyé n'est pas lu.
+        for method in ('PUT', 'MKCOL', 'DELETE', 'MOVE', 'COPY'):
+            self.assertEqual(self.dav(method, base + 'intrus.txt', body=b'x' if method == 'PUT' else None)[0], 401, method)
+        self.assertFalse((self.team_dir / 'intrus.txt').exists())
+        status, headers, _ = self.dav('OPTIONS', '/dav/', 'camille', writer)
+        self.assertEqual(headers['Allow'], 'OPTIONS, PROPFIND, GET, HEAD, PUT, DELETE, MKCOL, MOVE, COPY')
+        self.assertEqual(self.leftovers(), [])
+        self.assertIn(('camille', 'Fichiers modifiés par un appareil', 'Portable · 1 opération'), self.audit())
+
+    def test_a_put_replaces_in_one_go_keeps_the_old_content_as_a_version_and_honours_conditions(self):
+        self.team()
+        writer = self.writer()
+        base = '/dav/files/Chantier école/'
+        status, headers, _ = self.dav('PUT', base + 'devis.txt', 'camille', writer, b'contenu un', {'X-OC-Mtime': '1700000000'})
+        self.assertEqual((status, headers.get('X-OC-Mtime')), (201, 'accepted'))
+        target = self.team_dir / 'devis.txt'
+        self.assertEqual((target.read_bytes(), int(target.stat().st_mtime), target.stat().st_mode & 0o777), (b'contenu un', 1700000000, 0o660))
+        first = headers['ETag']
+        self.assertEqual(self.dav('HEAD', base + 'devis.txt', 'camille', writer)[1]['ETag'], first)
+        # Remplacement : l'ancien contenu devient une version, au nom de la personne ; le même appareil qui renvoie aussitôt n'en empile pas d'autres.
+        status, headers, _ = self.dav('PUT', base + 'devis.txt', 'camille', writer, b'contenu deux')
+        self.assertEqual((status, target.read_bytes()), (204, b'contenu deux'))
+        self.assertEqual([(v['size'], v['by']) for v in self.versions('camille', self.space, 'devis.txt')], [(10, 'camille')])
+        self.assertEqual(self.dav('PUT', base + 'devis.txt', 'camille', writer, b'contenu trois')[0], 204)
+        self.assertEqual(len(self.versions('camille', self.space, 'devis.txt')), 1)
+        # Un contenu venu d'ailleurs entre-temps est gardé, lui.
+        target.write_bytes(b'venu d ailleurs')
+        self.assertEqual(self.dav('PUT', base + 'devis.txt', 'camille', writer, b'contenu quatre')[0], 204)
+        self.assertEqual([v['size'] for v in self.versions('camille', self.space, 'devis.txt')], [15, 10])
+        # Conditions du client : ne créer que si rien n'existe ; ne remplacer que la version qu'il connaît.
+        current = self.dav('HEAD', base + 'devis.txt', 'camille', writer)[1]['ETag']
+        self.assertEqual(self.dav('PUT', base + 'devis.txt', 'camille', writer, b'x', {'If-None-Match': '*'})[0], 412)
+        self.assertEqual(self.dav('PUT', base + 'devis.txt', 'camille', writer, b'x', {'If-Match': first})[0], 412)
+        self.assertEqual(self.dav('PUT', base + 'absent.txt', 'camille', writer, b'x', {'If-Match': first})[0], 412)
+        self.assertEqual(target.read_bytes(), b'contenu quatre')
+        self.assertEqual(self.dav('PUT', base + 'devis.txt', 'camille', writer, b'contenu cinq', {'If-Match': current})[0], 204)
+        self.assertEqual(self.dav('PUT', base + 'neuf.txt', 'camille', writer, b'x', {'If-None-Match': '*'})[0], 201)
+        # Envoi « en morceaux », sans longueur annoncée : même résultat.
+        conn = http.client.HTTPConnection('127.0.0.1', self.http.server_port, timeout=5)
+        basic = {'Authorization': 'Basic ' + base64.b64encode(f'camille:{writer}'.encode()).decode()}
+        conn.request('PUT', quote(base + 'flux.bin'), iter([b'abc', b'', b'defgh', b'i' * 70000]), basic, encode_chunked=True)
+        response = conn.getresponse(); response.read()
+        self.assertEqual(response.status, 201)
+        conn.request('PROPFIND', '/dav/', None, {**basic, 'Depth': '0'})   # la connexion reste utilisable : le corps a été lu en entier
+        again = conn.getresponse(); again.read(); conn.close()
+        self.assertEqual((again.status, (self.team_dir / 'flux.bin').read_bytes()), (207, b'abcdefgh' + b'i' * 70000))
+        # Noms : les fichiers à point sont admis (un outil en porte), jamais les dossiers internes ni un nom illisible.
+        self.assertEqual(self.dav('PUT', base + '.gitignore', 'camille', writer, b'*.tmp')[0], 201)
+        for name in ('.nacre-versions/x', '.nacre-upload-abc', 'a\x07b.txt', ' espace.txt', '..'):
+            self.assertIn(self.dav('PUT', base + name, 'camille', writer, b'x')[0], (403, 404), name)
+        # Dossier parent absent : conflit. Sur un dossier : refus. Envoi ambigu ou sans longueur : refus.
+        self.assertEqual(self.dav('PUT', base + 'Absent/x.txt', 'camille', writer, b'x')[0], 409)
+        (self.team_dir / 'Dossier').mkdir()
+        self.assertEqual(self.dav('PUT', base + 'Dossier', 'camille', writer, b'x')[0], 405)
+        def raw_put(name, extra, body):
+            sock = socket.create_connection(('127.0.0.1', self.http.server_port), timeout=5)
+            sock.sendall((f'PUT {quote(base + name)} HTTP/1.1\r\nHost: 127.0.0.1:{self.http.server_port}\r\nAuthorization: {basic["Authorization"]}\r\n{extra}\r\n').encode() + body)
+            answer = sock.recv(4096); sock.close()
+            return answer[:12]
+        self.assertEqual(raw_put('ambigu.txt', 'Content-Length: 1\r\nTransfer-Encoding: chunked\r\n', b'x'), b'HTTP/1.1 400')
+        self.assertEqual(raw_put('illisible.txt', 'Transfer-Encoding: chunked\r\n', b'zz\r\nabc\r\n0\r\n\r\n'), b'HTTP/1.1 400')
+        self.assertEqual(raw_put('autre.txt', 'Transfer-Encoding: gzip\r\n', b'x'), b'HTTP/1.1 400')
+        self.assertEqual(raw_put('sans.txt', '', b''), b'HTTP/1.1 411')
+        self.assertFalse(any((self.team_dir / n).exists() for n in ('ambigu.txt', 'illisible.txt', 'autre.txt', 'sans.txt')))
+        # Volume plein : dit, et rien ne reste. Envoi coupé en route : rien ne reste non plus, l'ancien contenu est intact.
+        with unittest.mock.patch.object(app, 'available_bytes', return_value=3):
+            self.assertEqual(self.dav('PUT', base + 'trop.bin', 'camille', writer, b'x' * 100)[0], 507)
+        raw = socket.create_connection(('127.0.0.1', self.http.server_port), timeout=5)
+        raw.sendall((f'PUT {quote(base + "devis.txt")} HTTP/1.1\r\nHost: 127.0.0.1:{self.http.server_port}\r\nAuthorization: {basic["Authorization"]}\r\n'
+                     'Content-Length: 1000\r\n\r\n').encode() + b'partiel')
+        raw.shutdown(socket.SHUT_WR); raw.recv(4096); raw.close()
+        time.sleep(.2)
+        self.assertEqual((target.read_bytes(), (self.team_dir / 'trop.bin').exists()), (b'contenu cinq', False))
+        self.assertEqual(self.leftovers(), [])
+
+    def test_the_go_ahead_for_a_large_send_comes_only_after_the_rights_are_checked(self):
+        self.team()
+        writer = self.writer()
+
+        def attempt(password):
+            raw = socket.create_connection(('127.0.0.1', self.http.server_port), timeout=5)
+            auth = base64.b64encode(f'camille:{password}'.encode()).decode()
+            raw.sendall((f'PUT {quote("/dav/files/Chantier école/gros.bin")} HTTP/1.1\r\nHost: 127.0.0.1:{self.http.server_port}\r\nAuthorization: Basic {auth}\r\n'
+                         'Content-Length: 5\r\nExpect: 100-continue\r\n\r\n').encode())
+            first = raw.recv(4096)
+            if first.startswith(b'HTTP/1.1 100'):
+                raw.sendall(b'abcde')
+                first += raw.recv(4096)
+            raw.close()
+            return first
+        refused = attempt('faux-faux-faux-faux-faux-faux')
+        self.assertTrue(refused.startswith(b'HTTP/1.1 401'), refused[:40])
+        self.assertFalse((self.team_dir / 'gros.bin').exists())
+        accepted = attempt(writer)
+        self.assertTrue(accepted.startswith(b'HTTP/1.1 100'), accepted[:40]); self.assertIn(b'HTTP/1.1 201', accepted)
+        self.assertEqual((self.team_dir / 'gros.bin').read_bytes(), b'abcde')
+
+    def test_folders_deletions_moves_and_copies_follow_the_rules_of_the_console(self):
+        self.team()
+        writer = self.writer()
+        base, mine = '/dav/files/Chantier école/', '/dav/files/Mon espace/'
+        self.assertEqual(self.dav('MKCOL', base + 'Plans', 'camille', writer)[0], 201)
+        self.assertEqual((self.team_dir / 'Plans').stat().st_mode & 0o7777, 0o2770)
+        self.assertEqual(self.dav('MKCOL', base + 'Plans', 'camille', writer)[0], 405)
+        self.assertEqual(self.dav('MKCOL', base + 'Absent/Sous', 'camille', writer)[0], 409)
+        self.assertEqual(self.dav('MKCOL', base + 'Avec corps', 'camille', writer, b'<x/>')[0], 415)
+        for name, data in (('a.txt', b'un'), ('b.txt', b'deux'), ('Plans/facade.pdf', b'%PDF')):
+            self.assertEqual(self.dav('PUT', base + name, 'camille', writer, data, {'X-OC-Mtime': '1700000000'})[0], 201)
+        # Supprimer envoie à la corbeille de l'espace, d'où la console restaure ; un dossier part entier.
+        self.assertEqual(self.dav('DELETE', base + 'a.txt', 'camille', writer)[0], 204)
+        self.assertEqual(self.dav('DELETE', base + 'a.txt', 'camille', writer)[0], 404)
+        self.assertEqual(self.dav('DELETE', base + 'Plans', 'camille', writer)[0], 204)
+        trash = self.get('camille', f'/api/trash?area={self.space}')[1]
+        trash = trash['items'] if isinstance(trash, dict) else trash
+        self.assertEqual(sorted(item['original'] for item in trash), ['Plans', 'a.txt'])
+        back = next(item['id'] for item in trash if item['original'] == 'Plans')
+        self.assertEqual(self.post('camille', '/api/restore', {'id': back})[0], 200)
+        self.assertEqual((self.team_dir / 'Plans/facade.pdf').read_bytes(), b'%PDF')
+        # Déplacer : renommer sur place, changer de dossier, changer d'espace ; les versions suivent le fichier dans son espace.
+        self.assertEqual(self.dav('PUT', base + 'b.txt', 'camille', writer, b'deux bis')[0], 204)
+        self.assertEqual(self.dav('MOVE', base + 'b.txt', 'camille', writer, headers={'Destination': quote(base + 'Plans/b renommé.txt')})[0], 201)
+        self.assertEqual(((self.team_dir / 'b.txt').exists(), (self.team_dir / 'Plans/b renommé.txt').read_bytes()), (False, b'deux bis'))
+        self.assertEqual([v['size'] for v in self.versions('camille', self.space, 'Plans/b renommé.txt')], [4])
+        host = f'http://127.0.0.1:{self.http.server_port}'
+        self.assertEqual(self.dav('MOVE', base + 'Plans/facade.pdf', 'camille', writer, headers={'Destination': host + quote(mine + 'facade.pdf')})[0], 201)
+        self.assertEqual((self.mine_dir / 'facade.pdf').read_bytes(), b'%PDF')
+        # Arrivée occupée : refusée si le client le demande ; sinon remplacée d'un coup, l'ancien contenu gardé comme version.
+        self.assertEqual(self.dav('PUT', base + 'c.txt', 'camille', writer, b'neuf')[0], 201)
+        self.assertEqual(self.dav('MOVE', base + 'c.txt', 'camille', writer, headers={'Destination': quote(base + 'Plans/b renommé.txt'), 'Overwrite': 'F'})[0], 412)
+        self.assertEqual(self.dav('MOVE', base + 'c.txt', 'camille', writer, headers={'Destination': quote(base + 'Plans/b renommé.txt')})[0], 204)
+        self.assertEqual((self.team_dir / 'Plans/b renommé.txt').read_bytes(), b'neuf')
+        self.assertEqual([v['size'] for v in self.versions('camille', self.space, 'Plans/b renommé.txt')], [8, 4])
+        # Copier un fichier : même contenu, même date ; un dossier ne se copie pas d'un geste.
+        self.assertEqual(self.dav('COPY', mine + 'facade.pdf', 'camille', writer, headers={'Destination': quote(base + 'copie.pdf')})[0], 201)
+        copy = self.team_dir / 'copie.pdf'
+        self.assertEqual((copy.read_bytes(), int(copy.stat().st_mtime), (self.mine_dir / 'facade.pdf').exists()), (b'%PDF', 1700000000, True))
+        self.assertEqual(self.dav('COPY', mine + 'facade.pdf', 'camille', writer, headers={'Destination': quote(base + 'copie.pdf'), 'Overwrite': 'F'})[0], 412)
+        self.assertEqual(self.dav('COPY', base + 'Plans', 'camille', writer, headers={'Destination': quote(base + 'Plans 2')})[0], 403)
+        # Refus : dans lui-même, sur lui-même, vers un autre hôte, hors des espaces, sans arrivée, source absente, espace où l'on ne fait que lire.
+        for headers, expected in (({'Destination': quote(base + 'Plans/Dedans')}, 409), ({'Destination': quote(base + 'Plans')}, 403), ({'Destination': 'http://ailleurs.exemple' + quote(base + 'X')}, 502),
+                                  ({'Destination': '/api/files'}, 403), ({}, 400), ({'Destination': quote('/dav/files/Fichiers partagés/Plans')}, 403)):
+            self.assertEqual(self.dav('MOVE', base + 'Plans', 'camille', writer, headers=headers)[0], expected, headers)
+        self.assertEqual(self.dav('MOVE', base + 'absent.txt', 'camille', writer, headers={'Destination': quote(base + 'x.txt')})[0], 404)
+        (self.common / 'public.txt').write_text('commun')
+        self.assertEqual(self.dav('MOVE', '/dav/files/Fichiers partagés/public.txt', 'camille', writer, headers={'Destination': quote(mine + 'pris.txt')})[0], 403)
+        self.assertEqual(self.dav('COPY', '/dav/files/Fichiers partagés/public.txt', 'camille', writer, headers={'Destination': quote(mine + 'copie.txt')})[0], 201)   # lire suffit pour copier
+        self.assertTrue((self.common / 'public.txt').exists() and (self.team_dir / 'Plans').is_dir())
+        self.assertEqual(self.leftovers(), [])
+
+    def raw(self, method, path, password, extra='', body=b'', who='camille'):
+        """Requête écrite à la main, pour ce que http.client ne sait pas envoyer. Rend la connexion et le début de la réponse."""
+        sock = socket.create_connection(('127.0.0.1', self.http.server_port), timeout=5)
+        auth = base64.b64encode(f'{who}:{password}'.encode()).decode()
+        sock.sendall(f'{method} {quote(path)} HTTP/1.1\r\nHost: 127.0.0.1:{self.http.server_port}\r\nAuthorization: Basic {auth}\r\n{extra}\r\n'.encode() + body)
+        return sock
+
+    def test_what_someone_else_saved_during_a_send_is_never_lost_even_in_a_burst(self):
+        self.team()
+        writer = self.writer()
+        base, target = '/dav/files/Chantier école/', self.team_dir / 'devis.txt'
+
+        def slow(name, body, meanwhile):
+            """Envoi suspendu à mi-chemin : `meanwhile` a lieu pendant que le fichier arrive."""
+            sock = self.raw('PUT', base + name, writer, f'Content-Length: {len(body)}\r\n', body[:2])
+            for _ in range(100):
+                if self.leftovers():
+                    break
+                time.sleep(.02)
+            self.assertEqual(len(self.leftovers()), 1)
+            meanwhile()
+            sock.sendall(body[2:])
+            answer = sock.recv(4096); sock.close()
+            return answer[:12]
+        for body in (b'v1', b'v2 appareil'):
+            self.assertIn(self.dav('PUT', base + 'devis.txt', 'camille', writer, body)[0], (201, 204))
+        self.assertEqual([v['size'] for v in self.versions('camille', self.space, 'devis.txt')], [2])
+
+        # L'appareil renvoie son fichier coup sur coup (aucune version ne serait gardée), mais un collègue enregistre le sien
+        # pendant l'envoi, comme le fait le partage réseau : écrire à côté puis renommer. Son travail rejoint les versions.
+        def colleague():
+            (self.team_dir / 'devis.tmp').write_bytes(b'TRAVAIL DU COLLEGUE, 30 octets')
+            os.rename(self.team_dir / 'devis.tmp', target)
+        self.assertEqual(slow('devis.txt', b'v3 appareil!', colleague), b'HTTP/1.1 204')
+        self.assertEqual(target.read_bytes(), b'v3 appareil!')
+        self.assertEqual([v['size'] for v in self.versions('camille', self.space, 'devis.txt')], [30, 2])
+        # Sans personne entre-temps, le renvoi coup sur coup ne remplit toujours pas les versions.
+        self.assertEqual(self.dav('PUT', base + 'devis.txt', 'camille', writer, b'v4')[0], 204)
+        self.assertEqual([v['size'] for v in self.versions('camille', self.space, 'devis.txt')], [30, 2])
+
+        # Le fichier est devenu un dossier pendant l'envoi : le dossier reste visible sous un autre nom, rien ne reste caché.
+        def folder():
+            target.unlink(); target.mkdir(); (target / 'facade.pdf').write_bytes(b'%PDF')
+        self.assertEqual(slow('devis.txt', b'v5 appareil', folder), b'HTTP/1.1 204')
+        self.assertEqual(target.read_bytes(), b'v5 appareil')
+        aside = [p for p in self.team_dir.iterdir() if p.name.startswith('devis.txt.avant-remplacement-')]
+        self.assertEqual([(p.is_dir(), (p / 'facade.pdf').read_bytes()) for p in aside], [(True, b'%PDF')])
+        self.assertEqual(self.leftovers(), [])
+
+        # Version rangée mais index non écrit (volume plein) : le dépôt est fait, il est dit fait, rien ne reste caché.
+        import versions
+        time.sleep(.01)
+        with unittest.mock.patch.object(dav, 'SAME', 0), unittest.mock.patch.object(versions, 'save', side_effect=OSError(28, 'plein')):
+            self.assertEqual(self.dav('PUT', base + 'devis.txt', 'camille', writer, b'v6')[0], 204)
+        self.assertEqual((target.read_bytes(), self.leftovers()), (b'v6', []))
+
+    def test_tools_are_answered_the_way_they_expect(self):
+        self.team()
+        writer = self.writer()
+        base, mine, port = '/dav/files/Chantier école/', '/dav/files/Mon espace/', self.http.server_port
+        put = lambda path, body, headers=None: self.dav('PUT', path, 'camille', writer, body, headers)
+        move = lambda path, to, **more: self.dav('MOVE', path, 'camille', writer, headers={'Destination': to, **more})[0]
+        # Reprise d'envoi : un fragment n'est jamais pris pour le fichier entier.
+        self.assertEqual(put(base + 'a.txt', b'entier')[0], 201)
+        self.assertEqual(put(base + 'a.txt', b'ier', {'Content-Range': 'bytes 3-5/6'})[0], 400)
+        self.assertEqual(put(base + 'neuf.txt', b'ier', {'Content-Range': 'bytes 0-2/3'})[0], 400)
+        self.assertEqual(((self.team_dir / 'a.txt').read_bytes(), (self.team_dir / 'neuf.txt').exists()), (b'entier', False))
+        # Arrivée d'un déplacement : l'identifiant joint par l'outil et le port retiré par un relais ne changent rien ; un autre hôte, si.
+        self.assertEqual(move(base + 'a.txt', f'http://camille@127.0.0.1:{port}' + quote(base + 'b.txt')), 201)
+        self.assertEqual(move(base + 'b.txt', 'https://127.0.0.1' + quote(base + 'c.txt')), 201)
+        self.assertEqual(move(base + 'c.txt', f'http://ailleurs.exemple:{port}' + quote(base + 'd.txt')), 502)
+        self.assertEqual((self.team_dir / 'c.txt').read_bytes(), b'entier')
+        # Un nom que Nacre ne donnerait pas, déposé par le partage réseau : refusé à la création, mais il se déplace et se supprime.
+        (self.team_dir / 'fin ').write_bytes(b'x'); (self.team_dir / ' début').write_bytes(b'y')
+        self.assertEqual(put(base + 'autre ', b'z')[0], 403)
+        self.assertEqual(move(base + 'c.txt', quote(base + 'arrivée ')), 403)
+        self.assertEqual(move(base + 'fin ', quote(base + 'fin')), 201)
+        self.assertEqual(self.dav('DELETE', base + ' début', 'camille', writer)[0], 204)
+        self.assertEqual(sorted(p.name for p in self.team_dir.iterdir() if not p.name.startswith('.')), ['c.txt', 'fin'])
+        (self.team_dir / '.nacre-versions').mkdir(exist_ok=True)
+        for path in (base + '.nacre-versions', base + '.nacre-trash', base + '..', base + 'x/../c.txt'):
+            self.assertIn(self.dav('DELETE', path, 'camille', writer)[0], (403, 404), path)
+            self.assertIn(move(path, quote(base + 'pris')), (403, 404), path)
+        self.assertTrue((self.team_dir / '.nacre-versions').is_dir() and (self.team_dir / 'c.txt').exists())
+        # « Créer s'il manque » sur ce qui existe déjà : 405, comme pour tout dossier présent. Un espace ne se crée pas par ici.
+        for path in ('/dav/', '/dav/files/', '/dav/files/Chantier école', '/dav/files/Mon espace/'):
+            self.assertEqual(self.dav('MKCOL', path, 'camille', writer)[0], 405, path)
+        self.assertEqual(self.dav('MKCOL', '/dav/files/Nouvel espace', 'camille', writer)[0], 403)
+        # Un élément ne prend pas la place du dossier qui le contient.
+        self.assertEqual(self.dav('MKCOL', base + 'Plans', 'camille', writer)[0], 201)
+        for name in ('a.txt', 'b.txt'):
+            self.assertEqual(put(base + 'Plans/' + name, b'plan')[0], 201)
+        self.assertEqual(move(base + 'Plans/a.txt', quote(base + 'Plans')), 409)
+        self.assertEqual(sorted(p.name for p in (self.team_dir / 'Plans').iterdir()), ['a.txt', 'b.txt'])
+        # Remplacement d'un espace à l'autre : l'ancien contenu de l'arrivée rejoint les versions de son espace, sans passer par l'autre.
+        self.assertEqual(put(mine + 'note.txt', b'perso')[0], 201)
+        self.assertEqual(put(base + 'note.txt', b'equipe')[0], 201)
+        self.assertEqual(move(base + 'note.txt', quote(mine + 'note.txt')), 204)
+        self.assertEqual(((self.mine_dir / 'note.txt').read_bytes(), (self.team_dir / 'note.txt').exists()), (b'equipe', False))
+        self.assertEqual([v['size'] for v in self.versions('camille', self.mine, 'note.txt')], [5])
+        # Dossier sur dossier : l'ancien part à la corbeille, le nouveau prend sa place ; arrivée impossible, rien ne bouge.
+        self.assertEqual(self.dav('MKCOL', base + 'Plans 2', 'camille', writer)[0], 201)
+        self.assertEqual(put(base + 'Plans 2/c.txt', b'autre')[0], 201)
+        self.assertEqual(move(base + 'Plans', quote(base + 'Plans 2')), 204)
+        self.assertEqual((sorted(p.name for p in (self.team_dir / 'Plans 2').iterdir()), (self.team_dir / 'Plans').exists()), (['a.txt', 'b.txt'], False))
+        trash = self.get('camille', f'/api/trash?area={self.space}')[1]
+        self.assertIn('Plans 2', [item['original'] for item in (trash['items'] if isinstance(trash, dict) else trash)])
+        with unittest.mock.patch.object(dav, 'discard', side_effect=OSError(5, 'panne')):
+            self.assertEqual(put(base + 'occupant', b'fichier')[0], 201)
+            self.assertEqual(move(base + 'Plans 2', quote(base + 'occupant')), 503)
+        self.assertEqual(((self.team_dir / 'Plans 2').is_dir(), (self.team_dir / 'occupant').read_bytes()), (True, b'fichier'))
+        # Date d'avant 1970 gardée : sans cela l'outil renverrait le fichier à chaque passage.
+        status, headers, _ = put(base + 'ancien.txt', b'vieux', {'X-OC-Mtime': '-86400'})
+        self.assertEqual((status, headers.get('X-OC-Mtime'), int((self.team_dir / 'ancien.txt').stat().st_mtime)), (201, 'accepted', -86400))
+        # Tailles de morceaux : des chiffres hexadécimaux, rien qu'un autre lecteur comprendrait autrement.
+        for size in (b'+1', b'0x1', b'1_0', b'-1', b''):
+            sock = self.raw('PUT', base + 'morceaux.txt', writer, 'Transfer-Encoding: chunked\r\n', size + b'\r\nabcdefghijklmnop\r\n0\r\n\r\n')
+            self.assertEqual(sock.recv(4096)[:12], b'HTTP/1.1 400', size); sock.close()
+        sock = self.raw('PUT', base + 'morceaux.txt', writer, 'Transfer-Encoding: chunked\r\n', b'A;x=1\r\nabcdefghij\r\n0\r\n\r\n')
+        self.assertEqual(sock.recv(4096)[:12], b'HTTP/1.1 201'); sock.close()
+        self.assertEqual((self.team_dir / 'morceaux.txt').read_bytes(), b'abcdefghij')
+        # Un outil qui attend le feu vert avant tout corps le reçoit aussi pour une liste, une fois reconnu ; et il ne déborde pas sur la requête suivante.
+        body = b'<?xml version="1.0"?><propfind xmlns="DAV:"><allprop/></propfind>'
+        sock = self.raw('PROPFIND', base, writer, f'Depth: 0\r\nContent-Length: {len(body)}\r\nExpect: 100-continue\r\n')
+        self.assertEqual(sock.recv(4096)[:12], b'HTTP/1.1 100')
+        sock.sendall(body)
+        self.assertEqual(sock.recv(4096)[:12], b'HTTP/1.1 207'); sock.close()
+        sock = self.raw('PROPFIND', base, 'faux-faux-faux-faux-faux-faux', f'Depth: 0\r\nContent-Length: {len(body)}\r\nExpect: 100-continue\r\n')
+        self.assertEqual(sock.recv(4096)[:12], b'HTTP/1.1 401'); sock.close()
+        self.assertEqual(self.leftovers(), [])
+
+    def test_the_journal_follows_what_the_device_did_and_stale_leftovers_are_swept(self):
+        self.team()
+        writer = self.writer()
+        base = '/dav/files/Chantier école/'
+        for name in ('a.txt', 'b.txt', 'c.txt'):
+            self.assertEqual(self.dav('PUT', base + name, 'camille', writer, b'x')[0], 201)
+        self.assertEqual(self.dav('PUT', base + ' refusé', 'camille', writer, b'x')[0], 403)
+        for name in ('a.txt', 'b.txt'):
+            self.assertEqual(self.dav('DELETE', base + name, 'camille', writer)[0], 204)
+        # Une ligne dès la première opération, puis la même ligne tenue à jour : le compte est celui de ce qui a été fait.
+        lines = lambda: [detail for who, action, detail in self.audit() if action == 'Fichiers modifiés par un appareil']
+        self.assertEqual(len(lines()), 1)
+        dav.settle(app)
+        self.assertEqual(lines(), ['Portable · 5 opérations, dont 2 suppressions'])
+        # Restes d'un envoi interrompu par l'arrêt de la console : retirés au bout d'un jour, à l'occasion d'un dépôt. Un envoi
+        # en cours, même daté du passé par l'outil, et un dossier ne sont jamais pris pour des restes.
+        stale, folder = self.team_dir / '.nacre-upload-reste', self.team_dir / '.nacre-upload-dossier'
+        stale.write_bytes(b'moitie'); os.utime(stale, (1, 1)); folder.mkdir(); (folder / 'x').write_bytes(b'x')
+        fd = os.open(self.team_dir, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            self.assertEqual(dav.sweep(fd, ('essai', 'un')), 0)
+            self.assertTrue(stale.exists())
+            self.assertEqual(dav.sweep(fd, ('essai', 'un'), now=time.time() + 2 * dav.STALE), 1)
+            self.assertEqual(dav.sweep(fd, ('essai', 'un'), now=time.time() + 2 * dav.STALE), 0)   # une fois par jour et par dossier
+        finally:
+            os.close(fd)
+        self.assertEqual((stale.exists(), (folder / 'x').exists(), (self.team_dir / 'c.txt').exists()), (False, True, True))
 
 
 if __name__ == '__main__':

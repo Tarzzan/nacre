@@ -1,5 +1,15 @@
 # Déploiements de la console sur Spark
 
+## 18 novembre 2026 — alpha.65, appareils et WebDAV
+
+L’installation alpha.64 a reçu le paquet `nacre-0.8.0-alpha.65.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.65), par le même [parcours de mise à jour](BROWSER-UPDATES.md) : neuf modules figés identiques, répétition isolée alpha.64 → alpha.65 réussie, fichier importé identique à celui de la release, installation confirmée depuis la fenêtre Réglages et suivie jusqu’à **Mise à jour réussie**.
+
+Validation enregistrée à 10 h 03 min 59 s, heure de Guyane. Schéma SQLite 2 conservé et `quick_check` réussi. Comptes, clés, configurations Samba et Frigate identiques avant et après ; conteneurs inchangés ; service systemd non relancé.
+
+Constaté en lecture seule : **aucun appareil n’existe**, pour aucun compte ; `/dav/` répond 401 sans mot de passe d’appareil comme avec un mot de passe quelconque, et 403 à un navigateur. **Aucun appareil n’a été créé ici** : la lecture par WebDAV est prouvée sur le banc, avec rclone, et par les essais.
+
+La recherche de secrets a d’abord arrêté la PR : un faux mot de passe d’appareil, dans un essai d’interface, ressemblait trop à un vrai. Il a été remplacé par une valeur visiblement factice, sans rien assouplir au contrôle.
+
 ## 18 novembre 2026 — alpha.64, certificat reconnu par les appareils
 
 L’installation alpha.63 a reçu le paquet `nacre-0.8.0-alpha.64.nacre-update` de la [version publiée](https://github.com/Tarzzan/nacre/releases/tag/v0.8.0-alpha.64), par le même [parcours de mise à jour](BROWSER-UPDATES.md) : neuf modules figés identiques, répétition isolée alpha.63 → alpha.64 réussie, fichier importé identique à celui de la release, installation confirmée depuis la fenêtre Réglages et suivie jusqu’à **Mise à jour réussie**.

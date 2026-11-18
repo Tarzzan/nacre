@@ -179,7 +179,7 @@ def authenticate(app, handler, now=None):
             # Mise à jour seule, jamais de création : un appareil retiré entre la lecture et cette écriture reste retiré.
             if db.execute('UPDATE settings SET value=? WHERE key=?', (json.dumps({**doc, 'used': now}), PREFIX + fingerprint[:32])).rowcount != 1:
                 raise refuse(app)
-    return {'name': username, 'role': row['role'], 'csrf': '', 'device': {'id': doc['id'], 'write': doc.get('write') is True}}
+    return {'name': username, 'role': row['role'], 'csrf': '', 'device': {'id': doc['id'], 'write': doc.get('write') is True, 'label': str(doc.get('name', ''))[:40]}}
 
 
 def revoke_person(app, body, actor):
