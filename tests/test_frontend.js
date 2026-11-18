@@ -2566,22 +2566,57 @@ test('network page stays closed until an administrator declares names and confir
  const h=networkFixture({enabled:'oui'});await h.run('renderNetwork()');assert.match(h.content(),/Réponse illisible/);
 });
 test('open network access shows its addresses and certificate, and closes or renews only after confirmation',async()=>{
- const open={...networkSample,enabled:true,running:true,hosts:['nas.local'],urls:['https://nas.local:8443/'],my_totp:true,certificate:{fingerprint:'AB:CD',expires:1794787200,names:['nas.<b>']}};
+ const open={...networkSample,enabled:true,running:true,hosts:['nas.local'],urls:['https://nas.local:8443/'],my_totp:true,kind:'authority',certificate:{fingerprint:'AB:CD',expires:1794787200,names:['nas.<b>']},
+  authority:{fingerprint:'EF:01:23:45:67:89:AB:CD:EF:01',fingerprint_sha1:'5A:<u>',expires:2110077542,created:1794717542,extra:['nas.<i>exemple</i>.org']}};
  const f=networkFixture(open);f.context.setTimeout=fn=>{fn();return 1;};await f.run('renderNetwork()');
  let html=f.content();
- assert.match(html,/<span class="badge ">Ouvert<\/span>/);assert.match(html,/<li>https:\/\/nas\.local:8443\/<\/li>/);assert.match(html,/SHA-256 AB:CD/);assert.match(html,/Noms couverts : nas\.&lt;b&gt;\./);assert.match(html,/Certificat autosigné/);
+ assert.match(html,/<span class="badge ">Ouvert<\/span>/);assert.match(html,/<li>https:\/\/nas\.local:8443\/<\/li>/);assert.match(html,/SHA-256 AB:CD/);assert.match(html,/Noms couverts : nas\.&lt;b&gt;\./);
+ assert.match(html,/Certificat de serveur signé par l’autorité locale de ce NAS\. Il se renouvelle seul/);assert.match(html,/data-action="network-regenerate" ><span>Refaire le certificat de serveur/);
+ // L’autorité à installer une fois sur chaque appareil : empreinte, limite de ce qu’elle peut certifier, fichier, marche à suivre.
+ assert.match(html,/<section class="card cardpad" id="trust"><h2>Faire reconnaître ce NAS par vos appareils<\/h2>/);assert.match(html,/SHA-256 EF:01:23:45:67:89:AB:CD:EF:01/);assert.match(html,/SHA-1 5A:&lt;u&gt; <span class="muted">\(celle qu’affiche Windows\)/);
+ assert.match(html,/ne peut certifier que des noms locaux et des adresses privées\. Elle couvre aussi : nas\.&lt;i&gt;exemple&lt;\/i&gt;\.org\./);
+ // Ce que la limite ne garantit pas est dit, et l’empreinte se compare hors du canal qu’elle doit authentifier.
+ assert.match(html,/Android et les applications Java n’appliquent pas cette limite/);assert.match(html,/sur la console ouverte depuis la machine elle-même/);assert.match(html,/cocher « Confirmer cette AC pour identifier des sites web »/);
+ assert.match(html,/<a class="fm-link" href="\/api\/network\/authority" download="nacre-autorite-locale\.crt">Télécharger l’autorité<\/a>/);assert.match(html,/iPhone, iPad/);assert.doesNotMatch(html,/<i>|<u>/);
  assert.match(html,/value="save">Enregistrer/);assert.match(html,/data-action="network-close"/);assert.match(html,/data-action="network-regenerate"/);assert.doesNotMatch(html,/Votre compte n’a pas|<b>/);
  // Déjà ouvert : enregistrer n’ouvre pas de fenêtre, puis la page est relue.
  f.fields('nas.local, nas2.local',8443);await f.submit();
  assert.deepEqual(f.calls.at(-2),['/api/network/configure',{hosts:['nas.local','nas2.local'],port:8443,require_totp:'admins',enabled:true,confirm:true}]);assert.deepEqual(f.calls.at(-1),['/api/network',null]);
  await f.act('network-close');assert.match(f.elements.get('#modal').innerHTML,/Fermer l’accès réseau \?/);await f.run('modalSubmit(new Map())');
  assert.deepEqual(f.calls.at(-1),['/api/network/configure',{hosts:['nas.local'],port:8443,require_totp:'admins',enabled:false}]);
- await f.act('network-regenerate');assert.match(f.elements.get('#modal').innerHTML,/nouvelle empreinte/);await f.run('modalSubmit(new Map())');assert.deepEqual(f.calls.at(-1),['/api/network/certificate',{action:'regenerate'}]);
+ await f.act('network-regenerate');assert.match(f.elements.get('#modal').innerHTML,/sous la même autorité : les appareils qui la connaissent n’ont rien à refaire/);await f.run('modalSubmit(new Map())');assert.deepEqual(f.calls.at(-1),['/api/network/certificate',{action:'regenerate'}]);
+ // Refaire l’autorité oblige tous les appareils à la réinstaller : dit avant, confirmé ensuite.
+ await f.act('network-authority');assert.match(f.elements.get('#modal').innerHTML,/Tous les appareils qui avaient installé l’ancienne devront installer la nouvelle/);
+ assert.match(f.elements.get('#modal').innerHTML,/retirez aussi l’ancienne autorité de vos appareils \(empreinte SHA-256 EF:01:23:45:67:89:AB:CD…\)/);
+ let done=await f.run('modalSubmit(new Map())');assert.deepEqual(f.calls.at(-1),['/api/network/certificate',{action:'authority',confirm:true}]);assert.match(done.message,/installez la nouvelle sur vos appareils/);
  await f.act('network-provide');assert.match(f.elements.get('#modal').innerHTML,/name="certificate"[^]*name="key"/);
  await f.run('modalSubmit(new Map([["certificate","CERT"],["key","KEY"]]))');assert.deepEqual(f.calls.at(-1),['/api/network/certificate',{action:'provide',certificate:'CERT',key:'KEY'}]);
  // À l’arrêt malgré le réglage, erreur dite ; certificat fourni annoncé comme tel.
  const g=networkFixture({...open,running:false,error:'Port déjà utilisé <x>',provided:true,my_totp:false});await g.run('renderNetwork()');
  html=g.content();assert.match(html,/Ouvert, mais à l’arrêt/);assert.match(html,/role="alert">Port déjà utilisé &lt;x&gt;/);assert.match(html,/Certificat fourni par vos soins/);assert.match(html,/par le réseau, il sera refusé/);
+ assert.doesNotMatch(html,/id="trust"/);
+ // Ancien certificat autosigné : gardé tel quel ; changer les noms le remplace, ce qui se confirme avant tout envoi.
+ const old=networkFixture({...open,kind:'self',authority:null});old.context.setTimeout=fn=>{fn();return 1;};await old.run('renderNetwork()');
+ html=old.content();assert.match(html,/Ancien certificat autosigné : chaque appareil doit l’accepter/);assert.match(html,/data-action="network-regenerate" ><span>Passer à une autorité locale/);assert.doesNotMatch(html,/network-authority|id="trust"/);
+ old.fields('nas.<b>',8443);await old.submit();assert.equal(old.calls.at(-2)[0],'/api/network/configure');assert.equal(old.calls.at(-2)[1].replace,undefined);
+ const modal=old.elements.get('#modal');modal.innerHTML='';old.fields('nas.local, autre.local',8443);const before=old.calls.length;await old.submit();
+ assert.match(modal.innerHTML,/Remplacer le certificat \?/);assert.match(modal.innerHTML,/devront accepter le nouveau, ou installer l’autorité une fois pour toutes/);assert.equal(old.calls.length,before);
+ await old.run('modalSubmit(new Map())');assert.deepEqual(old.calls.at(-1),['/api/network/configure',{hosts:['nas.local','autre.local'],port:8443,require_totp:'admins',enabled:true,confirm:true,replace:true}]);
+ await old.act('network-regenerate');assert.match(modal.innerHTML,/Passer à une autorité locale \?/);
+ // Autorité annoncée mais absente : « sous la même autorité » n’est pas promis, et la réponse du serveur fait foi.
+ const lost=networkFixture({...open,authority:null},'admin',url=>url==='/api/network/certificate'?response(200,{ok:true,authority_made:true}):null);lost.context.setTimeout=fn=>{fn();return 1;};await lost.run('renderNetwork()');
+ await lost.act('network-regenerate');assert.match(lost.elements.get('#modal').innerHTML,/Passer à une autorité locale \?/);assert.match((await lost.run('modalSubmit(new Map())')).message,/Autorité locale refaite/);
+ // Nom hors du domaine de l’autorité : au lieu d’une impasse, la question de la refaire, avec ce que cela coûte ; rien n’est refait sans réponse.
+ const wide=networkFixture(open,'admin',(url,body)=>url==='/api/network/configure'&&!body.authority?response(409,{error:'L’autorité locale de ce NAS ne peut pas certifier « nas.exemple.org ».',reason:'authority'}):url==='/api/network/configure'?response(200,{ok:true,authority_made:true}):null);
+ wide.context.setTimeout=fn=>{fn();return 1;};await wide.run('renderNetwork()');const ask=wide.elements.get('#modal');ask.innerHTML='';
+ wide.fields('nas.local, nas.exemple.org',8443);await wide.submit();
+ assert.match(ask.innerHTML,/Refaire l’autorité locale pour y ajouter ce nom \?/);assert.match(ask.innerHTML,/ne peut pas certifier « nas\.exemple\.org »/);assert.equal(wide.calls.filter(c=>c[1]?.authority).length,0);
+ done=await wide.run('modalSubmit(new Map())');assert.deepEqual(wide.calls.at(-1),['/api/network/configure',{hosts:['nas.local','nas.exemple.org'],port:8443,require_totp:'admins',enabled:true,confirm:true,authority:'renew'}]);assert.match(done.message,/Autorité locale refaite/);
+ // Un autre refus (port pris) reste un message sous le formulaire.
+ const busy=networkFixture(open,'admin',url=>url==='/api/network/configure'?response(409,{error:'Le port 8443 est déjà utilisé sur cette machine.'}):null);busy.context.setTimeout=fn=>{fn();return 1;};await busy.run('renderNetwork()');
+ busy.elements.get('#modal').innerHTML='';busy.fields('nas.local',8443);await busy.submit();assert.equal(busy.elements.get('#modal').innerHTML,'');assert.match(busy.elements.get('#network-error').textContent,/déjà utilisé/);
+ // Mon compte : chacun peut installer l’autorité sur son appareil ; rien quand il n’y en a pas.
+ assert.match(f.run('trustCard')(open.authority),/Demandez cette empreinte à l’administrateur de ce NAS avant d’installer/);assert.equal(f.run('trustCard')(null),'');assert.equal(f.run('trustCard')({fingerprint:5}),'');
 });
 
 // Téléphone : sélecteur d’espace quand l’arbre est replié, connexion adaptée aux gestionnaires de mots de passe, installation sur l’écran d’accueil.

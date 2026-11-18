@@ -47,7 +47,7 @@ Le nom d’un document est toujours indexé : un fichier dont le texte n’a pas
 - Dans un classeur Microsoft, ce sont les textes des cellules qui sont lus, pas les nombres.
 - Fichier texte de plus de 2 Mio, document de plus de 64 Mio : non lu. Texte gardé : les 300 000 premiers caractères.
 - Soixante premières pages d’un PDF.
-- Un seul passage lit au plus 500 000 fichiers ; au-delà, la page le dit.
+- Un passage lit au plus 500 000 fichiers par espace ; au-delà, la page le dit. Les autres espaces sont lus quand même.
 - Les versions gardées et la corbeille ne sont pas indexées.
 
 ## Sous le capot

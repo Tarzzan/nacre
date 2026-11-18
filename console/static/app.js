@@ -45,7 +45,7 @@ async function api(path,body){
  const r=await fetch('/api/'+path,options);
  let data;try{data=await r.json();}catch{throw new Error('Le serveur ne répond pas comme prévu.');}
  if(generation!==sessionGeneration){const error=new Error('Requête devenue obsolète.');error.name='AbortError';throw error;}
- if(!r.ok){const error=new Error(data.error || 'Opération non aboutie.');error.status=r.status;error.totp=data.totp===true;if(r.status===401 && path!=='login')login(error.message);throw error;}
+ if(!r.ok){const error=new Error(data.error || 'Opération non aboutie.');error.status=r.status;error.totp=data.totp===true;error.reason=typeof data.reason==='string'?data.reason:'';if(r.status===401 && path!=='login')login(error.message);throw error;}
  return data;
 }
 function button(action,label,ic,cls='',attrs=''){return `<button type="button" class="${cls}" data-action="${action}" ${attrs}>${ic?icon(ic):''}${label?`<span>${label}</span>`:''}</button>`;}

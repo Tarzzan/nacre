@@ -10,7 +10,7 @@ from notifications import enqueue
 KEY = 'alerts_v1'
 INTERVAL = 30
 HISTORY = 100
-SCOPES = ('services', 'cameras', 'backups', 'storage', 'docker', 'video_api', 'video_storage')
+SCOPES = ('services', 'cameras', 'backups', 'storage', 'docker', 'video_api', 'video_storage', 'network')
 
 
 def read(app, db=None):
@@ -74,6 +74,12 @@ def collect(app):
                 'Au moins '+('97' if ratio>=.97 else '90')+' % du volume hébergeant Nacre est utilisé. Consultez Stockage avant de poursuivre les écritures.',
                 'storage','critical' if ratio>=.97 else 'warning'))
     except (OSError,ZeroDivisionError):scopes['storage']=None
+    # Certificat de l'accès réseau : son échéance se lit sur place, sans dépendre d'aucun service.
+    try:
+        from network import conditions as certificate
+        scopes['network'] = [condition(*values) for values in certificate(app)]
+    except Exception:
+        scopes['network'] = None
     if busy:
         scopes['services']=scopes['cameras']=scopes['docker']=scopes['video_api']=scopes['video_storage']=None
         return scopes, seen

@@ -224,6 +224,28 @@ class PhotoTests(unittest.TestCase):
         self.assertEqual(self.post('camille', '/api/photos/refresh', {})[0], 200)
         self.assertEqual(self.post('lecteur', '/api/photos/refresh', {})[0], 403)
 
+    def test_an_oversized_space_stops_at_its_limit_without_starving_the_others(self):
+        self.team()
+        for index in range(6):
+            (self.mine_dir / f'grand-{index}.jpg').write_bytes(fixture.jpeg(taken=f'2026:11:0{index + 1} 09:00:00'))
+        (self.team_dir / 'equipe.jpg').write_bytes(fixture.jpeg(taken='2026:10:01 09:00:00'))
+        (self.common / 'commun.jpg').write_bytes(fixture.jpeg(taken='2026:09:01 09:00:00'))
+        order = library.everything(app)
+        big = order.index(self.mine)
+        # Le grand espace est lu avant au moins un autre : c'est le cas qui affamait.
+        self.assertLess(big, len(order) - 1)
+        with unittest.mock.patch.object(library, 'VISITED', 4):
+            status, data = self.listed('camille')
+            names = sorted(i['name'] for i in data['items'])
+            self.assertEqual((status, data['scan']['partial'], data['scan']['error']), (200, 'count', None))
+            # Du grand espace, ce qui tient sous le plafond ; des autres, tout.
+            self.assertEqual(len([n for n in names if n.startswith('grand-')]), 4)
+            self.assertIn('equipe.jpg', names); self.assertIn('commun.jpg', names)
+            # Le passage suivant ne perd rien de ce qui avait été lu.
+            self.assertEqual(sorted(i['name'] for i in self.listed('camille')[1]['items']), names)
+        # Plafond levé : tout arrive.
+        self.assertEqual(len(self.listed('camille')[1]['items']), 8)
+
     def test_sending_from_a_device_files_by_month_and_never_duplicates(self):
         self.team()
         november, october = 1794000000000, 1791500000000     # 7 novembre 2026 et 9 octobre 2026, en millisecondes

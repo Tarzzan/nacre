@@ -72,10 +72,21 @@ La console n’écoute d’abord que la machine elle-même. Depuis **0.8.0-alpha
 
 ### Le certificat
 
-- **Autosigné par défaut**, produit par OpenSSL pour les noms déclarés, valable 825 jours. Le navigateur affiche un avertissement à la première visite : comparer l’empreinte qu’il montre à celle de la page.
-- **Il suit les noms** : changer les noms le refait.
-- **Fournir un certificat** : coller le certificat et sa clé au format PEM. Ils sont vérifiés ensemble avant de remplacer quoi que ce soit, et un certificat fourni n’est jamais remplacé d’office.
-- La clé reste dans le dossier privé de la console.
+Nacre produit lui-même ce qu’il faut, avec OpenSSL, en deux pièces :
+
+- une **autorité locale**, créée une fois. Elle ne peut certifier que des noms locaux (`.local`, `.lan`, `.home`…), des adresses privées et les noms déclarés à sa création, et seulement des serveurs ;
+- un **certificat de serveur**, signé par elle, pour les noms déclarés. Il vaut 397 jours et **se renouvelle seul** un mois avant son échéance.
+
+Tant qu’un appareil ne connaît pas l’autorité, son navigateur avertit. **Installez l’autorité une fois sur chaque appareil** : l’avertissement disparaît, et ne revient ni au renouvellement ni quand les noms changent. Le fichier se télécharge depuis **Réglages → Accès réseau** et depuis **Mon compte**, avec la marche à suivre par appareil ; il ne contient aucun secret.
+
+- **Comparer l’empreinte avant de faire confiance.** L’empreinte affichée par l’appareil doit être celle lue sur la console ouverte depuis la machine elle-même. Celle d’une page atteinte par le réseau ne prouve rien si le navigateur a averti en y arrivant.
+- **Ce que la limite ne garantit pas.** Apple, Windows, Firefox et Chrome sur ordinateur appliquent les limites d’une autorité. Android et les applications Java ne les appliquent pas : sur ces appareils, tout repose sur le secret de la clé de l’autorité, qui ne quitte pas le NAS.
+- **Changer les noms** refait le certificat de serveur, pas l’autorité. Un nom public qui n’était pas déclaré à sa création demande de la refaire : Nacre le propose, et tous les appareils doivent alors installer la nouvelle.
+- **Un nom sans point** (`nas`) est refusé : écrire `nas.local` ou `nas.lan`.
+- **Refaire l’autorité** est un geste à part, confirmé. À ne faire que si sa clé a pu être copiée, ou pour y ajouter un nom ; retirer alors l’ancienne des appareils.
+- **Fournir un certificat** : coller le certificat et sa clé au format PEM. Ils sont vérifiés ensemble avant de remplacer quoi que ce soit, et un certificat fourni n’est jamais remplacé d’office. Il ne se renouvelle pas seul : une alerte prévient trois semaines avant son échéance.
+- **Une installation ouverte avant la version 0.8.0-alpha.64** garde son ancien certificat autosigné tant qu’on ne demande pas de le remplacer.
+- Les clés restent dans le dossier privé de la console.
 
 ### Derrière un relais
 
@@ -85,6 +96,7 @@ Un relais HTTPS (Nginx Proxy Manager, Caddy…) peut se placer devant : il se co
 
 - **IPv4, toutes les interfaces** : pas de choix de l’interface, pas d’IPv6.
 - **Pas de certificat public automatique** (Let’s Encrypt).
+- **L’autorité locale n’a été installée sur aucun appareil réel** : la reconnaissance par iPhone, Android, Mac et Windows est prouvée par OpenSSL, pas par ces appareils.
 - **Le pare-feu de la machine n’est pas réglé par Nacre** : si le port est fermé, l’ouvrir est un geste d’administrateur du système.
 - **Exposer ce port à Internet** se décide sur la box ou le pare-feu, pas ici. Nacre est en version alpha : préférer un réseau privé ou un VPN.
 - **« Pour tout le monde »** : un membre doit alors activer sa double authentification depuis la machine avant sa première connexion par le réseau.
@@ -106,7 +118,7 @@ Le bureau s’adapte de lui-même à un écran étroit : chaque application occu
 
 - **Pas d’application native**, donc pas de notifications poussées ni d’envoi de photos en arrière-plan.
 - **Hors connexion, rien ne s’affiche** : la console ne garde aucune page en réserve sur le téléphone.
-- **Avec un certificat autosigné**, certains téléphones refusent l’installation ou répètent l’avertissement : un certificat reconnu par le téléphone règle ce point.
+- **Tant que l’autorité locale n’est pas installée sur le téléphone**, il avertit à chaque visite et peut refuser l’installation sur l’écran d’accueil : voir « Le certificat » plus haut.
 - **Les grands tableaux défilent de côté** (liens, personnes) plutôt que de se réorganiser.
 - Vérifié à la largeur d’un téléphone dans le navigateur du banc, **pas sur un vrai téléphone**.
 

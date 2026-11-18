@@ -46,7 +46,7 @@ Nacre s’[installe sur l’écran d’accueil](ACCESS.md) du téléphone ; l’
 - **HEIC** (format par défaut de certains téléphones) : rangé et sauvegardé, mais absent de la galerie, la plupart des navigateurs ne sachant pas l’afficher. Un téléphone qui envoie par le navigateur convertit en général de lui-même en JPEG.
 - **Vidéos** : rangées, pas encore montrées dans la galerie.
 - Pas d’albums, de visages, de lieux ni de retouche. Pas de recherche par contenu de l’image.
-- Un seul passage lit au plus 500 000 fichiers ; au-delà, la galerie le dit et montre ce qui a été lu.
+- Un passage lit au plus 500 000 fichiers par espace ; au-delà, la galerie le dit et montre ce qui a été lu. Les autres espaces sont lus quand même.
 - La vignette d’un appareil est petite : nette en grille, elle ne remplace pas la photo.
 
 ## Sous le capot

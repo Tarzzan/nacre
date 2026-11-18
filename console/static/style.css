@@ -180,3 +180,5 @@ dialog:has(.ph-view){width:min(1080px,96vw);max-width:96vw;max-height:calc(100vh
 .fm-table.fm-content td:nth-child(1){width:24%}.fm-table.fm-content td:nth-child(3){width:20%}.fm-table.fm-content td:nth-child(4){white-space:nowrap}
 .fm-extract{font-size:12.5px;line-height:1.45;color:#3c555d;white-space:normal;overflow-wrap:anywhere}
 .fm-extract mark{background:#fdeeb0;color:inherit;border-radius:3px;padding:0 2px}
+/* Autorité locale : marche à suivre repliée. */
+.trust-how{margin-top:12px;font-size:13px}.trust-how summary{cursor:pointer;color:var(--ink);font-weight:550}.trust-how ul{margin:8px 0;padding-left:18px}.trust-how li{margin:5px 0}

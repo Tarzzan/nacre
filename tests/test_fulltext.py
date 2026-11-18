@@ -240,6 +240,21 @@ class SearchTests(unittest.TestCase):
             db.execute('DROP TABLE texts'); db.execute('PRAGMA user_version=77')
         self.assertEqual(self.names('camille', 'document'), ['seul.txt'])
 
+    def test_an_oversized_space_stops_at_its_limit_without_starving_the_others(self):
+        self.team()
+        for index in range(6):
+            (self.mine_dir / f'grand-{index}.txt').write_text('chantier du grand espace')
+        (self.team_dir / 'equipe.txt').write_text('chantier de l equipe')
+        (self.common / 'commun.txt').write_text('chantier commun')
+        with unittest.mock.patch.object(library, 'VISITED', 4):
+            status, data = self.found('camille', 'chantier')
+            names = sorted(i['name'] for i in data['items'])
+            self.assertEqual((status, data['scan']['partial'], data['scan']['error']), (200, 'count', None))
+            self.assertEqual(len([n for n in names if n.startswith('grand-')]), 4)
+            self.assertIn('equipe.txt', names); self.assertIn('commun.txt', names)
+            self.assertEqual(self.names('camille', 'chantier'), names)
+        self.assertEqual(len(self.names('camille', 'chantier')), 8)
+
     def test_results_are_bounded_and_a_system_without_the_engine_says_so(self):
         self.team()
         for index in range(content.RESULTS + 5):

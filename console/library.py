@@ -89,7 +89,9 @@ def walk(fd, base, state, visit):
             if name.startswith('.'):
                 continue
             state['visited'] += 1
-            if state['visited'] > VISITED:
+            # Le plafond vaut pour chaque espace : un espace immense s'arrête là sans priver les suivants de leur lecture.
+            state['counted'] = state.get('counted', 0) + 1
+            if state['counted'] > VISITED:
                 raise Stop('count')
             if state['visited'] % 512 == 0:
                 if state['halt'].is_set():
@@ -143,7 +145,7 @@ class Scanner:
             return True
 
     def run(self, app):
-        progress = {'visited': 0, 'kept': 0, 'halt': self.halt}
+        progress = {'visited': 0, 'kept': 0, 'counted': 0, 'halt': self.halt}
         partial = error = None
         try:
             partial = self.work(app, progress, self.note)

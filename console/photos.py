@@ -172,10 +172,12 @@ def work(app, progress, note):
                     flush()
 
             complete = True
+            progress['counted'] = 0
             try:
                 with app.folder(area, '') as fd:
                     library.walk(fd, [], progress, visit)
             except library.Stop as stop:
+                # Espace trop grand pour un passage : ce qui en a été lu est gardé, et les espaces suivants sont lus quand même.
                 partial, complete = str(stop), False
             except (app.Problem, OSError):
                 complete = False   # espace indisponible : ce qu'on en savait est gardé
@@ -185,9 +187,9 @@ def work(app, progress, note):
                 for start in range(0, len(gone), 500):
                     db.executemany('DELETE FROM photos WHERE area=? AND path=?', gone[start:start + 500])
                 db.commit()
-            if partial:
+            if partial == 'halt':
                 break
-        if not partial:
+        if partial != 'halt':
             # Espaces supprimés depuis le dernier parcours.
             for row in db.execute('SELECT DISTINCT area FROM photos').fetchall():
                 if row['area'] not in areas:
