@@ -9,6 +9,7 @@ import ctypes
 import errno
 import json
 import os
+import re
 import secrets
 import shutil
 import stat
@@ -20,6 +21,8 @@ from urllib.parse import quote
 STORE = '.nacre-versions'
 INDEX = 'index.json'
 KEEP = 10
+SHELF = '.nacre-trash/'                       # versions d'un élément en corbeille : clé réservée, suivie de l'identifiant de sa ligne
+SHELVED = re.compile(r'[a-f0-9]{32}\Z')
 LOCK = threading.RLock()
 
 
@@ -205,6 +208,61 @@ def delete(app, body, actor):
     import spaces
     app.audit(actor, 'Version retirée', spaces.detail(app, area, key(app, path)) if area.startswith('espace_') else area + ': ' + key(app, path))
     return {'ok': True}
+
+
+def rekey(app, area, old, new):
+    """Range sous `new` les versions gardées sous `old` et sous ce qu'il contient. Rend le nombre de fichiers concernés."""
+    if not old or not new:
+        return 0
+    with LOCK, store(app, area) as fd:
+        if fd is None:
+            return 0
+        index = load(fd)
+        found = {name: values for name, values in index.items() if values and (name == old or name.startswith(old + '/'))}
+        for name, values in found.items():
+            del index[name]
+            target = new + name[len(old):]
+            index[target] = sorted(index.get(target, []) + values, key=lambda v: v.get('ts') or 0, reverse=True)
+        if found:
+            save(fd, index)
+    return len(found)
+
+
+def shelve(app, area, path, ident):
+    """Mise en corbeille : les versions de l'élément, et de ce qu'il contient, le suivent sous une clé propre à sa ligne.
+
+    Un fichier créé ensuite sous le même nom commence donc sans versions, et retirer l'élément pour de bon ne peut
+    toucher qu'aux siennes. La clé est réservée : aucun chemin d'utilisateur ne commence par un dossier interne.
+    """
+    return rekey(app, area, key(app, path), SHELF + ident) if SHELVED.fullmatch(ident) else 0
+
+
+def unshelve(app, area, path, ident):
+    """Restauration : l'élément retrouve ses versions à sa place."""
+    return rekey(app, area, SHELF + ident, key(app, path)) if SHELVED.fullmatch(ident) else 0
+
+
+def forget(app, area, ident):
+    """Élément retiré pour de bon de la corbeille : ses versions, rangées avec lui à sa mise en corbeille, partent avec lui."""
+    if not SHELVED.fullmatch(ident):
+        return 0
+    base, doomed = SHELF + ident, []
+    with LOCK, store(app, area) as fd:
+        if fd is None:
+            return 0
+        index = load(fd)
+        for name in [name for name in index if name == base or name.startswith(base + '/')]:
+            doomed += index.pop(name)
+        if doomed:
+            save(fd, index)
+            for version in doomed:
+                # Un identifiant est un nom de fichier du dossier des versions, jamais un chemin.
+                if isinstance(version.get('id'), str) and re.fullmatch(r'[a-f0-9]{24}', version['id']):
+                    try:
+                        os.unlink(version['id'], dir_fd=fd)
+                    except FileNotFoundError:
+                        pass
+    return len(doomed)
 
 
 def moved(app, area, old, new):

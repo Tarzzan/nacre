@@ -705,7 +705,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise Problem('Ce lien de connexion a expiré ou a déjà été utilisé.', 401)
                 session_token, _ = make_session('admin')
                 return self.reply(303, b'', extra={'Location': '/', 'Set-Cookie': f'nas_session={session_token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800'})
-            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/timezone.js', '/desktop.js', '/desk-prefs.js', '/bell.js', '/palette.js', '/updates.js', '/components.js', '/playback.js', '/detection.js', '/surveillance.js', '/kept.js', '/people.js', '/links.js', '/public.js', '/qr.js', '/network.js', '/editor.js', '/office.js', '/photos.js', '/files.js', '/search.js', '/alerts.js', '/notifications.js', '/retention.js', '/style.css'):
+            if not post and url.path in ('/', '/app.js', '/native.js', '/onboarding.js', '/control-panel.js', '/timezone.js', '/desktop.js', '/desk-prefs.js', '/bell.js', '/palette.js', '/updates.js', '/components.js', '/playback.js', '/detection.js', '/surveillance.js', '/kept.js', '/people.js', '/links.js', '/public.js', '/qr.js', '/network.js', '/editor.js', '/office.js', '/photos.js', '/files.js', '/search.js', '/alerts.js', '/notifications.js', '/retention.js', '/trash.js', '/style.css'):
                 path = STATIC / ('index.html' if url.path == '/' else url.path[1:])
                 return self.reply(200, path.read_bytes(), mimetypes.guess_type(path)[0] or 'text/plain')
             if not post:
@@ -956,17 +956,10 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == '/api/events':
                 with database() as db:
                     return self.reply(200, [dict(r) for r in db.execute('SELECT ts,username,action,detail FROM audit ORDER BY id DESC LIMIT 200')])
-            if url.path == '/api/trash':
-                with database() as db:
-                    rows=[dict(r) for r in db.execute('SELECT * FROM trash ORDER BY ts DESC')]
+            if url.path in ('/api/trash', '/api/trash/overview'):
                 # Chacun ne voit que la corbeille des espaces où il peut écrire ; un compte en lecture seule garde celle de l'espace commun.
-                opened={}
-                def seen(area):
-                    if area not in opened:
-                        found=spaces.level(sys.modules[__name__],session,area)
-                        opened[area]=found=='write' or (session['role']=='viewer' and area=='fichiers')
-                    return opened[area]
-                return self.reply(200,[r for r in rows if seen(r['area'])])
+                import trash
+                return self.reply(200, (trash.listing if url.path == '/api/trash' else trash.overview)(sys.modules[__name__], session))
             if url.path == '/api/jobs':
                 with database() as db:
                     return self.reply(200, [dict(r) for r in db.execute('SELECT * FROM jobs ORDER BY ts DESC LIMIT 30')])
@@ -1036,6 +1029,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def mutate(self, route, body, session):
         user = session['name']
+        if route in ('/api/trash/delete','/api/trash/empty'):
+            # Hors du verrou des écritures : effacer un gros dossier ne suspend pas les autres gestes. La corbeille a son propre verrou.
+            import trash
+            return (trash.remove if route.endswith('/delete') else trash.empty)(sys.modules[__name__],body,session)
         with LOCK:
             if route in ('/api/service','/api/camera/settings','/api/camera/detection','/api/smb/user','/api/smb/share'):
                 from deployment import ensure_idle
@@ -1078,6 +1075,9 @@ class Handler(BaseHTTPRequestHandler):
             if route in ('/api/files/version-restore','/api/files/version-delete'):
                 import versions
                 return (versions.restore if route.endswith('-restore') else versions.delete)(sys.modules[__name__],body,user)
+            if route == '/api/trash/retention':
+                import trash
+                return trash.configure(sys.modules[__name__],body,session)
             if route in ('/api/links/create','/api/links/revoke'):
                 import links
                 return (links.create if route.endswith('/create') else links.revoke)(sys.modules[__name__],body,session)
@@ -1144,6 +1144,10 @@ class Handler(BaseHTTPRequestHandler):
                     with database() as db:
                         db.execute('INSERT INTO trash(id,original,ts,area) VALUES(?,?,?,?)',(token,body['path'],time.time(),area))
                         rename_noreplace(fd,name,target_fd,token)
+                try:
+                    # Ses versions le suivent : un fichier créé depuis sous ce nom n'en hérite pas, et elles reviendront avec lui.
+                    __import__('versions').shelve(sys.modules[__name__],area,body['path'],token)
+                except Exception:pass
                 audit(user,'Déplacé en corbeille',spaces.detail(sys.modules[__name__],area,body['path']) if area.startswith('espace_') else area+': '+body['path'])
             elif route == '/api/restore':
                 with database() as db:
@@ -1152,6 +1156,8 @@ class Handler(BaseHTTPRequestHandler):
                     with parent(row['area'],row['original'],write=True) as (fd,name),trash_folder(row['area']) as trash_fd:
                         rename_noreplace(trash_fd,row['id'],fd,name)
                     db.execute('DELETE FROM trash WHERE id=?',(body['id'],))
+                try:__import__('versions').unshelve(sys.modules[__name__],row['area'],row['original'],row['id'])
+                except Exception:pass
                 audit(user,'Élément restauré',spaces.detail(sys.modules[__name__],row['area'],row['original']) if row['area'].startswith('espace_') else row['area']+': '+row['original'])
             elif route == '/api/service':
                 if body.get('name') not in ('video', 'fichiers') or body.get('action') not in ('start', 'stop', 'restart'):
@@ -1573,6 +1579,8 @@ if __name__ == '__main__':
         start_notifications(sys.modules[__name__])
         import network
         network.start(sys.modules[__name__])
+        import trash
+        trash.watch(sys.modules[__name__])   # premier passage différé : rien n'est effacé pendant le démarrage
         port=int(os.environ.get('NAS_PORT','8766'))
         print(f'Console NAS sur http://127.0.0.1:{port}', flush=True)
         if probation_server:probation_thread.join()

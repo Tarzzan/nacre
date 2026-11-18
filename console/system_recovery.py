@@ -244,6 +244,8 @@ def neutralize(root,old_root,manifest):
         disable_after_recovery(db)
         from native_auto import disable_after_recovery as disable_native_auto
         disable_native_auto(db)
+        from trash import disable_after_recovery as disable_trash
+        disable_trash(db)
         db.execute("UPDATE repositories SET target='recovery-detached'")
         for identifier,raw in db.execute('SELECT id,config FROM plans').fetchall():
             config=json.loads(raw)

@@ -24,6 +24,31 @@ Un membre n’a ni le journal, ni les services, ni le stockage, ni les sauvegard
 
 Dans **Fichiers**, l’arbre les range dans cet ordre : Mon espace, **Équipes**, puis **NAS**. Un espace en lecture porte « lecture seule » et n’offre aucun outil d’écriture. Chaque espace a sa corbeille, visible de ceux qui y écrivent.
 
+## La corbeille
+
+**Fichiers → Corbeille** liste ce qui a été jeté, par la console ou par un [appareil](DEVICES.md), dans les espaces où l’on écrit.
+
+![La corbeille, vue par un administrateur](images/trash.jpg)
+
+*Banc local : comptes et fichiers fictifs.*
+
+- **Restaurer** remet l’élément à sa place : à qui écrit dans l’espace.
+- **Retirer pour de bon** efface l’élément, tout ce qu’il contient et ses [versions](VERSIONS.md). **Cela ne se récupère pas**, et se confirme à chaque fois.
+- **Vider la corbeille** d’un espace efface ce qu’elle listait **au moment où la page a été affichée**, et les restes d’un effacement interrompu. Ce qui est jeté entre-temps n’a pas été montré : il reste en corbeille, et le message le dit.
+
+Retirer pour de bon et vider appartiennent à **qui répond de l’espace** : chacun dans son espace personnel, **un administrateur** dans les espaces d’équipe et les espaces du NAS. C’est une garde contre le geste malheureux, pas une barrière : qui écrit dans un espace peut toujours restaurer un fichier, puis le remplacer.
+
+**Durée de garde** (administrateurs, sur la même page) : par défaut, **la corbeille ne se vide jamais seule**. Un administrateur peut choisir 7, 30, 90 jours ou un an ; passé ce délai, un élément est retiré pour de bon, dans tous les espaces, espaces personnels compris, sans autre confirmation. Le passage a lieu toutes les heures, jamais pendant le démarrage de la console, et s’inscrit au journal, avec des nombres et aucun nom. Revenir à « jamais » arrête tout. Après une récupération de l’installation, la durée de garde est remise à « jamais » : la base peut dater, c’est à un administrateur de la redemander.
+
+À savoir :
+
+- Aucun lien n’est suivi : effacer un dossier qui contient un lien retire le lien, jamais ce qu’il désigne.
+- **Les versions suivent leur fichier** : jeté, il les emporte en corbeille ; restauré, il les retrouve ; retiré pour de bon, elles partent avec lui, et elles seules. Un fichier créé entre-temps sous le même nom commence sans versions et garde les siennes.
+- Un vidage interrompu ne laisse rien de restaurable à moitié ; l’espace reste proposé au vidage tant qu’il en garde un reste, et le passage de la durée de garde le finit aussi.
+- Au-delà de deux cents éléments, la page montre les plus récents et propose la suite.
+- Les plans de sauvegarde ne prennent pas la corbeille. Une capture de reprise du système ou un point natif du volume, pris pendant qu’un élément y était, le contient encore.
+- Un élément jeté avant la version 0.8.0-alpha.67 a laissé ses versions à son ancien chemin : elles y restent.
+
 ## Administrer
 
 **Personnes et partages → Personnes et espaces** (administrateurs).
@@ -42,7 +67,7 @@ Dans **Fichiers**, l’arbre les range dans cet ordre : Mon espace, **Équipes**
 - **Le meilleur niveau l’emporte** : une personne en lecture, membre d’un groupe en écriture, écrit.
 - **Un accès retiré tombe aussitôt** : sortie d’un groupe, groupe supprimé ou niveau remis à « Aucun accès ».
 - **Un compte en lecture seule reste en lecture**, quel que soit le niveau qu’on lui donne dans un espace.
-- **Un espace ne se supprime que vide**, corbeille comprise. Rien n’est effacé à votre place.
+- **Un espace ne se supprime que vide**, corbeille comprise : jeter ce qu’il contient, puis [vider sa corbeille](#la-corbeille). Rien n’est effacé à votre place ; seules partent avec lui les versions qui n’ont plus de fichier.
 - **Un espace personnel se reprend une fois le compte désactivé** : il devient un espace d’équipe ouvert aux administrateurs, sans déplacer un fichier, et la reprise est au journal.
 
 ## Partager par lien

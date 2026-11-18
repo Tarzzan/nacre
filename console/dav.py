@@ -644,6 +644,11 @@ def discard(app, area, path, fd, name):
         with app.database() as db:
             db.execute('INSERT INTO trash(id,original,ts,area) VALUES(?,?,?,?)', (token, path, time.time(), area))
             app.rename_noreplace(fd, name, target, token)
+    try:
+        import versions
+        versions.shelve(app, area, path, token)   # ses versions le suivent en corbeille, et reviendront avec lui
+    except Exception:
+        pass
 
 
 def delete(app, handler, session, segments):

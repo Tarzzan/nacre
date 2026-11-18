@@ -3074,3 +3074,84 @@ test('an administrator sees how many devices each person has and removes them al
  modal.innerHTML='';await f.act('people-devices',{name:sample.people[0].name});await f.act('people-devices',{name:'inconnu'});assert.equal(modal.innerHTML,'');
 });
 
+function trashFixture(reply,role='admin'){
+ const calls=[],f=deskFixture(async(url,options)=>{const body=options?.body?JSON.parse(options.body):null;calls.push([url,body]);return reply(url,body);},role);
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../console/static/trash.js'),'utf8'),f.context);
+ const modal=f.elements.get('#modal');modal.showModal=()=>{modal.open=true;};modal.close=()=>{modal.open=false;};
+ f.calls=calls;f.run('page="trash";');f.content=()=>String(f.elements.get('#content').innerHTML);
+ // Le clic respecte le sélecteur demandé, comme le ferait le navigateur : un écouteur qui écoute trop large se verrait.
+ f.act=(action,data={})=>f.listeners.get('click').find(fn=>fn.toString().includes('trash-erase'))({target:{closest:selector=>{
+  const prefix=selector.match(/\[data-action\^="([^"]+)"\]/);return !prefix||action.startsWith(prefix[1])?{dataset:{action,...data}}:null;}}});
+ f.posts=()=>calls.filter(c=>c[1]);return f;
+}
+test('the trash offers restoring to who writes, erasing for good to who answers for the space, and every such gesture is confirmed',async()=>{
+ let items=[{id:'a'.repeat(32),original:'Plans/<b>façade.pdf',ts:1794700000,area:'espace_aaaaaaaaaaaa',restore:true,erase:true},{id:'b'.repeat(32),original:'commun.txt',ts:1794600000,area:'fichiers',restore:true,erase:true}];
+ let state={days:0,choices:[0,7,30,90,365],manage:true,at:1794700500.5,areas:[{id:'espace_aaaaaaaaaaaa',name:'Chantier <i>école</i>',count:1,erase:true,leftovers:0},{id:'fichiers',name:'Fichiers partagés',count:1,erase:true,leftovers:0}]},failed=0,later=0,stuck=false;
+ const f=trashFixture(url=>url==='/api/trash'?response(200,items):url==='/api/trash/overview'?response(200,state):url==='/api/trash/empty'?response(200,{ok:!failed,removed:1,items:3,bytes:2048,failed,later}):url==='/api/trash/delete'?response(200,{ok:!stuck,items:1,bytes:9,failed:stuck?1:0}):response(200,{ok:true,days:30}));
+ await f.run('renderTrash()');let html=f.content();
+ assert.match(html,/Les éléments restent récupérables tant qu’ils sont dans cette corbeille\.<\/p>/);assert.doesNotMatch(html,/retirés pour de bon\.<\/p>/);
+ assert.match(html,/data-action="trash-empty" data-area="espace_aaaaaaaaaaaa" data-name="Chantier &lt;i&gt;école&lt;\/i&gt;" data-count="1" data-left="0" data-at="1794700500\.5"/);assert.match(html,/Vider la corbeille de « Fichiers partagés »/);
+ assert.match(html,/<small class="muted">Chantier &lt;i&gt;école&lt;\/i&gt;<\/small><br>Plans\/&lt;b&gt;façade\.pdf/);assert.doesNotMatch(html,/<b>façade|<i>école/);
+ assert.match(html,/data-action="restore" data-id="a{32}"/);assert.match(html,/data-action="trash-erase" data-id="a{32}" data-name="&lt;b&gt;façade\.pdf"/);
+ assert.match(html,/<section class="card cardpad" id="trash-keep"><h2>Durée de garde<\/h2>/);assert.match(html,/<option value="0" selected>Jamais vidée seule<\/option><option value="7" >7 jours<\/option>/);
+ assert.match(html,/rien n’est effacé à votre place/);assert.match(html,/dans tous les espaces, espaces personnels de chacun compris, sans autre confirmation/);
+ // Retirer un élément : confirmation qui dit que cela ne se récupère pas, puis un seul appel, confirmé.
+ const modal=f.elements.get('#modal');
+ await f.act('trash-erase',{id:'a'.repeat(32),name:'<b>façade.pdf'});
+ assert.match(modal.innerHTML,/Retirer pour de bon \?/);assert.match(modal.innerHTML,/« &lt;b&gt;façade\.pdf » et ses versions seront effacés\. Cela ne se récupère pas\./);assert.equal(f.posts().length,0);
+ let done=await f.run('modalSubmit(new Map())');assert.deepEqual(f.posts().at(-1),['/api/trash/delete',{id:'a'.repeat(32),confirm:true}]);assert.equal(done.message,'Élément retiré pour de bon.');
+ stuck=true;await f.act('trash-erase',{id:'a'.repeat(32),name:'x'});done=await f.run('modalSubmit(new Map())');assert.equal(done.message,'Retiré de la corbeille, mais tout n’a pas pu être effacé : vider la corbeille de l’espace pour finir.');
+ // Vider : le nombre est dit, la place libérée aussi, et l'appel porte l'instant de ce qui a été montré. Un vidage incomplet n'est pas annoncé comme réussi.
+ await f.act('trash-empty',{area:'fichiers',name:'Fichiers partagés',count:'1204',left:'0',at:'1794700500.5'});
+ assert.match(modal.innerHTML,/Vider la corbeille de « Fichiers partagés » \?/);assert.match(modal.innerHTML,/1[\s  ]204 éléments et leurs versions seront effacés pour de bon\. Cela ne se récupère pas\. Ce qui serait jeté entre-temps resterait en corbeille\./);
+ done=await f.run('modalSubmit(new Map())');assert.deepEqual(f.posts().at(-1),['/api/trash/empty',{area:'fichiers',until:1794700500.5,confirm:true}]);assert.equal(done.message,'Corbeille vidée : 2 Kio libérés.');
+ await f.act('trash-empty',{area:'fichiers',name:'Fichiers partagés',count:'1',left:'2',at:'1794700500.5'});assert.match(modal.innerHTML,/Son contenu et ses versions seront effacés pour de bon\. Cela ne se récupère pas\. Ce qui serait jeté entre-temps resterait en corbeille\. Les restes d’un effacement interrompu partent aussi\./);
+ later=3;done=await f.run('modalSubmit(new Map())');assert.equal(done.message,'Corbeille vidée : 2 Kio libérés. 3 éléments jetés entre-temps sont restés en corbeille.');
+ later=1;await f.act('trash-empty',{area:'fichiers',name:'x',count:'2',left:'0',at:'1'});done=await f.run('modalSubmit(new Map())');assert.equal(done.message,'Corbeille vidée : 2 Kio libérés. 1 élément jeté entre-temps est resté en corbeille.');later=0;
+ failed=2;await f.act('trash-empty',{area:'fichiers',name:'Fichiers partagés',count:'3',left:'0',at:'1'});done=await f.run('modalSubmit(new Map())');assert.equal(done.message,'Corbeille vidée en partie : 2 éléments n’ont pas pu être retirés. Réessayer.');
+ failed=1;await f.act('trash-empty',{area:'fichiers',name:'Fichiers partagés',count:'3',left:'0',at:'1'});done=await f.run('modalSubmit(new Map())');assert.equal(done.message,'Corbeille vidée en partie : 1 élément n’a pas pu être retiré. Réessayer.');failed=0;
+ // Un espace qui ne garde que le reste d'un effacement interrompu a encore son bouton, et la confirmation dit ce qui part.
+ state={...state,areas:[{id:'fichiers',name:'Fichiers partagés',count:0,erase:true,leftovers:1,oldest:null}]};items=[];await f.run('renderTrash()');html=f.content();
+ assert.match(html,/data-action="trash-empty" data-area="fichiers" data-name="Fichiers partagés" data-count="0" data-left="1"/);assert.match(html,/La corbeille est vide\./);
+ await f.act('trash-empty',{area:'fichiers',name:'Fichiers partagés',count:'0',left:'1',at:'1'});assert.match(modal.innerHTML,/Les restes d’un effacement interrompu seront retirés : ils ne sont déjà plus restaurables\./);assert.doesNotMatch(modal.innerHTML,/versions/);
+ // Durée de garde : une durée se confirme (elle efface sans geste, partout) ; « jamais » s'enregistre aussitôt.
+ f.elements.set('#trash-days',{value:'30'});const before=f.posts().length;await f.act('trash-keep');
+ assert.match(modal.innerHTML,/Vider la corbeille après ce délai \?/);assert.match(modal.innerHTML,/depuis plus de 30 jours sera retiré pour de bon, avec ses versions, dans tous les espaces, espaces personnels de chacun compris, même ceux que cette page ne vous montre pas, sans autre confirmation/);assert.equal(f.posts().length,before);
+ done=await f.run('modalSubmit(new Map())');assert.deepEqual(f.posts().at(-1),['/api/trash/retention',{days:30,confirm:true}]);assert.equal(done.message,'Durée de garde : 30 jours.');
+ f.elements.set('#trash-days',{value:'0'});modal.innerHTML='';await f.act('trash-keep');assert.equal(modal.innerHTML,'');assert.deepEqual(f.posts().at(-1),['/api/trash/retention',{days:0,confirm:true}]);
+ assert.equal(f.elements.get('#toast').textContent,'La corbeille ne se vide plus seule.');
+ // Avec une durée, la page le dit ; au-delà de deux cents éléments, elle montre les plus récents et propose la suite.
+ state={...state,days:30,areas:[{id:'fichiers',name:'Fichiers partagés',count:430,erase:true,leftovers:0}]};items=Array.from({length:430},(_,i)=>({id:String(i).padStart(32,'0'),original:`f${i}.txt`,ts:1794700000-i,area:'fichiers',restore:true,erase:true}));
+ await f.run('renderTrash()');html=f.content();assert.match(html,/Au bout de 30 jours, ils sont retirés pour de bon\./);assert.match(html,/<option value="30" selected>30 jours<\/option>/);
+ assert.equal((html.match(/data-action="trash-erase"/g)||[]).length,200);assert.match(html,/Les 200 éléments les plus récents sont affichés, sur 430 éléments\. <button type="button" class="small" data-action="trash-more"/);
+ await f.act('trash-more');html=f.content();assert.equal((html.match(/data-action="trash-erase"/g)||[]).length,400);assert.match(html,/f399\.txt/);assert.doesNotMatch(html,/f400\.txt/);
+ await f.act('trash-more');html=f.content();assert.equal((html.match(/data-action="trash-erase"/g)||[]).length,430);assert.doesNotMatch(html,/trash-more/);
+ // Hors de la page, sans session, ou pour une action qui n'est pas la sienne : aucun geste.
+ let count=f.calls.length;modal.innerHTML='';
+ await f.act('trash-view');await f.act('restore',{id:'a'.repeat(32)});await f.act('fm-trash');assert.equal(modal.innerHTML,'');assert.equal(f.calls.length,count);
+ f.run('page="files"');await f.act('trash-empty',{area:'fichiers',name:'x',count:'1',left:'0',at:'1'});assert.equal(modal.innerHTML,'');assert.equal(f.calls.length,count);
+ f.run('page="trash";user=null');await f.act('trash-empty',{area:'fichiers',name:'x',count:'1',left:'0',at:'1'});await f.act('trash-erase',{id:'a'.repeat(32),name:'x'});assert.equal(modal.innerHTML,'');assert.equal(f.calls.length,count);
+});
+test('a member restores in a shared space without being offered to erase there, and never sees the keeping time setting',async()=>{
+ let items=[{id:'a'.repeat(32),original:'devis.txt',ts:1794700000,area:'espace_aaaaaaaaaaaa',restore:true,erase:false}];
+ let state={days:0,choices:[0,7,30,90,365],manage:false,at:1794700500,areas:[{id:'espace_aaaaaaaaaaaa',name:'Chantier école',count:1,erase:false,leftovers:0}]};
+ const f=trashFixture(url=>url==='/api/trash'?response(200,items):response(200,state),'member');
+ await f.run('renderTrash()');let html=f.content();
+ assert.match(html,/data-action="restore" data-id="a{32}"/);assert.doesNotMatch(html,/trash-erase|trash-empty|trash-keep|Durée de garde/);
+ assert.match(html,/Dans un espace partagé, retirer pour de bon revient à un administrateur\./);
+ // Restaurer passe par l'écouteur commun de l'application, pour un membre comme pour un administrateur.
+ const common=f.listeners.get('click').find(fn=>fn.toString().includes("case 'restore'"));
+ await common({target:{closest:()=>({dataset:{action:'restore',id:'a'.repeat(32)}})},preventDefault(){}});
+ assert.deepEqual(f.calls.find(c=>c[0]==='/api/restore'),['/api/restore',{id:'a'.repeat(32)}]);assert.equal(f.elements.get('#toast').textContent,'Élément restauré.');
+ // Dans son espace personnel, tout lui est proposé ; un compte en lecture seule ne se voit rien proposer.
+ items=[{id:'c'.repeat(32),original:'perso.txt',ts:1794700000,area:'espace_bbbbbbbbbbbb',restore:true,erase:true}];state={...state,areas:[{id:'espace_bbbbbbbbbbbb',name:'Mon espace',count:1,erase:true,leftovers:0}]};
+ await f.run('renderTrash()');html=f.content();assert.match(html,/Vider la corbeille de « Mon espace »/);assert.match(html,/data-action="trash-erase" data-id="c{32}"/);assert.doesNotMatch(html,/revient à un administrateur|Durée de garde/);
+ items=[{id:'d'.repeat(32),original:'commun.txt',ts:1794700000,area:'fichiers',restore:false,erase:false}];state={...state,areas:[{id:'fichiers',name:'Fichiers partagés',count:1,erase:false,leftovers:0}]};
+ await f.run('renderTrash()');html=f.content();assert.match(html,/commun\.txt/);assert.doesNotMatch(html,/data-action="restore"|trash-erase|trash-empty|revient à un administrateur/);
+ // Corbeille vide, réponses mal formées : la page tient.
+ items=[];state={};await f.run('renderTrash()');assert.match(f.content(),/La corbeille est vide\./);
+ items={error:'x'};state=null;await f.run('renderTrash()');assert.match(f.content(),/La corbeille est vide\./);
+ // Une réponse qui arrive après qu'on a quitté la page n'écrit rien dans celle qui l'a remplacée.
+ items=[{id:'e'.repeat(32),original:'tardif.txt',ts:1794700000,area:'fichiers',restore:true,erase:true}];state={areas:[]};
+ const pending=f.run('renderTrash()');f.run('page="files"');f.elements.get('#content').innerHTML='autre page';await pending;assert.equal(f.content(),'autre page');
+});
