@@ -183,7 +183,7 @@ Depuis la version 0.8.0-alpha.30, l’application Fichiers du bureau est un gest
 | Glisser des fichiers depuis l’ordinateur | Les envoie dans le dossier ouvert, l’un après l’autre, avec la progression habituelle. |
 | Glisser une sélection sur un dossier | La déplace. Le bouton **Déplacer** fait la même chose sans glisser. |
 | **Télécharger** | Un fichier seul se télécharge tel quel ; un dossier ou plusieurs éléments en une archive ZIP. |
-| **Corbeille**, ou Suppr | Après confirmation ; tout reste récupérable dans l’onglet Corbeille. |
+| **Corbeille**, ou Suppr | Après confirmation ; tout reste récupérable dans l’onglet Corbeille, jusqu’à ce qu’on l’en [retire pour de bon](SPACES.md#la-corbeille). |
 
 L’aperçu montre les images (JPEG, PNG, GIF, WebP), les vidéos (MP4, WebM) et le début des fichiers texte. Le bouton **Aperçu** masque le panneau ; **Grille** change de présentation ; le champ de filtre réduit la liste du dossier ouvert.
 

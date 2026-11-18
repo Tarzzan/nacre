@@ -24,6 +24,7 @@ Remettre une version en place ne perd rien : le contenu actuel devient à son to
 - **Les dix dernières** versions d’un fichier sont gardées ; la onzième chasse la plus ancienne.
 - **Ce n’est pas une sauvegarde.** Les versions vivent sur le même volume que le fichier, dans un dossier interne, et ne partent pas dans les sauvegardes. Elles occupent de la place.
 - **Elles suivent le fichier** quand il est renommé ou déplacé depuis Nacre, dossier compris. Renommé par le réseau, un fichier perd le lien avec ses versions.
+- **Elles le suivent aussi en [corbeille](SPACES.md#la-corbeille)** : jeté, un fichier les emporte ; restauré, il les retrouve ; retiré pour de bon, elles partent avec lui. Un fichier créé entre-temps sous le même nom n’en hérite pas.
 - **Mêmes droits que l’espace** : qui lit l’espace consulte et télécharge les versions ; qui y écrit les remet en place ou les retire. Les versions d’un espace personnel restent fermées aux autres.
 - **Le remplacement est d’un seul tenant** : à aucun instant le fichier n’est absent. Si l’ancienne version ne peut pas être rangée, elle reste à côté sous un nom visible plutôt que d’être perdue.
 - **Un dossier ou un lien n’est jamais remplacé** par un fichier.

@@ -87,7 +87,7 @@ Par le réseau, l’outil doit reconnaître le certificat du NAS : installer d�
 
 - **Pas de verrous** (WebDAV de classe 1) : le Finder de macOS ne monte l’espace qu’en lecture, et certains logiciels de bureautique ouvriront les fichiers en lecture seule.
 - **Un dossier ne se copie pas d’un seul geste** côté serveur. rclone et Fichiers de GNOME copient alors son contenu fichier par fichier ; dans Cyberduck et WinSCP, dupliquer un dossier sur le NAS échoue.
-- **La corbeille ne se vide pas, ni seule ni depuis la console** : on ne peut qu’y restaurer. Un outil qui supprime beaucoup (`rclone sync`, `purge`) la remplit, la place n’est rendue qu’en intervenant sur la machine, et un espace dont la corbeille n’est pas vide ne se supprime pas. Le vidage est le prochain lot prévu.
+- **La corbeille ne se vide pas seule tant qu’un administrateur n’a pas choisi une durée de garde** : un outil qui supprime beaucoup (`rclone sync`, `purge`) la remplit. Elle se vide dans **Fichiers → Corbeille**, et la [durée de garde](SPACES.md#la-corbeille) évite d’avoir à y penser. Un appareil ne vide jamais une corbeille.
 - **La reprise d’un envoi interrompu n’existe pas** : un envoi partiel (`Content-Range`) est refusé plutôt que pris pour le fichier entier. Renvoyer le fichier.
 - **Noms refusés à l’envoi** : ceux qui commencent ou finissent par une espace, portent une barre inverse ou un caractère de contrôle, dépassent 255 octets ou commencent par `.nacre-`. L’outil signale une erreur pour ces fichiers à chaque passage : les renommer sur l’ordinateur. Un fichier déjà présent sous un tel nom se déplace et se supprime normalement.
 - Avec rclone, **une date ne se corrige pas seule** (`rclone touch` sur un fichier existant échoue) : le fichier est renvoyé.

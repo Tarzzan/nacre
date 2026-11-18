@@ -17,13 +17,14 @@ from pathlib import Path
 SPACE = re.compile(r'espace_([a-f0-9]{12})\Z')
 IDENT = re.compile(r'[a-f0-9]{12}\Z')
 NAME_MAX = 60
+LEFTOVER = 3600   # un fichier provisoire d'envoi n'est un reste qu'au bout d'une heure
 LEVELS = ('read', 'write')
 COMMON = 'space:fichiers'
 # Ce qu'un membre peut lire et écrire dans la console ; tout le reste lui est refusé par défaut.
 MEMBER_READS = ('/api/me', '/api/desk', '/api/areas', '/api/files', '/api/files/search', '/api/files/content', '/api/files/usage', '/api/files/usage-spaces',
                 '/api/files/versions', '/api/files/version', '/api/files/text',
-                '/api/download', '/api/archive', '/api/trash', '/api/overview', '/api/account', '/api/links', '/api/photos', '/api/photos/thumb', '/api/network/authority')
-MEMBER_WRITES = ('/api/logout', '/api/desk', '/api/upload', '/api/folder', '/api/rename', '/api/move', '/api/trash', '/api/restore',
+                '/api/download', '/api/archive', '/api/trash', '/api/trash/overview', '/api/overview', '/api/account', '/api/links', '/api/photos', '/api/photos/thumb', '/api/network/authority')
+MEMBER_WRITES = ('/api/logout', '/api/desk', '/api/upload', '/api/folder', '/api/rename', '/api/move', '/api/trash', '/api/restore', '/api/trash/delete', '/api/trash/empty',
                  '/api/account/password', '/api/links/create', '/api/links/revoke', '/api/files/version-restore', '/api/files/version-delete',
                  '/api/files/text-save', '/api/files/text-new', '/api/files/text-presence', '/api/office/open', '/api/office/new',
                  '/api/account/totp/start', '/api/account/totp/confirm', '/api/account/totp/disable', '/api/photos/plan', '/api/photos/refresh',
@@ -362,11 +363,21 @@ def delete_space(app, body, actor):
             raise app.Problem('Espace d’équipe inconnu.', 404)
         path = root(app) / match[1]
         if path.is_dir():
-            trash = path / '.nacre-trash'
-            if any(name != '.nacre-trash' for name in os.listdir(path)) or (trash.is_dir() and os.listdir(trash)):
+            names, trash = os.listdir(path), path / '.nacre-trash'
+            # Reste d'un envoi interrompu : un fichier provisoire vieux de plus d'une heure. Plus récent, c'est peut-être un envoi en cours.
+            leftover = lambda name: (name.startswith('.nacre-upload-') and (path / name).is_file() and not (path / name).is_symlink()
+                                     and time.time() - (path / name).lstat().st_ctime > LEFTOVER)
+            if any(name not in ('.nacre-trash', '.nacre-versions') and not leftover(name) for name in names) or (trash.is_dir() and os.listdir(trash)):
                 raise app.Problem('Cet espace contient encore des fichiers ou une corbeille non vide. Videz-le avant de le supprimer : rien n’est effacé à votre place.', 409)
-            if trash.is_dir():
-                trash.rmdir()
+            # Plus aucun fichier ni rien en corbeille : les versions gardées n'ont plus de fichier, et le reste d'un envoi interrompu
+            # n'en a jamais été un. Ils partent avec l'espace, sans suivre aucun lien.
+            from trash import wipe
+            fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            try:
+                for name in names:
+                    wipe(fd, name)
+            finally:
+                os.close(fd)
             path.rmdir()
         db.execute('DELETE FROM settings WHERE key=?', ('space:' + match[1],))
         db.execute('DELETE FROM settings WHERE key=?', ('usage-kept:' + ident,))

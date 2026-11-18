@@ -517,6 +517,16 @@ class DavTests(unittest.TestCase):
         self.assertEqual(self.dav('MKCOL', base + 'Avec corps', 'camille', writer, b'<x/>')[0], 415)
         for name, data in (('a.txt', b'un'), ('b.txt', b'deux'), ('Plans/facade.pdf', b'%PDF')):
             self.assertEqual(self.dav('PUT', base + name, 'camille', writer, data, {'X-OC-Mtime': '1700000000'})[0], 201)
+        # Un fichier supprimé par un appareil emporte ses versions en corbeille, et les retrouve à la restauration.
+        self.assertEqual(self.dav('PUT', base + 'v.txt', 'camille', writer, b'un')[0], 201)
+        self.assertEqual(self.dav('PUT', base + 'v.txt', 'camille', writer, b'deux!')[0], 204)
+        self.assertEqual([v['size'] for v in self.versions('camille', self.space, 'v.txt')], [2])
+        self.assertEqual(self.dav('DELETE', base + 'v.txt', 'camille', writer)[0], 204)
+        self.assertEqual(self.versions('camille', self.space, 'v.txt'), [])
+        thrown = next(item['id'] for item in self.get('camille', '/api/trash')[1] if item['original'] == 'v.txt')
+        self.assertEqual(self.post('camille', '/api/restore', {'id': thrown})[0], 200)
+        self.assertEqual([v['size'] for v in self.versions('camille', self.space, 'v.txt')], [2])
+        (self.team_dir / 'v.txt').unlink()
         # Supprimer envoie à la corbeille de l'espace, d'où la console restaure ; un dossier part entier.
         self.assertEqual(self.dav('DELETE', base + 'a.txt', 'camille', writer)[0], 204)
         self.assertEqual(self.dav('DELETE', base + 'a.txt', 'camille', writer)[0], 404)
