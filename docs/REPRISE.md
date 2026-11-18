@@ -73,7 +73,7 @@ Demandé le 14 novembre 2026, après le programme précédent : les clients pour
 | Étape | Voie retenue | À refuser | État |
 | --- | --- | --- | --- |
 | 0. Corriger l’existant | Certificat de l’accès réseau, plafond de lecture des espaces | — | Livrée en alpha.64 |
-| 1. Socle « appareils » | Mots de passe d’appareil et WebDAV écrit dans Nacre sous `/dav/` ([guide](DEVICES.md)) ; clients existants (rclone, FolderSync, PhotoSync, Finder) | Écrire des clients natifs maintenant ; mettre Nextcloud en dessous | Lecture livrée en alpha.65, écriture en alpha.66 ; vidage de la corbeille en alpha.67 ; restent les verrous (Finder), les espaces en SMB, l’accès depuis l’extérieur |
+| 1. Socle « appareils » | Mots de passe d’appareil et WebDAV écrit dans Nacre sous `/dav/` ([guide](DEVICES.md)) ; clients existants (rclone, FolderSync, PhotoSync, Finder) | Écrire des clients natifs maintenant ; mettre Nextcloud en dessous | Lecture livrée en alpha.65, écriture en alpha.66 ; vidage de la corbeille en alpha.67 ; **espaces en SMB cadrés** ([modèle, preuves, décisions](SMB-SPACES.md) : 8 à 14 versions, le partage n’écoute aujourd’hui que la machine elle-même), banc `tests/integration_spaces_smb.py` ; restent les verrous (Finder), l’accès depuis l’extérieur |
 | 2. Contacts | Carnet dans le navigateur, puis CardDAV (Android et Thunderbird avant Apple) | Raccorder un serveur tiers | À faire |
 | 3. Agenda | Agenda dans le navigateur, puis CalDAV ; les récurrences sont le risque principal | — | À faire |
 | 4. Discussion d’équipe | Un fil par espace, messages directs, écrits dans Nacre | Matrix, Mattermost | À décider |
